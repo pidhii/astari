@@ -3,8 +3,10 @@
 #include "../obj/object.hpp"
 
 #include <istream>
+#include <sstream>
 #include <string>
 #include <variant>
+#include <vector>
 
 
 enum token_type {
@@ -20,6 +22,8 @@ enum token_type {
   ifthen,
   predicate,
   statement,
+  directive,
+  cons,
 };
 
 struct token {
@@ -32,13 +36,19 @@ struct token {
 };
 
 
+struct tokstream {
+  std::vector<token> tokens;
+  std::vector<std::pair<std::istream::pos_type, std::istream::pos_type>> pos;
+};
+
 class lexer {
   public:
   template <typename OIter>
   void
   tokenize(std::istream &in, OIter oit)
   {
-    while (true) {
+    while (true)
+    {
       const token tok = _read_token(in);
       if (tok.type != eof)
         *oit++ = tok;
@@ -46,6 +56,15 @@ class lexer {
         return;
     }
   }
+
+  template <typename OIter>
+  void
+  tokenize(std::string_view str, OIter oit)
+  { std::istringstream ss {str.data()}; tokenize(ss, oit); }
+
+
+  tokstream
+  tokenize(std::istream &in);
 
   private:
   static bool

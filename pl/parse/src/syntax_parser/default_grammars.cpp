@@ -1,19 +1,265 @@
+#include "lexer.hpp"
+#include "pl/dictionary.hpp"
 #include "syntax_parser.hpp"
 
 #include "pl/coding/basic_decoder.hpp"
 #include "pl/coding/basic_encoder.hpp"
 
+#include <functional>
+
+
+struct simple_grammar: grammar {
+  template <typename Functor>
+  simple_grammar(int type, int assoc, Functor f)
+  : grammar(1, assoc),
+    m_type {type},
+    m_f {f}
+  { }
+
+  bool
+  apply(token_iterator it, token &result) override
+  {
+    if (it[0].type == m_type)
+    {
+      result = m_f(std::get<object>(it[0].val));
+      return true;
+    }
+    else
+      return false;
+  }
+
+  private:
+  int m_type;
+  std::function<token(const object&)> m_f;
+};
+
+struct inbetween: grammar {
+  template <typename Functor>
+  inbetween(int op1, int a, int op2, int assoc, Functor f)
+  : grammar(3, assoc),
+    m_op1 {op1},
+    m_a {a},
+    m_op2 {op2},
+    m_f {f}
+  { }
+
+  bool
+  apply(token_iterator it, token &result) override
+  {
+    if (it[0].type == m_op1 and it[1].type == m_a and it[2].type == m_op2)
+    {
+      result = m_f(std::get<object>(it[1].val));
+      return true;
+    }
+    else
+      return false;
+  }
+
+  private:
+  int m_op1, m_a, m_op2;
+  std::function<token(const object&)> m_f;
+};
+
+
+struct unary_sufix_operator: grammar {
+  template <typename Functor>
+  unary_sufix_operator(int lhs, int op, int assoc, Functor f)
+  : grammar(2, assoc),
+    m_lhs {lhs},
+    m_op {op},
+    m_f {f}
+  { }
+
+  bool
+  apply(token_iterator it, token &result) override
+  {
+    if (it[0].type == m_lhs and it[1].type == m_op)
+    {
+      result = m_f(std::get<object>(it[0].val));
+      return true;
+    }
+    else
+      return false;
+  }
+
+  private:
+  int m_lhs, m_op;
+  std::function<token(const object&)> m_f;
+};
+
+
+struct binary_operator: grammar {
+  template <typename Functor>
+  binary_operator(int lhs, int op, int rhs, int assoc, Functor f)
+  : grammar(3, assoc),
+    m_lhs {lhs},
+    m_op {op},
+    m_rhs {rhs},
+    m_f {f}
+  { }
+
+  bool
+  apply(token_iterator it, token &result) override
+  {
+    if (it[0].type == m_lhs and it[1].type == m_op and it[2].type == m_rhs)
+    {
+      result = m_f(std::get<object>(it[0].val), std::get<object>(it[2].val));
+      return true;
+    }
+    else
+      return false;
+  }
+
+  private:
+  int m_lhs, m_op, m_rhs;
+  std::function<token(const object&, const object&)> m_f;
+};
+
+
+struct subternary_operator: grammar {
+  template <typename Functor>
+  subternary_operator(int a, int op1, int b, int op2, int assoc, Functor f)
+  : grammar(4, assoc),
+    m_a {a},
+    m_op1 {op1},
+    m_b {b},
+    m_op2 {op2},
+    m_f {f}
+  { }
+
+  bool
+  apply(token_iterator it, token &result) override
+  {
+    if (it[0].type == m_a and
+        it[1].type == m_op1 and
+        it[2].type == m_b and
+        it[3].type == m_op2)
+    {
+      result = m_f(std::get<object>(it[0].val), std::get<object>(it[2].val));
+      return true;
+    }
+    else
+      return false;
+  }
+
+  private:
+  int m_a, m_op1, m_b, m_op2;
+  std::function<token(const object &, const object &)> m_f;
+};
+
+
+struct ternary_operator: grammar {
+  template <typename Functor>
+  ternary_operator(int a, int op1, int b, int op2, int c, int assoc, Functor f)
+  : grammar(5, assoc),
+    m_a {a},
+    m_op1 {op1},
+    m_b {b},
+    m_op2 {op2},
+    m_c {c},
+    m_f {f}
+  { }
+
+  bool
+  apply(token_iterator it, token &result) override
+  {
+    if (it[0].type == m_a and
+        it[1].type == m_op1 and
+        it[2].type == m_b and
+        it[3].type == m_op2 and
+        it[4].type == m_c)
+    {
+      result = m_f(std::get<object>(it[0].val),
+                   std::get<object>(it[2].val),
+                   std::get<object>(it[4].val));
+      return true;
+    }
+    else
+      return false;
+  }
+
+  private:
+  int m_a, m_op1, m_b, m_op2, m_c;
+  std::function<token(const object &, const object &, const object &)> m_f;
+};
+
 
 void
-load_default_grammar(dictionary &symdict, syntax_parser &stxparser)
+load_default_grammar(syntax_parser &stxparser)
 {
-  basic_encoder ec;
-  basic_decoder dc;
+  dictionary &symdict = stxparser.symbols();
 
-  #define SYM(sym) symdict[#sym]
-  #define TERM(sym, arity) ec.encode(term_header(SYM(sym), arity))
+  #define SYM(sym) symdict[sym]
+  #define TERM(sym, arity) basic_encoder().encode(term_header(SYM(sym), arity))
+  #define LEN(obj) basic_decoder().count_objects(obj.begin(), obj.end())
 
-  // ','
+  // eq ('=')
+  stxparser.add_grammar<binary_operator>(
+    obj, '=', obj, left,
+    [&](const object &lhs, const object &rhs) -> token {
+      object result;
+      result += TERM("eq", 2);
+      result += lhs;
+      result += rhs;
+      return token {obj, result};
+    }
+  );
+
+  // cons-lists
+  stxparser.add_grammar<inbetween>(
+    '[', obj, ']', left,
+    [&](const object &x) -> token {
+      object result;
+      result += TERM("cons", 2);
+      result += x;
+      result += TERM("nil", 0);
+      return {obj, result};
+    }
+  );
+  stxparser.add_grammar<inbetween>(
+    '[', cons, ']', left,
+    [&](const object &x) -> token {
+      return {obj, x};
+    }
+  );
+  stxparser.add_grammar<inbetween>(
+    '[', andseq, ']', left,
+    [&](object_view x) -> token {
+      object result;
+      size_t n = LEN(x);
+      auto it = x.begin();
+      while (n--)
+      {
+        result += TERM("cons", 2);
+        result += basic_decoder().decode_object(it);
+      }
+      result += TERM("nil", 0);
+      return {obj, result};
+    }
+  );
+  stxparser.add_grammar<binary_operator>(
+    obj, '|', obj, left,
+    [&](const object &lhs, const object &rhs) -> token {
+      object result;
+      result += TERM("cons", 2);
+      result += lhs;
+      result += rhs;
+      return token {cons, result};
+    }
+  );
+  stxparser.add_grammar<binary_operator>(
+    obj, ',', cons, left,
+    [&](const object &lhs, const object &rhs) -> token {
+      object result;
+      result += TERM("cons", 2);
+      result += lhs;
+      result += rhs;
+      return token {cons, result};
+    }
+  );
+
+
+  // andseq (',')
   stxparser.add_grammar<binary_operator>(
       andseq, ',', obj, left,
       [](const object &lhs, const object &rhs) -> token {
@@ -26,16 +272,14 @@ load_default_grammar(dictionary &symdict, syntax_parser &stxparser)
         return token {andseq, lhs + rhs};
       }
   );
+
+  // andseq -> and(andseq)
   stxparser.add_grammar<simple_grammar>(
       andseq, left,
       [&](const object_view &x) -> token {
-        const size_t id = symdict[""];
-        size_t arity = 0;
-        for (auto it = x.begin(); it != x.end(); arity++)
-          dc.decode_object(it);
         object result;
-        result.push_back(ec.encode(term_header(id, arity)));
-        result.append(x);
+        result += TERM("", LEN(x));
+        result += x;
         return token {obj, result};
       }
   );
@@ -59,9 +303,9 @@ load_default_grammar(dictionary &symdict, syntax_parser &stxparser)
       ifthen, ';', orseq, right,
       [&](const object &ifthen, const object_view &orseq) -> token {
         object result;
-        result += TERM(if, 3);
+        result += TERM("if", 3);
         result += ifthen;
-        result += TERM(or, dc.count_objects(orseq.begin(), orseq.end()));
+        result += TERM("or", LEN(orseq));
         result += orseq;
         return token {obj, result};
       }
@@ -76,7 +320,7 @@ load_default_grammar(dictionary &symdict, syntax_parser &stxparser)
       ifthen, ';', obj, right,
       [&](object_view ifthen, object_view els) -> token {
         object result;
-        result += TERM(if, 3);
+        result += TERM("if", 3);
         result += ifthen;
         result += els;
         return token {obj, result};
@@ -86,7 +330,7 @@ load_default_grammar(dictionary &symdict, syntax_parser &stxparser)
       orseq, left,
       [&](object_view x) -> token {
         object result;
-        result += TERM(or, dc.count_objects(x.begin(), x.end()));
+        result += TERM("or", LEN(x));
         result += x;
         return token {obj, result};
       }
@@ -95,14 +339,15 @@ load_default_grammar(dictionary &symdict, syntax_parser &stxparser)
       ifthen, left,
       [&](object_view ifthen) -> token {
         object result;
-        result += TERM(if, 3);
+        result += TERM("if", 3);
         result += ifthen;
-        result += TERM(fail, 0);
+        result += TERM("fail", 0);
         return token {obj, result};
       }
   );
 
   // :-
+  // signature :- body .
   stxparser.add_grammar<subternary_operator>(
       obj, colon_minus, obj, '.', left,
       [&](object_view sign, object_view body) -> token {
@@ -112,6 +357,15 @@ load_default_grammar(dictionary &symdict, syntax_parser &stxparser)
         return token {predicate, result};
       }
   );
+  // :- directive .
+  stxparser.add_grammar<inbetween>(
+    colon_minus, obj, '.', left,
+    [&](const object &x) -> token {
+      return {directive, x};
+    }
+  );
+
+  // signature .
   stxparser.add_grammar<unary_sufix_operator>(
       obj, '.', left,
       [&](const object &sign) -> token {

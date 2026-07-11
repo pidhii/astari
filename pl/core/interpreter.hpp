@@ -58,7 +58,13 @@ class interpreter: public runtime {
 
   void
   operator << (std::string input);
-  
+
+  void
+  load_file(std::string_view path);
+
+  void
+  eval(object_view obj, const dictionary &vardict);
+
   using solution = std::unordered_map<std::string_view, object>;
 
   template <typename Cont>
@@ -91,6 +97,9 @@ class interpreter: public runtime {
   { _make_true(*this, expr, cont); }
 
   private:
+  void
+  _interpret(const token &stmt, const dictionary &vardict = {});
+
   void
   _make_true(runtime &rt, object_view e, const continuation &cont);
 

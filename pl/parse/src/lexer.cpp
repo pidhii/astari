@@ -3,6 +3,26 @@
 #include <format>
 
 
+tokstream
+lexer::tokenize(std::istream &in)
+{
+  tokstream result;
+  while (true)
+  {
+    const std::istream::pos_type pstart = in.tellg();
+    token tok = _read_token(in);
+    const std::istream::pos_type pend = in.tellg();
+    if (tok.type == eof)
+      return result;
+    else
+    {
+      result.tokens.emplace_back(std::move(tok));
+      result.pos.emplace_back(pstart, pend);
+    }
+  }
+}
+
+
 bool
 lexer::_is_word_char(int c)
 {
@@ -120,5 +140,29 @@ lexer::_read_token(std::istream &in) const
     return {';', ";"};
   }
 
-  throw std::runtime_error {std::format("invalid symbol ({})", in.peek())};
+  if (in.peek() == '=')
+  {
+    in.get();
+    return {'=', "="};
+  }
+
+  if (in.peek() == '[')
+  {
+    in.get();
+    return {'[', "["};
+  }
+
+  if (in.peek() == ']')
+  {
+    in.get();
+    return {']', "]"};
+  }
+
+  if (in.peek() == '|')
+  {
+    in.get();
+    return {'|', "|"};
+  }
+
+  throw std::runtime_error {std::format("invalid symbol ({})", char(in.peek()))};
 }

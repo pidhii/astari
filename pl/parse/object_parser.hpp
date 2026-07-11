@@ -17,6 +17,14 @@ class object_parser {
     m_symdict {symdict}
   { }
 
+  dictionary &
+  symbols() noexcept
+  { return m_symdict; }
+
+  dictionary &
+  variables() noexcept
+  { return m_vardict; }
+
   object
   parse_object(const std::string_view text)
   {
@@ -84,7 +92,6 @@ class object_parser {
       }
     }
   }
-
 
   template <typename TokIter, typename OIter>
   void
