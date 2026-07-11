@@ -44,20 +44,16 @@ interpreter::operator << (std::string input)
       varnamespace ns;
       const object_view obj = std::get<object>(result.val);
       const object_view expr = adopt(ns, obj);
-      bool printed_yes = false;
-      make_true(expr, [&](runtime &rt) {
-        if (not printed_yes)
-        {
-          std::cout << "yes" << std::endl;
-          printed_yes = true;
-        }
-        std::cout << "=> ";
+      make_true(expr, [this, ns, vardict](runtime &rt) {
+        std::cout << "yes";
         basic_decoder dc;
         bool isfirst = true;
         for (const auto [nsid, rtid] : ns)
         {
           if (not isfirst)
             std::cout << ", ";
+          else
+            std::cout << " ";
           isfirst = false;
           const std::string_view varname = vardict[nsid];
           if (const auto varval = rt.dereference(rtid))

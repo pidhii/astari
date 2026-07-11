@@ -54,6 +54,11 @@ class basic_decoder {
     return decode_object(it);
   }
 
+  term_header
+  decode_term_header(word_t word)
+  { term_header hdr; decode(word, hdr); return hdr; }
+
+
   size_t
   count_objects(object_iterator it, object_iterator end)
   {

@@ -38,6 +38,15 @@ class interpreter: public runtime {
   void
   add_meta_op(std::string_view name, const meta_op_handle &handle);
 
+  bool
+  has_meta_op(size_t id) const noexcept;
+
+  bool
+  has_predicate(size_t id) const noexcept;
+
+  bool
+  has(size_t id) const noexcept;
+
   [[deprecated]] std::pair<object, dictionary>
   parse_expr(std::string_view expr)
   {
