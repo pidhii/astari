@@ -2,12 +2,12 @@
 
 #include "lexer.hpp"
 
-#include "../coding/basic_encoder.hpp"
-#include "../dictionary.hpp"
+#include "pl/coding/basic_encoder.hpp"
+#include "pl/dictionary.hpp"
 
+#include <format>
 #include <sstream>
 #include <vector>
-#include <format>
 
 
 class object_parser {
