@@ -40,3 +40,28 @@ interpreter::add_predicate(std::string_view sign)
   // arxt::insert(&m_predicates, signobj, bodyobj);
   m_predicates.emplace(signobj[0], std::make_pair(signobj, object_view()));
 }
+
+
+void
+interpreter::add_meta_op(std::string_view name, const meta_op_handle &handle)
+{
+  const size_t id = m_symdict[name];
+  const std::runtime_error dupexn {std::format(
+      "duplicate names for meta operators are not allowed ({})", name)};
+
+  // Verify that the name is unique among predicates
+  for (const auto [w, _] : m_predicates)
+  {
+    term_header hdr;
+    basic_decoder().decode(w, hdr);
+    if (hdr.id == id)
+      throw dupexn;
+  }
+
+  // Verify that the name is unique among meta operators
+  if (m_metaops.contains(id))
+    throw dupexn;
+
+  // Register
+   m_metaops.emplace(id, handle);
+}

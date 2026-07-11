@@ -9,6 +9,11 @@
 #include <functional>
 
 
+using continuation = std::function<void(runtime&)>;
+
+using meta_op_handle =
+    std::function<void(runtime &, size_t, object_iterator, const continuation &)>;
+
 class interpreter: public runtime {
   enum meta_symbol {
     op_and,
@@ -29,6 +34,9 @@ class interpreter: public runtime {
   
   void
   add_predicate(std::string_view sign);
+
+  void
+  add_meta_op(std::string_view name, const meta_op_handle &handle);
 
   [[deprecated]] std::pair<object, dictionary>
   parse_expr(std::string_view expr)
@@ -69,8 +77,6 @@ class interpreter: public runtime {
     });
   }
 
-  using continuation = std::function<void(runtime&)>;
-
   void
   make_true(object_view expr, const continuation &cont)
   { _make_true(*this, expr, cont); }
@@ -96,5 +102,6 @@ class interpreter: public runtime {
   private:
   // arxt::radixhash_node<word_t, object> m_predicates;
   std::unordered_multimap<word_t, std::pair<object, object>> m_predicates;
+  std::unordered_map<size_t, meta_op_handle> m_metaops;
   dictionary m_symdict;
 }; // class interpreter

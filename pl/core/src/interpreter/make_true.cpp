@@ -112,7 +112,9 @@ interpreter::_make_true__predicate(runtime &rt, object_view e,
 {
   basic_decoder dc;
   const size_t n = m_predicates.bucket(e[0]);
-  for (auto it = m_predicates.begin(n); it != m_predicates.end(n); ++it)
+  const auto begin = m_predicates.begin(n);
+  const auto end = m_predicates.end(n);
+  for (auto it = begin; it != end; ++it)
   { // TODO: (opt) no need to lock RT state before the last / single option
     state_saver _ {rt};
     varnamespace ns;
@@ -129,5 +131,16 @@ interpreter::_make_true__predicate(runtime &rt, object_view e,
       else
         cont(rt);
     }
+  }
+
+  if (begin == end)
+  {
+    term_header hdr;
+    dc.decode(e[0], hdr);
+    const auto it = m_metaops.find(hdr.id);
+    if (it == m_metaops.end())
+      throw std::runtime_error {
+          std::format("no such predicate ({})", m_symdict[hdr.id])};
+    it->second(rt, hdr.arity, e.begin() + 1, cont);
   }
 }
