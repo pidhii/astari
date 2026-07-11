@@ -55,6 +55,11 @@ class object_parser {
     const auto get = [&]() -> const token& { return _get(tokit, tokend); };
     const auto peek = [&]() -> const token& { return _peek(tokit, tokend); };
 
+    // Empty list
+    if (peek() == endtok)
+      return 0;
+
+    // Non-empty list
     size_t n = 0;
     while (true)
     {
