@@ -89,6 +89,10 @@ inline bool
 is_nonterminal(word_t word)
 { return (word & 0b11) == 0b11; }
 
+inline bool
+is_term(word_t word)
+{ return (word & 0b11) == 0b01; }
+
 
 
 using object = std::basic_string<word_t>;

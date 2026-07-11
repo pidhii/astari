@@ -27,6 +27,10 @@ class runtime {
   object
   reconstruct(object_iterator in);
 
+  object
+  reconstruct(object_view in)
+  { return reconstruct(in.begin()); }
+
   std::optional<object_iterator>
   dereference(size_t varid);
 
