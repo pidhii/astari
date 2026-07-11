@@ -46,5 +46,12 @@ message(STATUS "astari packages: ${astari_packages}")
 
 add_library(astari_shared SHARED ${astari_objects})
 install (TARGETS astari_shared DESTINATION lib)
-
 set_target_properties(astari_shared PROPERTIES OUTPUT_NAME astari)
+
+add_library(astari_static STATIC ${astari_objects})
+install (TARGETS astari_static DESTINATION lib)
+set_target_properties(astari_static PROPERTIES OUTPUT_NAME astari)
+
+add_executable(astari_main main.cpp)
+target_link_libraries(astari_main PUBLIC astari_static)
+target_include_directories(astari_main PRIVATE ${PROJECT_SOURCE_DIR})
