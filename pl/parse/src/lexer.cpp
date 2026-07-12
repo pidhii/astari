@@ -164,5 +164,16 @@ lexer::_read_token(std::istream &in) const
     return {'|', "|"};
   }
 
+  if (in.peek() == '\\')
+  {
+    in.get();
+    if (in.peek() == '=')
+    {
+      in.get();
+      return {neq, "\\="};
+    }
+    in.unget();
+  }
+
   throw std::runtime_error {std::format("invalid symbol ({})", char(in.peek()))};
 }
