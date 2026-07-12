@@ -184,14 +184,43 @@ struct ternary_operator: grammar {
 };
 
 
+struct generic_grammar: grammar {
+  template <typename Functor, typename ...Types>
+  generic_grammar(int assoc, Functor f, Types ...types)
+  : grammar(sizeof...(types), assoc),
+    m_types {types...},
+    m_f {f}
+  { }
+
+  bool
+  apply(token_iterator it, token &result) override
+  {
+    for (size_t i = 0; i < size; ++i)
+    {
+      if (it[i].type != m_types[i])
+        return false;
+    }
+
+    result = m_f(it);
+    return true;
+  }
+
+  private:
+  std::vector<int> m_types;
+  std::function<token(token_iterator)> m_f;
+};
+
+
 void
 load_default_grammar(syntax_parser &stxparser)
 {
   dictionary &symdict = stxparser.symbols();
 
+  #define STR(tok) std::get<std::string>(tok.val)
+  #define OBJ(tok) std::get<object>(tok.val)
   #define SYM(sym) symdict[sym]
   #define TERM(sym, arity) basic_encoder().encode(term_header(SYM(sym), arity))
-  #define LEN(obj) basic_decoder().count_objects(obj.begin(), obj.end())
+  #define LEN(obj) basic_decoder().count_objects(object_view(obj).begin(), object_view(obj).end())
 
   // eq ('=')
   stxparser.add_grammar<binary_operator>(
@@ -203,6 +232,53 @@ load_default_grammar(syntax_parser &stxparser)
       result += rhs;
       return token {obj, result};
     }
+  );
+
+  stxparser.add_grammar<generic_grammar>(
+    left, [&](token_iterator it) -> token {
+      object result;
+      result += TERM(STR(it[0]), 0);
+      return {obj, result};
+    }, terminal_symbol, '(', ')'
+  );
+  stxparser.add_grammar<generic_grammar>(
+    left, [&](token_iterator it) -> token {
+      object result;
+      result += TERM(STR(it[0]), 1);
+      result += OBJ(it[2]);
+      return {obj, result};
+    }, terminal_symbol, '(', obj, ')'
+  );
+  stxparser.add_grammar<generic_grammar>(
+    left, [&](token_iterator it) -> token {
+      object result;
+      result += TERM(STR(it[0]), LEN(OBJ(it[2])));
+      result += OBJ(it[2]);
+      return {obj, result};
+    }, terminal_symbol, '(', andseq, ')'
+  );
+  stxparser.add_grammar<generic_grammar>(
+    left, [&](token_iterator it) -> token {
+      object result;
+      result += TERM("", 0);
+      return {obj, result};
+    }, '(', ')'
+  );
+  stxparser.add_grammar<generic_grammar>(
+    left, [&](token_iterator it) -> token {
+      object result;
+      result += TERM("", 1);
+      result += OBJ(it[1]);
+      return {obj, result};
+    }, '(', obj, ')'
+  );
+  stxparser.add_grammar<generic_grammar>(
+    left, [&](token_iterator it) -> token {
+      object result;
+      result += TERM("", LEN(OBJ(it[1])));
+      result += OBJ(it[1]);
+      return {obj, result};
+    }, '(', andseq, ')'
   );
 
   // cons-lists

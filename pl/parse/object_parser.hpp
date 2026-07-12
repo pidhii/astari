@@ -109,32 +109,13 @@ class object_parser {
         return;
       }
 
-      case '(':
-        termid = m_symdict[""];
-        goto l_members;
-        // fallthrough
       case terminal_symbol:
       {
         termid = m_symdict[std::get<std::string>(tok.val)];
         if (peek().type == '(') // List of fields for compound term
-        {
-          get(); // skip the bracket
-
-l_members:
-          // Parse fields
-          std::vector<word_t> fields; // buffer for fields
-          auto fldit = std::back_inserter(fields);
-          const size_t arity =
-              _parse_list(tokit, tokend, fldit, {')', ")"});
-          get(); // skip closing bracket
-
-          // Encode the compisite token
-          *oit++ = m_encoder.encode(term_header(termid, arity));
-          std::copy(fields.begin(), fields.end(), oit);
-        }
+          throw std::runtime_error {"wont parse this"};
         else // Atomic token
           *oit++ = m_encoder.encode(term_header(termid, 0));
-
         return;
       }
 

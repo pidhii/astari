@@ -27,7 +27,7 @@ bool
 lexer::_is_word_char(int c)
 {
   static const std::array chars = {
-    '_', '-', '+'
+    '_',
   };
   return std::isalnum(c) or
           std::find(chars.begin(), chars.end(), c) != chars.end();
