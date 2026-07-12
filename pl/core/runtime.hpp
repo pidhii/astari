@@ -6,6 +6,8 @@
 #include "utl/arena_allocator.hpp"
 #include "utl/rooted_forest.hpp"
 
+#include "radixtrees/pradix256dense.hpp"
+
 #include <optional>
 #include <unordered_map>
 
@@ -66,7 +68,7 @@ class runtime {
   _reconstruct(object_iterator &in, OutputIter &out);
 
   private:
-  std::unordered_map<size_t, object_iterator> m_assignments; // FIXME
+  pidhii::pradix256dense<object_iterator> m_assignments;
   rooted_forest<pidhii::pvector> m_dsf;
   std::shared_ptr<arena_allocator<512 << 10, alignof(word_t)>> m_arena;
 };

@@ -39,9 +39,10 @@ runtime::dereference(size_t varid)
   varid = m_dsf.find(varid);
   if (not m_dsf.is_root(varid))
     return std::nullopt;
-  const auto it = m_assignments.find(varid);
-  if (it != m_assignments.end())
-    return it->second;
+
+  const std::string_view key {(char*)&varid, sizeof(varid)};
+  if (const auto it = m_assignments.find(key))
+    return *it;
   else
     return std::nullopt;
 }
@@ -55,7 +56,8 @@ runtime::assign(size_t varid, object_iterator value)
     throw std::runtime_error {"double assignment"};
   const size_t proxyvar = m_dsf.make_root_set();
   m_dsf.join(varid, proxyvar);
-  m_assignments.insert_or_assign(proxyvar, value);
+  const std::string_view key {(char*)&proxyvar, sizeof(proxyvar)};
+  m_assignments.emplace(key, value);
 }
 
 

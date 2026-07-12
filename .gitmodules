@@ -4,3 +4,6 @@
 [submodule "forest"]
 	path = forest
 	url = https://github.com/pidhii/forest.git
+[submodule "radixtrees"]
+	path = radixtrees
+	url = https://github.com/pidhii/radixtrees.git
