@@ -111,7 +111,11 @@ class interpreter: public runtime {
 
   void
   make_true(object_view expr, const continuation &cont)
-  { _make_true(*this, expr, cont); }
+  {
+    runtime save = *this;
+    _make_true(*this, expr, cont);
+    static_cast<runtime&>(*this) = save;
+  }
 
   private:
   void

@@ -1,4 +1,5 @@
 #include "runtime.hpp"
+#include "match.hpp"
 
 #include "pl/coding/basic_decoder.hpp"
 #include "pl/coding/basic_encoder.hpp"
@@ -38,8 +39,8 @@ runtime::dereference(size_t varid)
   varid = m_dsf.find(varid);
   if (not m_dsf.is_root(varid))
     return std::nullopt;
-  const auto it = m_assignments->find(varid);
-  if (it != m_assignments->end())
+  const auto it = m_assignments.find(varid);
+  if (it != m_assignments.end())
     return it->second;
   else
     return std::nullopt;
@@ -54,7 +55,7 @@ runtime::assign(size_t varid, object_iterator value)
     throw std::runtime_error {"double assignment"};
   const size_t proxyvar = m_dsf.make_root_set();
   m_dsf.join(varid, proxyvar);
-  m_assignments->insert_or_assign(proxyvar, value);
+  m_assignments.insert_or_assign(proxyvar, value);
 }
 
 

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "pl/coding/basic_decoder.hpp"
 #include "pl/obj/object.hpp"
 #include "pvector/pvector.hpp"
 #include "utl/arena_allocator.hpp"
@@ -15,8 +16,7 @@ using varnamespace = std::unordered_map<size_t, size_t>;
 class runtime {
   public:
   runtime()
-  : m_assignments {std::make_shared<std::unordered_map<size_t, object_iterator>>()},
-    m_arena {std::make_shared<arena_allocator<512 << 10, alignof(word_t)>>()}
+  : m_arena {std::make_shared<arena_allocator<512 << 10, alignof(word_t)>>()}
   { }
 
   runtime(const runtime &other) = default;
@@ -66,8 +66,7 @@ class runtime {
   _reconstruct(object_iterator &in, OutputIter &out);
 
   private:
-  // TODO: shared_ptr is slow
-  std::shared_ptr<std::unordered_map<size_t, object_iterator>> m_assignments;
+  std::unordered_map<size_t, object_iterator> m_assignments; // FIXME
   rooted_forest<pidhii::pvector> m_dsf;
   std::shared_ptr<arena_allocator<512 << 10, alignof(word_t)>> m_arena;
 };

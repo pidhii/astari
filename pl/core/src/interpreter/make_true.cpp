@@ -111,30 +111,33 @@ interpreter::_make_true__predicate(runtime &rt, object_view e,
                                    const continuation &cont)
 {
   basic_decoder dc;
-  const size_t n = m_predicates.bucket(e[0]);
-  const auto begin = m_predicates.begin(n);
-  const auto end = m_predicates.end(n);
-  for (auto it = begin; it != end; ++it)
-  { // TODO: (opt) no need to lock RT state before the last / single option
-    state_saver _ {rt};
-    varnamespace ns;
-    const auto &[sign, body] = it->second;;
-    const object_view predsign = rt.adopt(ns, sign);
-    matcher match {rt, dc};
-    if (match(e, predsign))
-    {
-      if (not body.empty())
+  const auto begin = m_predicates.find(e[0]);
+  if (begin != m_predicates.end())
+  {
+    const size_t b = m_predicates.bucket(e[0]);
+    size_t n = m_predicates.bucket_size(b);
+    for (auto it = m_predicates.begin(b); n--; ++it)
+    { // TODO: (opt) no need to lock RT state before the last / single option
+      state_saver _ {rt};
+      varnamespace ns;
+      const auto &[sign, body] = it->second;;
+      const object_view predsign = rt.adopt(ns, sign);
+      matcher match {rt, dc};
+      if (match(e, predsign))
       {
-        const object_view predbody = rt.adopt(ns, body);
-        _make_true(rt, predbody, cont);
+        if (not body.empty())
+        {
+          const object_view predbody = rt.adopt(ns, body);
+          _make_true(rt, predbody, cont);
+        }
+        else
+          cont(rt);
       }
-      else
-        cont(rt);
     }
   }
-
-  if (begin == end)
+  else
   {
+    state_saver _ {rt};
     term_header hdr;
     dc.decode(e[0], hdr);
     const auto it = m_metaops.find(hdr.id);
