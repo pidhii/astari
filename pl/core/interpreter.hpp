@@ -3,6 +3,7 @@
 #include "runtime.hpp"
 
 #include "pl/coding/basic_decoder.hpp"
+#include "pl/coding/tape_writer.hpp"
 #include "pl/dictionary.hpp"
 #include "pl/parse/object_parser.hpp"
 
@@ -28,6 +29,18 @@ class interpreter: public runtime {
   dictionary &
   symbols() noexcept
   { return m_symdict; }
+
+  template <typename ...Args>
+  object_view
+  make_term(Args &&...args)
+  {
+    object buf;
+    tape_writer tape {std::back_inserter(buf), symbols()};
+    tape.operator<<(std::forward<Args>(args)...);
+    word_t *p = allocate(buf.size());
+    std::copy(buf.begin(), buf.end(), p);
+    return {p, buf.size()};
+  }
 
   void
   add_predicate(std::string_view sign, std::string_view body);
@@ -57,10 +70,14 @@ class interpreter: public runtime {
   }
 
   void
-  operator << (std::string input);
+  operator << (std::string_view str)
+  { std::istringstream ss {str.data()}; load(ss); }
 
   void
   load_file(std::string_view path);
+
+  void
+  load(std::istream &in);
 
   void
   eval(object_view obj, const dictionary &vardict);

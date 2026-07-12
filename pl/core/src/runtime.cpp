@@ -24,6 +24,14 @@ runtime::reconstruct(object_iterator in)
 }
 
 
+bool
+runtime::match(object_view lhs, object_view rhs, basic_decoder &dc)
+{
+  matcher m {*this, dc};
+  return m(lhs, rhs);
+}
+
+
 std::optional<object_iterator>
 runtime::dereference(size_t varid)
 {

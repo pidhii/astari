@@ -21,6 +21,10 @@ class dictionary {
   operator [] (uint64_t id) const
   { return m_names.at(id); }
 
+  void
+  clear() noexcept
+  { m_ids.clear(); m_names.clear(); }
+
   private:
   std::unordered_map<std::string, uint64_t> m_ids;
   std::unordered_map<uint64_t, std::string_view> m_names;

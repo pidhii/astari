@@ -31,6 +31,13 @@ class runtime {
   reconstruct(object_view in)
   { return reconstruct(in.begin()); }
 
+  bool
+  match(object_view lhs, object_view rhs, basic_decoder &dc);
+
+  bool
+  match(object_view lhs, object_view rhs)
+  { basic_decoder dc; return match(lhs, rhs, dc); }
+
   std::optional<object_iterator>
   dereference(size_t varid);
 

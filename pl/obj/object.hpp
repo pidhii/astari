@@ -93,8 +93,10 @@ inline bool
 is_term(word_t word)
 { return (word & 0b11) == 0b01; }
 
-
-
 using object = std::basic_string<word_t>;
 using object_view = std::basic_string_view<word_t>;
 using object_iterator = object_view::const_iterator;
+
+inline bool
+is_term(object_view obj)
+{ return not obj.empty() and is_term(obj[0]); }

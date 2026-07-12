@@ -13,30 +13,22 @@
 
 
 void
-interpreter::operator << (std::string input)
-{
-  std::istringstream inputstream {std::move(input)};
-
-  std::vector<token> tokens;
-  lexer().tokenize(inputstream, std::back_inserter(tokens));
-
-  dictionary vardict;
-  syntax_parser stxparser {m_symdict, vardict};
-  load_default_grammar(m_symdict, stxparser);
-  stxparser.load(tokens.begin(), tokens.end());
-  const token stmt = stxparser.parse();
-  _interpret(stmt, vardict);
-}
-
-
-void
 interpreter::load_file(std::string_view path)
 {
   std::ifstream file {path.data(), std::ios_base::binary};
   if (not file)
     ERROR("failed to open file for reading ({})", path);
 
-  const tokstream tokens = lexer().tokenize(file);
+  try { load(file); }
+  catch (const std::exception &exn)
+  { ERROR("failed to load file ({})", exn.what()); }
+}
+
+
+void
+interpreter::load(std::istream &in)
+{
+  const tokstream tokens = lexer().tokenize(in);
 
   auto it = tokens.tokens.begin();
   while (it != tokens.tokens.end())
@@ -44,12 +36,12 @@ interpreter::load_file(std::string_view path)
     // Find statement boundary
     const auto dot = std::find(it, tokens.tokens.end(), token {'.', "."});
     if (dot == tokens.tokens.end())
-      ERROR("unterminated syntax ({})", path);
+      ERROR("unterminated syntax");
 
     // Parse and interpret one statement
     dictionary vardict;
     syntax_parser stxparser {m_symdict, vardict};
-    load_default_grammar(m_symdict, stxparser);
+    load_default_grammar(stxparser);
     stxparser.load(it, dot + 1);
     const token stmt = stxparser.parse();
     _interpret(stmt, vardict);
@@ -79,8 +71,7 @@ interpreter::eval(object_view obj, const dictionary &vardict)
         std::cout << varname << " = "
                   << dump_object(m_symdict, rt.reconstruct(*varval));
       else
-        std::cout << varname << " is unbound"
-                  << dump_object(m_symdict, rt.reconstruct(*varval));
+        std::cout << varname << " is unbound";
     }
     std::cout << std::endl;
   });
