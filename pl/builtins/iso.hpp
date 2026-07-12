@@ -1,11 +1,26 @@
 #pragma once
 
+#include "pl/coding/basic_decoder.hpp"
 #include "pl/core/interpreter.hpp"
 #include "pl/dictionary.hpp"
 #include "pl/misc/display.hpp"
 
 #include <map>
 #include <iostream>
+
+
+inline void
+assert_arity(std::string_view who, int argc)
+{
+  throw std::runtime_error {
+      std::format("invalid number of arguments to {} ({})", who, argc)};
+}
+
+template <typename ...Args>
+void
+assert_arity(std::string_view who, int argc, int n, Args ...args)
+{ if (argc != n) assert_arity(who, argc, args...); }
+
 
 
 class iso_io;
@@ -35,12 +50,7 @@ struct iso_io {
     pl.add_meta_op("current_output", [&](runtime &rt, int argc,
                                         object_iterator argv,
                                         const continuation &cont) {
-      if (argc != 1)
-      {
-        throw std::runtime_error {std::format(
-            "invalid number of arguments to current_output (expect 1, got {})",
-            argc)};
-      }
+      assert_arity("current_output", argc, 1);
       basic_decoder dc;
       if (rt.match(dc.decode_object(argv), current_output))
         cont(rt);
@@ -70,10 +80,29 @@ struct iso_io {
   }
 };
 
+
+void
+iso_type_testing(interpreter &pl);
+
+
 struct iso {
   iso_io io;
 
   iso(interpreter &pl)
   : io {pl}
-  { }
+  {
+    pl << R"(
+      true.
+    )";
+
+    // Unification
+    pl << R"(
+      X = X.
+
+      X \= Y :- X = Y -> fail; true.
+    )";
+
+    // Type testing
+    iso_type_testing(pl);
+  }
 };
