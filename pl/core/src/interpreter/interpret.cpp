@@ -63,10 +63,12 @@ interpreter::eval(object_view obj, const dictionary &vardict)
     bool isfirst = true;
     for (const auto [nsid, rtid] : ns)
     {
+      const std::string_view varname = vardict[nsid];
+      if (varname == "_")
+        continue;
       if (isfirst) std::cout << ": ";
       else         std::cout << ", ";
       isfirst = false;
-      const std::string_view varname = vardict[nsid];
       if (const auto varval = rt.dereference(rtid))
         std::cout << varname << " = "
                   << dump_object(m_symdict, rt.reconstruct(*varval));
