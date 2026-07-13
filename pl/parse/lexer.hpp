@@ -69,18 +69,6 @@ class lexer {
   tokenize(std::istream &in);
 
   private:
-  static bool
-  _is_word_char(int c);
-  
-  static bool
-  _is_num_char(int c);
-
-  std::string
-  _read_word(std::istream &in) const;
-
-  std::string
-  _read_number(std::istream &in) const;
-
   token
   _read_token(std::istream &in) const;
 };

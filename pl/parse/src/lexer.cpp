@@ -22,9 +22,28 @@ lexer::tokenize(std::istream &in)
   }
 }
 
+static bool
+_is_op_char(int c)
+{
+  static const std::array chars = {
+    '+', '-', '@', '=', ':', '*', '/', '\\',
+    '<', '>'
+  };
+  return std::find(chars.begin(), chars.end(), c) != chars.end();
+}
 
-bool
-lexer::_is_word_char(int c)
+std::string
+_read_op(std::istream &in)
+{
+  std::string result;
+  while (_is_op_char(in.peek()))
+    result.push_back(in.get());
+  return result;
+}
+
+
+static bool
+_is_word_char(int c)
 {
   static const std::array chars = {
     '_',
@@ -33,16 +52,16 @@ lexer::_is_word_char(int c)
           std::find(chars.begin(), chars.end(), c) != chars.end();
 }
 
-bool
-lexer::_is_num_char(int c)
+static bool
+_is_num_char(int c)
 {
   static const std::array chars = {'.'};
   return std::isalnum(c) or
           std::find(chars.begin(), chars.end(), c) != chars.end();
 }
 
-std::string
-lexer::_read_word(std::istream &in) const
+static std::string
+_read_word(std::istream &in)
 {
   std::string result;
   while (_is_word_char(in.peek()))
@@ -50,8 +69,8 @@ lexer::_read_word(std::istream &in) const
   return result;
 }
 
-std::string
-lexer::_read_number(std::istream &in) const
+static std::string
+_read_number(std::istream &in)
 {
   std::string result;
   if (in.peek() == '-' or in.peek() == '+')
@@ -60,6 +79,7 @@ lexer::_read_number(std::istream &in) const
     result.push_back(in.get());
   return result;
 }
+
 
 
 static bool
@@ -93,16 +113,8 @@ lexer::_read_token(std::istream &in) const
   if (not in or in.eof())
     return {eof, ""};
 
-  if (in.peek() == '-')
-  {
-    in.get();
-    if (in.peek() == '>')
-    {
-      in.get();
-      return {rarrow, "->"};
-    }
-    in.unget();
-  }
+  if (_tryget(in, "->"))
+    return {rarrow, "->"};
 
   // Nonterminal
   if (std::isupper(in.peek()) or in.peek() == '_')
@@ -162,26 +174,17 @@ lexer::_read_token(std::istream &in) const
     return {';', ";"};
   }
 
-  if (in.peek() == '=')
-  {
-    in.get();
-    if (in.peek() == '=')
-    {
-      in.get();
-      return {cmp, "termeq"};
-    }
-    return {cmp, "eq"};
-  }
-
   if (_tryget(in, "[")) return {'[', "["};
   if (_tryget(in, "]")) return {']', "]"};
   if (_tryget(in, "|")) return {'|', "|"};
-  if (_tryget(in, "\\==")) return {cmp, "termne"};
-  if (_tryget(in, "\\=")) return {cmp, "neq"};
-  if (_tryget(in, "@>=")) return {cmp, "termge"};
-  if (_tryget(in, "@=<")) return {cmp, "termle"};
-  if (_tryget(in, "@>")) return {cmp, "termgt"};
-  if (_tryget(in, "@<")) return {cmp, "termlt"};
+  if (_tryget(in, "==")) return {cmp, "=="};
+  if (_tryget(in, "=")) return {cmp, "="};
+  if (_tryget(in, "\\==")) return {cmp, "\\=="};
+  if (_tryget(in, "\\=")) return {cmp, "\\="};
+  if (_tryget(in, "@>=")) return {cmp, "@>="};
+  if (_tryget(in, "@=<")) return {cmp, "@=<"};
+  if (_tryget(in, "@>")) return {cmp, "@>"};
+  if (_tryget(in, "@<")) return {cmp, "@<"};
 
   throw std::runtime_error {std::format("invalid symbol ({})", char(in.peek()))};
 }

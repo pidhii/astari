@@ -19,10 +19,10 @@ iso_term_comparison(interpreter &pl)
       cont(rt);                                                                \
   });
 
-  DEFINE_CMP("termle", <=)
-  DEFINE_CMP("termlt", <)
-  DEFINE_CMP("termge", >=)
-  DEFINE_CMP("termgt", >)
-  DEFINE_CMP("termeq", ==)
-  DEFINE_CMP("termne", !=)
+  DEFINE_CMP("@=<", <=)
+  DEFINE_CMP("@<", <)
+  DEFINE_CMP("@>=", >=)
+  DEFINE_CMP("@>", >)
+  DEFINE_CMP("==", ==)
+  DEFINE_CMP("\\==", !=)
 }
