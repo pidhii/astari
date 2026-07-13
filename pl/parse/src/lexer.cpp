@@ -102,6 +102,53 @@ _tryget(std::istream &in, std::string_view s)
   return false;
 }
 
+static std::string
+_read_string(std::istream &in)
+{
+  // Opening quote is expected to be already consumed by the caller.
+  std::string result;
+  while (true)
+  {
+    if (not in or in.eof())
+      throw std::runtime_error {"unterminated string literal"};
+
+    const int c = in.get();
+
+    if (c == '"')
+      break;
+
+    if (c == '\\')
+    {
+      if (not in or in.eof())
+        throw std::runtime_error {"unterminated string literal"};
+
+      const int esc = in.get();
+      switch (esc)
+      {
+        case 'n': result.push_back('\n'); break;
+        case 't': result.push_back('\t'); break;
+        case 'r': result.push_back('\r'); break;
+        case 'v': result.push_back('\v'); break;
+        case 'f': result.push_back('\f'); break;
+        case 'b': result.push_back('\b'); break;
+        case 'a': result.push_back('\a'); break;
+        case '0': result.push_back('\0'); break;
+        case '\\': result.push_back('\\'); break;
+        case '\'': result.push_back('\''); break;
+        case '"': result.push_back('"'); break;
+        case '\n': break; // line continuation: escaped newline is dropped
+        default:
+          throw std::runtime_error {
+              std::format("invalid escape sequence (\\{})", char(esc))};
+      }
+    }
+    else
+      result.push_back(char(c));
+  }
+  return result;
+}
+
+
 
 token
 lexer::_read_token(std::istream &in) const
@@ -115,6 +162,13 @@ lexer::_read_token(std::istream &in) const
 
   if (_tryget(in, "->"))
     return {rarrow, "->"};
+
+  // String literal
+  if (in.peek() == '"')
+  {
+    in.get();
+    return {str, _read_string(in)};
+  }
 
   // Nonterminal
   if (std::isupper(in.peek()) or in.peek() == '_')

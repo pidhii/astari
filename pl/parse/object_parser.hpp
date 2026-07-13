@@ -4,6 +4,7 @@
 
 #include "pl/coding/basic_encoder.hpp"
 #include "pl/dictionary.hpp"
+#include "pl/misc/object_allocator.hpp"
 
 #include <format>
 #include <sstream>
@@ -142,6 +143,13 @@ class object_parser {
           }
         }
         catch (...) { }
+      }
+
+      case str:
+      {
+        static object_allocator alloc;
+        *oit++ = alloc.make_string(std::get<std::string>(tok.val));
+        return;
       }
 
       // fall through

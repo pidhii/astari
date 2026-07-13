@@ -73,8 +73,32 @@ _compare(runtime &rt, object_iterator &lhs, object_iterator &rhs,
     }
   }
 
-  return std::compare_three_way()(lhs[0], rhs[0]);
+  if (is_blob(lhs[0]) or is_blob(rhs[0]))
+  {
+    if (is_blob(lhs[0]) and is_blob(rhs[0]))
+    {
+      const enum blob_tag ltag = blob_tag(lhs[0]);
+      const enum blob_tag rtag = blob_tag(rhs[0]);
+      if (ltag != rtag)
+        return word_t(ltag) <=> word_t(rtag);
+
+      switch (ltag)
+      {
+        case blob_tag::string:
+          return string(lhs[0]) <=> string(rhs[0]);
+        default:
+          throw std::runtime_error {"invalid blob tag"};
+      }
+    }
+    else if (is_blob(lhs[0]))
+      return std::strong_ordering::less;
+    else if (is_blob(rhs[0]))
+      return std::strong_ordering::greater;
+  }
+
+  return lhs[0] <=> rhs[0];
 }
+
 
 
 std::strong_ordering

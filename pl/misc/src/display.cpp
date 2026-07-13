@@ -6,6 +6,30 @@
 #include <sstream>
 
 
+static void
+_dump_escaped_string(std::string_view s, std::ostream &os)
+{
+  os << '"';
+  for (const char c: s)
+  {
+    switch (c)
+    {
+      case '"': os << "\\\""; break;
+      case '\\': os << "\\\\"; break;
+      case '\n': os << "\\n"; break;
+      case '\t': os << "\\t"; break;
+      case '\r': os << "\\r"; break;
+      case '\v': os << "\\v"; break;
+      case '\f': os << "\\f"; break;
+      case '\b': os << "\\b"; break;
+      case '\a': os << "\\a"; break;
+      case '\0': os << "\\0"; break;
+      default: os << c; break;
+    }
+  }
+  os << '"';
+}
+
 template <typename InIter>
 void
 _dump_object(const dictionary &dict, InIter &it, std::ostream &os)
@@ -16,10 +40,16 @@ _dump_object(const dictionary &dict, InIter &it, std::ostream &os)
   {
     case word_type::blob:
     {
-      void *blob;
-      dc.decode(*it++, blob);
-      os << std::format("blob(0x{:x})", reinterpret_cast<word_t>(blob));
-      break;
+      switch (blob_tag(*it))
+      {
+        case blob_tag::string:
+          _dump_escaped_string(string(*it++), os);
+          return;
+
+        default:
+          os << std::format("blob(0x{:x})", *it++);
+          return;
+      }
     }
     
     case word_type::structure:

@@ -1,4 +1,5 @@
 #include "match.hpp"
+#include <stdexcept>
 
 
 bool
@@ -31,7 +32,7 @@ matcher::_match(object_iterator &lhs, object_iterator &rhs)
 
   // Special cases with a single nonterminal
   assert(not(word_type(*lhs) == word_type::nonterminal and
-              word_type(*rhs) == word_type::nonterminal));
+             word_type(*rhs) == word_type::nonterminal));
   if (word_type(*lhs) == word_type::nonterminal)
   {
     nonterminal var;
@@ -61,6 +62,18 @@ matcher::_match(object_iterator &lhs, object_iterator &rhs)
     switch (word_type(*lhs))
     {
       case word_type::blob:
+      {
+        if (blob_tag(*lhs) != blob_tag(*rhs))
+          return false;
+        switch (blob_tag(*lhs))
+        {
+          case blob_tag::string:
+            return string(*lhs++) == string(*rhs++);
+          default:
+            throw std::runtime_error {"invalid blob tag"};
+        }
+      }
+
       case word_type::signed_int_number:
       case word_type::unsigned_int_number:
       case word_type::float_number:

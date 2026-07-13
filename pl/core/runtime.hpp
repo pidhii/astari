@@ -1,9 +1,9 @@
 #pragma once
 
 #include "pl/coding/basic_decoder.hpp"
+#include "pl/misc/object_allocator.hpp"
 #include "pl/obj/object.hpp"
 #include "pvector/pvector.hpp"
-#include "utl/arena_allocator.hpp"
 #include "utl/rooted_forest.hpp"
 
 #include "radixtrees/pradix256dense.hpp"
@@ -15,12 +15,9 @@
 using varnamespace = std::unordered_map<size_t, size_t>;
 
 
-class runtime {
+class runtime: public object_allocator {
   public:
-  runtime()
-  : m_arena {std::make_shared<arena_allocator<512 << 10, alignof(word_t)>>()}
-  { }
-
+  runtime() = default;
   runtime(const runtime &other) = default;
 
   object_view
@@ -50,14 +47,6 @@ class runtime {
   void
   assign(size_t varid, object_iterator value);
 
-  word_t*
-  allocate(size_t nwords)
-  { return static_cast<word_t *>(m_arena->allocate(nwords * sizeof(word_t))); }
-
-  object_view
-  allocate_object(size_t nwords)
-  { return {allocate(nwords), nwords}; }
-
   private:
   template <typename InputIter, typename OutputIter>
   void
@@ -70,5 +59,4 @@ class runtime {
   private:
   pidhii::pradix256dense<object_iterator> m_assignments;
   rooted_forest<pidhii::pvector> m_dsf;
-  std::shared_ptr<arena_allocator<512 << 10, alignof(word_t)>> m_arena;
 };

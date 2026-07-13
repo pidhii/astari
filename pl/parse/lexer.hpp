@@ -13,6 +13,7 @@ enum token_type {
   nonterminal_symbol,
   terminal_symbol,
   number,
+  str,
   eof,
   colon_minus,
   obj,

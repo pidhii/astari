@@ -93,6 +93,11 @@ inline bool
 is_term(word_t word)
 { return (word & 0b11) == 0b01; }
 
+inline bool
+is_blob(word_t word)
+{ return (word & 0b11) == 0b00; }
+
+
 using object = std::basic_string<word_t>;
 using object_view = std::basic_string_view<word_t>;
 using object_iterator = object_view::const_iterator;
@@ -100,3 +105,24 @@ using object_iterator = object_view::const_iterator;
 inline bool
 is_term(object_view obj)
 { return not obj.empty() and is_term(obj[0]); }
+
+
+
+enum class blob_tag: word_t {
+  string,
+};
+
+struct blob { blob_tag tag; };
+struct string_data: blob { size_t size; char data[]; };
+
+inline blob_tag
+blob_tag(word_t word)
+{ return reinterpret_cast<blob*>(word)->tag; }
+
+inline std::string_view
+string(word_t word)
+{
+  const string_data *p = reinterpret_cast<string_data*>(word);
+  return {p->data, p->size};
+}
+
