@@ -26,7 +26,10 @@ enum token_type {
   directive,
   cons,
 
-  cmp,
+  assignlike,
+  cmplike,
+  pluslike,
+  mullike,
 };
 
 struct token {

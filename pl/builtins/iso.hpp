@@ -74,6 +74,8 @@ void iso_writing_characters(iso_io &io, interpreter &pl);
 void iso_type_testing(interpreter &pl);
 void iso_term_comparison(interpreter &pl);
 
+void iso_arithmetics(interpreter &pl);
+
 struct iso {
   iso_io io;
 
@@ -111,5 +113,8 @@ struct iso {
     // I/O
     iso_writing_terms(io, pl);
     iso_writing_characters(io, pl);
+
+    // Arithmetics
+    iso_arithmetics(pl);
   }
 };

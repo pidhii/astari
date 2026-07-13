@@ -60,6 +60,31 @@ _is_num_char(int c)
           std::find(chars.begin(), chars.end(), c) != chars.end();
 }
 
+static bool
+_is_number(std::istream &in)
+{
+  if (std::isdigit(in.peek()))
+    return true;
+
+  if (in.peek() == '+' or in.peek() == '-')
+  {
+    in.get();
+    const bool result = _is_number(in);
+    in.unget();
+    return result;
+  }
+
+  if (in.peek() == '.')
+  {
+    in.get();
+    const bool result = std::isdigit(in.peek());
+    in.unget();
+    return result;
+  }
+
+  return false;
+}
+
 static std::string
 _read_word(std::istream &in)
 {
@@ -148,7 +173,17 @@ _read_string(std::istream &in)
   return result;
 }
 
+static bool
+_trygetword(std::istream &in, std::string_view word)
+{
+  if (word.empty())
+    return not std::isalnum(in.peek());
 
+  if (in.get() == word[0] and _trygetword(in, word.substr(1)))
+    return true;
+  in.unget();
+  return false;
+}
 
 token
 lexer::_read_token(std::istream &in) const
@@ -170,6 +205,9 @@ lexer::_read_token(std::istream &in) const
     return {str, _read_string(in)};
   }
 
+  if (_trygetword(in, "is"))
+    return {assignlike, "is"};
+
   // Nonterminal
   if (std::isupper(in.peek()) or in.peek() == '_')
     return {nonterminal_symbol, _read_word(in)};
@@ -177,7 +215,7 @@ lexer::_read_token(std::istream &in) const
   if (std::islower(in.peek()))
     return {terminal_symbol, _read_word(in)};
   // Numbers
-  if (std::isdigit(in.peek()) or in.peek() == '+' or in.peek() == '-')
+  if (_is_number(in))
     return {number, _read_number(in)};
   // Comma
   if (in.peek() == ',')
@@ -228,17 +266,31 @@ lexer::_read_token(std::istream &in) const
     return {';', ";"};
   }
 
+  if (_tryget(in, "+")) return {pluslike, "+"};
+  if (_tryget(in, "-")) return {pluslike, "-"};
+  if (_tryget(in, "*")) return {mullike, "*"};
+  if (_tryget(in, "//")) return {mullike, "//"};
+  if (_tryget(in, "/")) return {mullike, "/"};
+
   if (_tryget(in, "[")) return {'[', "["};
   if (_tryget(in, "]")) return {']', "]"};
   if (_tryget(in, "|")) return {'|', "|"};
-  if (_tryget(in, "==")) return {cmp, "=="};
-  if (_tryget(in, "=")) return {cmp, "="};
-  if (_tryget(in, "\\==")) return {cmp, "\\=="};
-  if (_tryget(in, "\\=")) return {cmp, "\\="};
-  if (_tryget(in, "@>=")) return {cmp, "@>="};
-  if (_tryget(in, "@=<")) return {cmp, "@=<"};
-  if (_tryget(in, "@>")) return {cmp, "@>"};
-  if (_tryget(in, "@<")) return {cmp, "@<"};
+  if (_tryget(in, "==")) return {cmplike, "=="};
+  if (_tryget(in, "\\==")) return {cmplike, "\\=="};
+  if (_tryget(in, "\\=")) return {cmplike, "\\="};
+  if (_tryget(in, "@>=")) return {cmplike, "@>="};
+  if (_tryget(in, "@=<")) return {cmplike, "@=<"};
+  if (_tryget(in, "@>")) return {cmplike, "@>"};
+  if (_tryget(in, "@<")) return {cmplike, "@<"};
+
+  if (_tryget(in, "=:=")) return {cmplike, "=:="};
+  if (_tryget(in, "=\\\\=")) return {cmplike, "=\\\\="};
+  if (_tryget(in, "=<")) return {cmplike, "=<"};
+  if (_tryget(in, ">=")) return {cmplike, ">="};
+  if (_tryget(in, "<")) return {cmplike, "<"};
+  if (_tryget(in, ">")) return {cmplike, ">"};
+
+  if (_tryget(in, "=")) return {assignlike, "="};
 
   throw std::runtime_error {std::format("invalid symbol ({})", char(in.peek()))};
 }

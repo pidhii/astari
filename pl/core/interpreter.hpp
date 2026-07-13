@@ -141,17 +141,11 @@ class interpreter: public runtime {
 
   template <typename Object>
   [[noreturn]] void
-  raise(Object what)
-  {
-    object term;
-    tape_writer tape {std::back_inserter(term), m_symdict};
-    tape << what;
+  raise(Object what);
 
-    std::ostringstream msg;
-    dump_object(m_symdict, term, msg);
-
-    throw exception {msg.str(), term};
-  }
+  template <typename Cont>
+  void
+  number(runtime &rt, word_t x, Cont &&c);
 
   private:
   void
@@ -181,3 +175,65 @@ class interpreter: public runtime {
   dictionary m_symdict;
 }; // class interpreter
 
+
+template <typename Object>
+[[noreturn]] void
+interpreter::raise(Object what)
+{
+  object term;
+  tape_writer tape {std::back_inserter(term), m_symdict};
+  tape << what;
+
+  std::ostringstream msg;
+  dump_object(m_symdict, term, msg);
+
+  throw exception {msg.str(), term};
+}
+
+
+template <typename Cont>
+void
+interpreter::number(runtime &rt, word_t x, Cont &&c)
+{
+  basic_decoder dc;
+  if (is_nonterminal(x))
+  {
+    nonterminal var;
+    dc.decode(x, var);
+    if (auto xval = rt.dereference(var.id))
+      x = xval.value()[0];
+    else
+      raise(term("instantiation_error"));
+  }
+
+  switch (word_type(x))
+  {
+    case word_type::signed_int_number:
+    {
+      int val;
+      dc.decode(x, val);
+      c(val);
+      return;
+    }
+
+    case word_type::unsigned_int_number:
+    {
+      unsigned val;
+      dc.decode(x, val);
+      c(val);
+      return;
+    }
+
+    case word_type::float_number:
+    {
+      float val;
+      dc.decode(x, val);
+      c(val);
+      return;
+    }
+
+    default:
+      raise(term("type_error"));
+      return;
+  }
+}

@@ -222,28 +222,19 @@ load_default_grammar(syntax_parser &stxparser)
   #define TERM(sym, arity) basic_encoder().encode(term_header(SYM(sym), arity))
   #define LEN(obj) basic_decoder().count_objects(object_view(obj).begin(), object_view(obj).end())
 
-  // eq ('=')
-  stxparser.add_grammar<binary_operator>(
-    obj, '=', obj, left,
-    [&](const object &lhs, const object &rhs) -> token {
-      object result;
-      result += TERM("eq", 2);
-      result += lhs;
-      result += rhs;
-      return token {obj, result};
-    }
-  );
-
-  // comparison operators
-  stxparser.add_grammar<generic_grammar>(
-    left, [&](token_iterator it) -> token {
-      object result;
-      result += TERM(STR(it[1]), 2);
-      result += OBJ(it[0]);
-      result += OBJ(it[2]);
-      return token {obj, result};
-    }, obj, cmp, obj
-  );
+  // binary operators
+  for (auto optype : {mullike, pluslike, cmplike, assignlike})
+  {
+    stxparser.add_grammar<generic_grammar>(
+      left, [&](token_iterator it) -> token {
+        object result;
+        result += TERM(STR(it[1]), 2);
+        result += OBJ(it[0]);
+        result += OBJ(it[2]);
+        return token {obj, result};
+      }, obj, optype, obj
+    );
+  }
 
   stxparser.add_grammar<generic_grammar>(
     left, [&](token_iterator it) -> token {
@@ -359,6 +350,20 @@ load_default_grammar(syntax_parser &stxparser)
         return token {andseq, lhs + rhs};
       }
   );
+
+  // unary operators
+  for (auto optype : {pluslike, mullike, cmplike, assignlike})
+  {
+    stxparser.add_grammar<generic_grammar>(
+      left, [&](token_iterator it) -> token {
+        object result;
+        result += TERM(STR(it[0]), 1);
+        result += OBJ(it[1]);
+        return token {obj, result};
+      }, optype, obj
+    );
+  }
+
 
   // andseq -> and(andseq)
   stxparser.add_grammar<simple_grammar>(
