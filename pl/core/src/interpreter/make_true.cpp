@@ -1,6 +1,7 @@
 #include "interpreter.hpp"
 #include "match.hpp"
 
+#include "pl/misc/display.hpp"
 #include "utl/state_saver.hpp"
 
 
@@ -37,9 +38,22 @@ interpreter::_make_true(runtime &rt, object_view e, const continuation &cont)
       }
     }
 
+    case word_type::nonterminal:
+    {
+      basic_decoder dc;
+      nonterminal var;
+      dc.decode(e[0], var);
+      if (auto val = rt.dereference(var.id))
+      {
+        _make_true(rt, dc.decode_object(val.value()), cont);
+        return;
+      }
+    }
+    // fallthrough
+
     default:
-      cont(rt);
-      return;
+      throw std::runtime_error {
+          std::format("invalid goal ({})", dump_object(m_symdict, e))};
   }
 }
 

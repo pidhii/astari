@@ -234,16 +234,15 @@ load_default_grammar(syntax_parser &stxparser)
     }
   );
 
-  // neq ('\=')
-  stxparser.add_grammar<binary_operator>(
-    obj, neq, obj, left,
-    [&](const object &lhs, const object &rhs) -> token {
+  // comparison operators
+  stxparser.add_grammar<generic_grammar>(
+    left, [&](token_iterator it) -> token {
       object result;
-      result += TERM("neq", 2);
-      result += lhs;
-      result += rhs;
+      result += TERM(STR(it[1]), 2);
+      result += OBJ(it[0]);
+      result += OBJ(it[2]);
       return token {obj, result};
-    }
+    }, obj, cmp, obj
   );
 
   stxparser.add_grammar<generic_grammar>(

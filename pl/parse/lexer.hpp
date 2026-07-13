@@ -24,7 +24,8 @@ enum token_type {
   statement,
   directive,
   cons,
-  neq,
+
+  cmp,
 };
 
 struct token {

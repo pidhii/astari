@@ -61,6 +61,28 @@ lexer::_read_number(std::istream &in) const
   return result;
 }
 
+
+static bool
+_tryget(std::istream &in, std::string_view s)
+{
+  if (s.empty())
+    return true;
+
+  if (in.eof())
+    return false;
+
+  if (in.peek() == s[0])
+  {
+    in.get();
+    if (_tryget(in, s.substr(1)))
+      return true;
+    else
+      in.unget();
+  }
+  return false;
+}
+
+
 token
 lexer::_read_token(std::istream &in) const
 {
@@ -143,37 +165,23 @@ lexer::_read_token(std::istream &in) const
   if (in.peek() == '=')
   {
     in.get();
-    return {'=', "="};
-  }
-
-  if (in.peek() == '[')
-  {
-    in.get();
-    return {'[', "["};
-  }
-
-  if (in.peek() == ']')
-  {
-    in.get();
-    return {']', "]"};
-  }
-
-  if (in.peek() == '|')
-  {
-    in.get();
-    return {'|', "|"};
-  }
-
-  if (in.peek() == '\\')
-  {
-    in.get();
     if (in.peek() == '=')
     {
       in.get();
-      return {neq, "\\="};
+      return {cmp, "termeq"};
     }
-    in.unget();
+    return {cmp, "eq"};
   }
+
+  if (_tryget(in, "[")) return {'[', "["};
+  if (_tryget(in, "]")) return {']', "]"};
+  if (_tryget(in, "|")) return {'|', "|"};
+  if (_tryget(in, "\\==")) return {cmp, "termne"};
+  if (_tryget(in, "\\=")) return {cmp, "neq"};
+  if (_tryget(in, "@>=")) return {cmp, "termge"};
+  if (_tryget(in, "@=<")) return {cmp, "termle"};
+  if (_tryget(in, "@>")) return {cmp, "termgt"};
+  if (_tryget(in, "@<")) return {cmp, "termlt"};
 
   throw std::runtime_error {std::format("invalid symbol ({})", char(in.peek()))};
 }

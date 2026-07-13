@@ -23,14 +23,6 @@ assert_arity(std::string_view who, int argc, int n, Args ...args)
 
 
 
-class iso_io;
-
-void
-iso_writing_terms(iso_io &io, interpreter &pl);
-
-void
-iso_writing_characters(iso_io &io, interpreter &pl);
-
 struct iso_io {
   dictionary &symbols;
   const object_view stdout_term, stderr_term, stdin_term;
@@ -55,8 +47,6 @@ struct iso_io {
       if (rt.match(dc.decode_object(argv), current_output))
         cont(rt);
     });
-    iso_writing_terms(*this, pl);
-    iso_writing_characters(*this, pl);
   }
 
   std::ostream &
@@ -81,9 +71,11 @@ struct iso_io {
 };
 
 
-void
-iso_type_testing(interpreter &pl);
+void iso_writing_terms(iso_io &io, interpreter &pl);
+void iso_writing_characters(iso_io &io, interpreter &pl);
 
+void iso_type_testing(interpreter &pl);
+void iso_term_comparison(interpreter &pl);
 
 struct iso {
   iso_io io;
@@ -91,8 +83,11 @@ struct iso {
   iso(interpreter &pl)
   : io {pl}
   {
+    // Control constructs.
     pl << R"(
       true.
+
+      call(Goal) :- Goal.
     )";
 
     // Unification
@@ -104,5 +99,12 @@ struct iso {
 
     // Type testing
     iso_type_testing(pl);
+
+    // Term comparison
+    iso_term_comparison(pl);
+
+    // I/O
+    iso_writing_terms(io, pl);
+    iso_writing_characters(io, pl);
   }
 };
