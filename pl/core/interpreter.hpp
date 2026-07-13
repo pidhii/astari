@@ -5,6 +5,7 @@
 #include "pl/coding/basic_decoder.hpp"
 #include "pl/coding/tape_writer.hpp"
 #include "pl/dictionary.hpp"
+#include "pl/misc/display.hpp"
 #include "pl/parse/object_parser.hpp"
 
 #include <functional>
@@ -14,6 +15,27 @@ using continuation = std::function<void(runtime&)>;
 
 using meta_op_handle =
     std::function<void(runtime &, size_t, object_iterator, const continuation &)>;
+
+
+class exception: public std::exception {
+  public:
+  exception(std::string_view msg, object_view term)
+  : m_term {term}, m_what {msg}
+  { }
+  
+  const char *
+  what() const noexcept override
+  { return m_what.c_str(); }
+
+  object_view
+  term() const noexcept
+  { return m_term; }
+
+  private:
+  object m_term;
+  std::string m_what;
+};
+
 
 class interpreter: public runtime {
   enum meta_symbol {
@@ -117,6 +139,20 @@ class interpreter: public runtime {
     static_cast<runtime&>(*this) = save;
   }
 
+  template <typename Object>
+  [[noreturn]] void
+  raise(Object what)
+  {
+    object term;
+    tape_writer tape {std::back_inserter(term), m_symdict};
+    tape << what;
+
+    std::ostringstream msg;
+    dump_object(m_symdict, term, msg);
+
+    throw exception {msg.str(), term};
+  }
+
   private:
   void
   _interpret(const token &stmt, const dictionary &vardict = {});
@@ -144,3 +180,4 @@ class interpreter: public runtime {
   std::unordered_map<size_t, meta_op_handle> m_metaops;
   dictionary m_symdict;
 }; // class interpreter
+

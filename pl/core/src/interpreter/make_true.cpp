@@ -1,7 +1,6 @@
 #include "interpreter.hpp"
 #include "match.hpp"
 
-#include "pl/misc/display.hpp"
 #include "utl/state_saver.hpp"
 
 
@@ -48,12 +47,12 @@ interpreter::_make_true(runtime &rt, object_view e, const continuation &cont)
         _make_true(rt, dc.decode_object(val.value()), cont);
         return;
       }
+      else
+        raise(term("instantiation_error"));
     }
-    // fallthrough
 
     default:
-      throw std::runtime_error {
-          std::format("invalid goal ({})", dump_object(m_symdict, e))};
+      raise(term("type_error"));
   }
 }
 

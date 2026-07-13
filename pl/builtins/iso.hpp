@@ -9,17 +9,14 @@
 #include <iostream>
 
 
-inline void
-assert_arity(std::string_view who, int argc)
-{
-  throw std::runtime_error {
-      std::format("invalid number of arguments to {} ({})", who, argc)};
-}
+[[noreturn]] inline void
+assert_arity(interpreter &pl, std::string_view who, int argc)
+{ pl.raise(term("arity_error", term(who), argc)); }
 
 template <typename ...Args>
 void
-assert_arity(std::string_view who, int argc, int n, Args ...args)
-{ if (argc != n) assert_arity(who, argc, args...); }
+assert_arity(interpreter &pl, std::string_view who, int argc, int n, Args ...args)
+{ if (argc != n) assert_arity(pl, who, argc, args...); }
 
 
 
@@ -42,7 +39,7 @@ struct iso_io {
     pl.add_meta_op("current_output", [&](runtime &rt, int argc,
                                         object_iterator argv,
                                         const continuation &cont) {
-      assert_arity("current_output", argc, 1);
+      assert_arity(pl, "current_output", argc, 1);
       basic_decoder dc;
       if (rt.match(dc.decode_object(argv), current_output))
         cont(rt);
@@ -96,6 +93,14 @@ struct iso {
 
       X \= Y :- X = Y -> fail; true.
     )";
+
+    pl.add_meta_op("throw", [&](runtime &rt, int argc, object_iterator argv,
+                                const continuation &cont) {
+      assert_arity(pl, "throw", argc, 1);
+      basic_decoder dc;
+      pl.raise(rt.reconstruct(dc.decode_object(argv)));
+    });
+
 
     // Type testing
     iso_type_testing(pl);

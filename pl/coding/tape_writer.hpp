@@ -32,12 +32,12 @@ class tape_writer: public basic_encoder {
   tape_writer(OutIter it, dictionary &dict): m_dict (dict), m_oit {it} { }
 
   template <typename T>
-  tape_writer&
+  tape_writer &
   operator << (T x)
   { *m_oit++ = encode(x); return *this; }
 
   template <typename ...Fields>
-  tape_writer&
+  tape_writer &
   operator << (const multiterm_proxy<Fields...> &sh)
   {
     const uint64_t id = m_dict[sh.name];
@@ -46,13 +46,28 @@ class tape_writer: public basic_encoder {
     return *this;
   }
 
-  tape_writer&
+  tape_writer &
   operator << (const monoterm_proxy &sh)
   {
     const uint64_t id = m_dict[sh.name];
     *m_oit++ = encode(term_header {id, 0});
     return *this;
   }
+
+  tape_writer &
+  operator << (object_view obj)
+  {
+    m_oit = std::copy(obj.begin(), obj.end(), m_oit);
+    return *this;
+  }
+
+  tape_writer &
+  operator << (const object obj)
+  {
+    m_oit = std::copy(obj.begin(), obj.end(), m_oit);
+    return *this;
+  }
+
 
   private:
   template <size_t I, typename ...Fields>

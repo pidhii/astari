@@ -7,7 +7,7 @@ iso_type_testing(interpreter &pl)
   // var/1
   pl.add_meta_op("var", [&](runtime &rt, int argc, object_iterator argv,
                             const continuation &cont) {
-    assert_arity("var", argc, 1);
+    assert_arity(pl, "var", argc, 1);
     if (not is_nonterminal(argv[0]))
       return;
     nonterminal var;
@@ -20,7 +20,7 @@ iso_type_testing(interpreter &pl)
   // atom/1
   pl.add_meta_op("atom", [&](runtime &rt, int argc, object_iterator argv,
                               const continuation &cont) {
-    assert_arity("atom", argc, 1);
+    assert_arity(pl, "atom", argc, 1);
     basic_decoder dc;
     const object x = rt.reconstruct(dc.decode_object(argv));
     if (is_term(x[0]) and dc.decode_term_header(x[0]).arity == 0)
@@ -30,7 +30,7 @@ iso_type_testing(interpreter &pl)
   // integer/1
   pl.add_meta_op("integer", [&](runtime &rt, int argc, object_iterator argv,
                                 const continuation &cont) {
-    assert_arity("integer", argc, 1);
+    assert_arity(pl, "integer", argc, 1);
     basic_decoder dc;
     const object x = rt.reconstruct(dc.decode_object(argv));
     switch (word_type(x[0]))
@@ -44,7 +44,7 @@ iso_type_testing(interpreter &pl)
   // float/1
   pl.add_meta_op("float", [&](runtime &rt, int argc, object_iterator argv,
                                 const continuation &cont) {
-    assert_arity("float", argc, 1);
+    assert_arity(pl, "float", argc, 1);
     basic_decoder dc;
     const object x = rt.reconstruct(dc.decode_object(argv));
     switch (word_type(x[0]))

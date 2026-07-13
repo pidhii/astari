@@ -20,12 +20,7 @@ iso_writing_terms(iso_io &io, interpreter &pl)
   pl.add_meta_op("write_term", [&](runtime &rt, int argc,
                                      object_iterator argv,
                                      const continuation &cont) {
-    if (argc != 2 and argc != 3)
-    {
-      throw std::runtime_error {std::format(
-          "invalid number of arguments to write_term__ (expect 3, got {})",
-          argc)};
-    }
+    assert_arity(pl, "write_term", argc, 2, 3);
 
     basic_decoder dc;
     const object s = argc == 2 ? object {io.current_output}
@@ -70,12 +65,7 @@ iso_writing_characters(iso_io &io, interpreter &pl)
   // put_code/1, put_code/2
   pl.add_meta_op("put_code", [&](runtime &rt, int argc, object_iterator argv,
                                  const continuation &cont) {
-    if (argc != 1 and argc != 2)
-    {
-      throw std::runtime_error {std::format(
-          "invalid number of arguments to put_code (expect 1-2, got {})",
-          argc)};
-    }
+    assert_arity(pl, "put_code", argc, 1, 2);
     basic_decoder dc;
     const object s = argc == 1 ? object {io.current_output}
                                : rt.reconstruct(dc.decode_object(argv));
@@ -90,9 +80,11 @@ iso_writing_characters(iso_io &io, interpreter &pl)
         cont(rt);
         return;
       }
+      case word_type::nonterminal:
+        pl.raise(term("instantiation_error"));
+
       default:
-        throw std::runtime_error {std::format("not a character code ({})",
-                                              dump_object(io.symbols, c))};
+        pl.raise(term("representation_error", term("character")));
     }
   });
   pl << R"(

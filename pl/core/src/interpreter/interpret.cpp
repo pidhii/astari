@@ -21,7 +21,7 @@ interpreter::load_file(std::string_view path)
 
   try { load(file); }
   catch (const std::exception &exn)
-  { ERROR("failed to load file ({})", exn.what()); }
+  { ERROR("failed to load file {} ({})", path, exn.what()); }
 }
 
 
