@@ -35,6 +35,10 @@ class arena_allocator {
     }
   }
 
+  void
+  unallocate(size_t nbytes)
+  { m_curblock_free -= nbytes; }
+
   private:
   std::pair<uint8_t*, uint8_t*>
   _allocate_block()

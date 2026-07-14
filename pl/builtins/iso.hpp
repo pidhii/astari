@@ -114,9 +114,11 @@ struct iso {
       }
       catch (const exception &exn)
       {
-        const object_view exnterm = pl.adopt(exn.term());
+        const object_view exnterm = rt.adopt(exn.term());
         if (rt.match(catcher, exnterm))
           pl.make_true(rt, handler, cont);
+        else
+          rt.unallocate(exnterm);
       }
     });
 

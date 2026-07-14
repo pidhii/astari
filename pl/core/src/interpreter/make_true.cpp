@@ -146,6 +146,8 @@ interpreter::_make_true__predicate(runtime &rt, object_view e,
         else
           cont(rt);
       }
+      else
+        rt.unallocate(predsign);
     }
   }
   else

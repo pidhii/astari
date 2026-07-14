@@ -14,9 +14,17 @@ class object_allocator {
   allocate(size_t nwords)
   { return static_cast<word_t *>(m_arena->allocate(nwords * sizeof(word_t))); }
 
+  void
+  unallocate(size_t nwords)
+  { m_arena->unallocate(nwords * sizeof(word_t)); }
+
   object_view
   allocate_object(size_t nwords)
   { return {allocate(nwords), nwords}; }
+
+  void
+  unallocate(object_view obj)
+  { unallocate(obj.size()); }
 
   word_t
   make_string(std::string_view str)
