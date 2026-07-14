@@ -96,6 +96,17 @@ struct iso {
       X \= Y :- X = Y -> fail; true.
     )";
 
+    // halt/0, halt/1
+    pl.add_meta_op("halt", [&](runtime &rt, int argc, object_iterator argv,
+                                const continuation &cont) {
+      assert_arity(pl, "halt", argc, 0, 1);
+      if (argc == 1)
+        pl.number(rt, argv, std::exit);
+      else
+        std::exit(0);
+    });
+
+    // throw/1
     pl.add_meta_op("throw", [&](runtime &rt, int argc, object_iterator argv,
                                 const continuation &cont) {
       assert_arity(pl, "throw", argc, 1);
