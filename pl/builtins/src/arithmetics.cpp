@@ -21,50 +21,49 @@ eval(interpreter &pl, runtime &rt, int argc, object_iterator argv, OType acc, Op
     return {p, 1};
   }
 
-  word_t x = *argv++;
-  if (is_nonterminal(x))
+  if (is_nonterminal(argv[0]))
   {
     nonterminal var;
-    dc.decode(x, var);
+    dc.decode(argv[0], var);
     if (auto xval = rt.dereference(var.id))
-      x = xval.value()[0];
+      argv = xval.value();
   }
 
-  switch (word_type(x))
+  switch (word_type(argv[0]))
   {
     case word_type::signed_int_number:
     {
       int val;
-      dc.decode(x, val);
+      dc.decode(argv[0], val);
       if constexpr (std::is_same_v<OType, unsigned>)
-        return eval<Op>(pl, rt, argc - 1, argv, op(int(acc), int(val)), op);
+        return eval<Op>(pl, rt, argc - 1, argv + 1, op(int(acc), int(val)), op);
       else if constexpr (std::is_same_v<OType, float>)
-        return eval<Op>(pl, rt, argc - 1, argv, op(float(acc), float(val)), op);
+        return eval<Op>(pl, rt, argc - 1, argv + 1, op(float(acc), float(val)), op);
       else
-        return eval<Op>(pl, rt, argc - 1, argv, op(acc, val), op);
+        return eval<Op>(pl, rt, argc - 1, argv + 1, op(acc, val), op);
     }
 
     case word_type::unsigned_int_number:
     {
       unsigned val;
-      dc.decode(x, val);
+      dc.decode(argv[0], val);
       if constexpr (std::is_same_v<OType, int>)
-        return eval<Op>(pl, rt, argc - 1, argv, op(int(acc), int(val)), op);
+        return eval<Op>(pl, rt, argc - 1, argv + 1, op(int(acc), int(val)), op);
       else if constexpr (std::is_same_v<OType, float>)
-        return eval<Op>(pl, rt, argc - 1, argv, op(float(acc), float(val)), op);
+        return eval<Op>(pl, rt, argc - 1, argv + 1, op(float(acc), float(val)), op);
       else
-        return eval<Op>(pl, rt, argc - 1, argv, op(acc, val), op);
+        return eval<Op>(pl, rt, argc - 1, argv + 1, op(acc, val), op);
     }
 
     case word_type::float_number:
     {
       float val;
-      dc.decode(x, val);
-      return eval<Op>(pl, rt, argc - 1, argv, op(float(acc), float(val)), op);
+      dc.decode(argv[0], val);
+      return eval<Op>(pl, rt, argc - 1, argv + 1, op(float(acc), float(val)), op);
     }
 
     default:
-      pl.raise(term("type_error", term("arithmetics")));
+      pl.raise(term("type_error", term("number"), dc.decode_object(argv)));
   }
 }
 
@@ -77,42 +76,41 @@ eval_(interpreter &pl, runtime &rt, int argc, object_iterator argv, Op op = Op {
   if (argc <= 0)
     pl.raise(term("arity_error", term("arithmetics")));
 
-  word_t x = *argv++;
-  if (is_nonterminal(x))
+  if (is_nonterminal(argv[0]))
   {
     nonterminal var;
-    dc.decode(x, var);
+    dc.decode(argv[0], var);
     if (auto xval = rt.dereference(var.id))
-      x = xval.value()[0];
+      argv = xval.value();
     else
       pl.raise(term("instantiation_error"));
   }
 
-  switch (word_type(x))
+  switch (word_type(argv[0]))
   {
     case word_type::signed_int_number:
     {
       int val;
-      dc.decode(x, val);
-      return eval<Op>(pl, rt, argc - 1, argv, val, op);
+      dc.decode(argv[0], val);
+      return eval<Op>(pl, rt, argc - 1, argv + 1, val, op);
     }
 
     case word_type::unsigned_int_number:
     {
       unsigned val;
-      dc.decode(x, val);
-      return eval<Op>(pl, rt, argc - 1, argv, val, op);
+      dc.decode(argv[0], val);
+      return eval<Op>(pl, rt, argc - 1, argv + 1, val, op);
     }
 
     case word_type::float_number:
     {
       float val;
-      dc.decode(x, val);
-      return eval<Op>(pl, rt, argc - 1, argv, val, op);
+      dc.decode(argv[0], val);
+      return eval<Op>(pl, rt, argc - 1, argv + 1, val, op);
     }
 
     default:
-      pl.raise(term("type_error", term("arithmetics")));
+      pl.raise(term("type_error", term("number"), dc.decode_object(argv)));
   }
 }
 
@@ -143,9 +141,10 @@ struct op_idiv {
   template <typename T, typename U>
   auto operator () (T lhs, U rhs)
   {
-    if (std::is_same_v<std::remove_cvref_t<T>, float> or
-        std::is_same_v<std::remove_cvref_t<U>, float>)
-      pl.raise(term("type_error", term("integer")));
+    if (std::is_same_v<std::remove_cvref_t<T>, float>)
+      pl.raise(term("type_error", term("integer"), lhs));
+    else if (std::is_same_v<std::remove_cvref_t<U>, float>)
+      pl.raise(term("type_error", term("integer"), rhs));
     else
       return lhs / rhs;
   }

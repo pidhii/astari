@@ -52,7 +52,7 @@ interpreter::_make_true(runtime &rt, object_view e, const continuation &cont)
     }
 
     default:
-      raise(term("type_error"));
+      raise(term("type_error", term("callable"), e));
   }
 }
 
