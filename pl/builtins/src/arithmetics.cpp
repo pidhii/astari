@@ -128,8 +128,8 @@ struct op_sub {
 };
 
 struct op_mul {
-  template <typename T>
-  T operator () (T lhs, T rhs) { return lhs * rhs; }
+  template <typename T, typename U>
+  auto operator () (T lhs, U rhs) { return lhs * rhs; }
 };
 
 struct op_fdiv {
@@ -173,7 +173,7 @@ iso_arithmetics(interpreter &pl)
                              const continuation &cont) {
     basic_decoder dc;
     const object_view x = eval<op_mul>(pl, rt, argc - 1, argv, 1u);
-    if (rt.match(x, dc.decode_object(argv)))
+    if (rt.match(x, dc.decode_object(argv + argc - 1)))
       cont(rt);
   });
   pl.add_meta_op("fdiv", [&](runtime &rt, int argc, object_iterator argv,
@@ -196,8 +196,8 @@ iso_arithmetics(interpreter &pl)
   pl.add_meta_op(name, [&](runtime &rt, int argc, object_iterator argv,        \
                            const continuation &cont) {                         \
     assert_arity(pl, name, argc, 2);                                           \
-    pl.number(rt, argv[0], [&](auto &&lhs) {                                   \
-      pl.number(rt, argv[1], [&](auto &&rhs) {                                 \
+    pl.number(rt, argv + 0, [&](auto &&lhs) {                                  \
+      pl.number(rt, argv + 1, [&](auto &&rhs) {                                \
         if (lhs op rhs)                                                        \
           cont(rt);                                                            \
       });                                                                      \
@@ -220,11 +220,11 @@ iso_arithmetics(interpreter &pl)
       Expr = X // Y -> Lhs is X, Rhs is Y, idiv(Lhs, Rhs, Result);
       throw(type_error(evaluable, Expr)).
 
-    X =:= Y  :- Lhs is X, Rhs is Y, numeq(Lhs, Rhs).
-    X =\\= Y :- Lhs is X, Rhs is Y, numne(Lhs, Rhs).
-    X < Y    :- Lhs is X, Rhs is Y, numlt(Lhs, Rhs).
-    X > Y    :- Lhs is X, Rhs is Y, numgt(Lhs, Rhs).
-    X =< Y   :- Lhs is X, Rhs is Y, numle(Lhs, Rhs).
-    X >= Y   :- Lhs is X, Rhs is Y, numge(Lhs, Rhs).
+    X =:= Y :- Lhs is X, Rhs is Y, numeq(Lhs, Rhs).
+    X =\= Y :- Lhs is X, Rhs is Y, numne(Lhs, Rhs).
+    X < Y   :- Lhs is X, Rhs is Y, numlt(Lhs, Rhs).
+    X > Y   :- Lhs is X, Rhs is Y, numgt(Lhs, Rhs).
+    X =< Y  :- Lhs is X, Rhs is Y, numle(Lhs, Rhs).
+    X >= Y  :- Lhs is X, Rhs is Y, numge(Lhs, Rhs).
   )";
 }

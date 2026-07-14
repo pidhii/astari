@@ -54,7 +54,17 @@ iso_type_testing(interpreter &pl)
     }
   });
 
-  // number/1
+  // string/1
+  pl.add_meta_op("string", [&](runtime &rt, int argc, object_iterator argv,
+                                const continuation &cont) {
+    assert_arity(pl, "string", argc, 1);
+    basic_decoder dc;
+    const object x = rt.reconstruct(dc.decode_object(argv));
+    if (word_type(x[0]) == word_type::blob and
+        blob_tag(x[0]) == blob_tag::string)
+      cont(rt);
+  });
+
   pl << R"(
     nonvar(X) :-
       var(X) -> fail; true.
@@ -63,7 +73,7 @@ iso_type_testing(interpreter &pl)
       integer(X); float(X).
 
     atomic(X) :-
-      atom(X); number(X).
+      atom(X); number(X); string(X).
 
     compound(X) :-
       atomic(X) -> fail; nonvar(X).

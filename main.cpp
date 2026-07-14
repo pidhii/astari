@@ -105,8 +105,8 @@ main(int argc, char **argv)
   interpreter pl;
   iso _ {pl};
 
-  if (optind < argc)
-    pl.load_file(argv[optind]);
+  while (optind < argc)
+    pl.load_file(argv[optind++]);
 
   repl(pl);
 }

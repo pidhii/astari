@@ -44,6 +44,10 @@ class runtime: public object_allocator {
   bind(size_t lhsid, size_t rhsid) noexcept
   { return m_dsf.join(lhsid, rhsid); }
 
+  [[nodiscard]] bool
+  bound(size_t lhsid, size_t rhsid) noexcept
+  { return m_dsf.find(lhsid) == m_dsf.find(rhsid); }
+
   void
   assign(size_t varid, object_iterator value);
 

@@ -51,25 +51,37 @@ _compare(runtime &rt, object_iterator &lhs, object_iterator &rhs,
   if (not mem.emplace(lhs, rhs).second)
     return std::strong_ordering::equal;
 
-  if (is_nonterminal(lhs[0]))
+  if (is_nonterminal(lhs[0]) or is_nonterminal(rhs[0]))
   {
-    nonterminal var;
-    dc.decode(lhs[0], var);
-    if (auto val = rt.dereference(var.id))
+    if (is_nonterminal(lhs[0]) and is_nonterminal(rhs[0]))
     {
-      lhs++;
-      return _compare(rt, val.value(), rhs, mem);
+      nonterminal lhsvar, rhsvar;
+      dc.decode(lhs[0], lhsvar);
+      dc.decode(rhs[0], rhsvar);
+      if (rt.bound(lhsvar.id, rhsvar.id))
+        return std::strong_ordering::equal;
     }
-  }
 
-  if (is_nonterminal(rhs[0]))
-  {
-    nonterminal var;
-    dc.decode(rhs[0], var);
-    if (auto val = rt.dereference(var.id))
+    if (is_nonterminal(lhs[0]))
     {
-      rhs++;
-      return _compare(rt, lhs, val.value(), mem);
+      nonterminal var;
+      dc.decode(lhs[0], var);
+      if (auto val = rt.dereference(var.id))
+      {
+        lhs++;
+        return _compare(rt, val.value(), rhs, mem);
+      }
+    }
+
+    if (is_nonterminal(rhs[0]))
+    {
+      nonterminal var;
+      dc.decode(rhs[0], var);
+      if (auto val = rt.dereference(var.id))
+      {
+        rhs++;
+        return _compare(rt, lhs, val.value(), mem);
+      }
     }
   }
 

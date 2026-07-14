@@ -145,7 +145,7 @@ class interpreter: public runtime {
 
   template <typename Cont>
   void
-  number(runtime &rt, word_t x, Cont &&c);
+  number(runtime &rt, object_iterator x, Cont &&c);
 
   private:
   void
@@ -193,25 +193,25 @@ interpreter::raise(Object what)
 
 template <typename Cont>
 void
-interpreter::number(runtime &rt, word_t x, Cont &&c)
+interpreter::number(runtime &rt, object_iterator x, Cont &&c)
 {
   basic_decoder dc;
-  if (is_nonterminal(x))
+  if (is_nonterminal(x[0]))
   {
     nonterminal var;
-    dc.decode(x, var);
+    dc.decode(x[0], var);
     if (auto xval = rt.dereference(var.id))
-      x = xval.value()[0];
+      x = xval.value();
     else
       raise(term("instantiation_error"));
   }
 
-  switch (word_type(x))
+  switch (word_type(x[0]))
   {
     case word_type::signed_int_number:
     {
       int val;
-      dc.decode(x, val);
+      dc.decode(x[0], val);
       c(val);
       return;
     }
@@ -219,7 +219,7 @@ interpreter::number(runtime &rt, word_t x, Cont &&c)
     case word_type::unsigned_int_number:
     {
       unsigned val;
-      dc.decode(x, val);
+      dc.decode(x[0], val);
       c(val);
       return;
     }
@@ -227,13 +227,13 @@ interpreter::number(runtime &rt, word_t x, Cont &&c)
     case word_type::float_number:
     {
       float val;
-      dc.decode(x, val);
+      dc.decode(x[0], val);
       c(val);
       return;
     }
 
     default:
-      raise(term("type_error"));
+      raise(term("type_error", term("number"), dc.decode_object(x)));
       return;
   }
 }

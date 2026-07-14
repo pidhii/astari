@@ -284,7 +284,7 @@ lexer::_read_token(std::istream &in) const
   if (_tryget(in, "@<")) return {cmplike, "@<"};
 
   if (_tryget(in, "=:=")) return {cmplike, "=:="};
-  if (_tryget(in, "=\\\\=")) return {cmplike, "=\\\\="};
+  if (_tryget(in, "=\\=")) return {cmplike, "=\\="};
   if (_tryget(in, "=<")) return {cmplike, "=<"};
   if (_tryget(in, ">=")) return {cmplike, ">="};
   if (_tryget(in, "<")) return {cmplike, "<"};
