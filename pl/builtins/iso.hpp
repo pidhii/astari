@@ -4,6 +4,7 @@
 #include "pl/core/interpreter.hpp"
 #include "pl/dictionary.hpp"
 #include "pl/misc/display.hpp"
+#include "utl/state_saver.hpp"
 
 #include <map>
 #include <iostream>
@@ -82,21 +83,84 @@ struct iso {
   iso(interpreter &pl)
   : io {pl}
   {
+    ////////////////////////////////////////////////////////////////////////////
     // Control constructs.
+    //
     pl << R"(
       true.
 
-      call(Goal) :- Goal.
+      call(Goal) :-
+        Goal.
     )";
+    // throw/1
+    pl.add_meta_op("throw", [&](runtime &rt, int argc, object_iterator argv,
+                                const continuation &cont) {
+      assert_arity(pl, "throw", argc, 1);
+      basic_decoder dc;
+      pl.raise(rt.reconstruct(dc.decode_object(argv)));
+    });
+    // catch/3
+    pl.add_meta_op("catch", [&](runtime &rt, int argc, object_iterator argv,
+                                const continuation &cont) {
+      assert_arity(pl, "catch", argc, 3);
+      basic_decoder dc;
+      const object_view goal = dc.decode_object(argv);
+      const object_view catcher = dc.decode_object(argv);
+      const object_view handler = dc.decode_object(argv);
+      try
+      {
+        state_saver _ {rt};
+        pl.make_true(rt, goal, cont);
+      }
+      catch (const exception &exn)
+      {
+        const object_view exnterm = pl.adopt(exn.term());
+        if (rt.match(catcher, exnterm))
+          pl.make_true(rt, handler, cont);
+      }
+    });
 
+    ////////////////////////////////////////////////////////////////////////////
+    // Logic and Control
+    //
+    pl << R"(
+      \+ Goal :-
+        Goal -> fail;
+        true.
+
+      repeat.
+      repeat :-
+        repeat.
+    )";
+    // once/1
+    pl.add_meta_op("once", [&](runtime &rt, int argc, object_iterator argv,
+                               const continuation &cont) {
+      basic_decoder dc;
+      assert_arity(pl, "once", argc, 1);
+      word_t *once = rt.allocate(1);
+      *once = false;
+      pl.make_true(rt, dc.decode_object(argv), [&](runtime &rt) {
+        if (not *once)
+        {
+          cont(rt);
+          *once = true;
+        }
+      });
+    });
+
+    ////////////////////////////////////////////////////////////////////////////
     // Unification
+    //
     pl << R"(
       X = X.
 
-      X \= Y :- X = Y -> fail; true.
+      X \= Y :-
+        \+ X = Y.
     )";
 
+    ////////////////////////////////////////////////////////////////////////////
     // halt/0, halt/1
+    //
     pl.add_meta_op("halt", [&](runtime &rt, int argc, object_iterator argv,
                                 const continuation &cont) {
       assert_arity(pl, "halt", argc, 0, 1);
@@ -105,15 +169,6 @@ struct iso {
       else
         std::exit(0);
     });
-
-    // throw/1
-    pl.add_meta_op("throw", [&](runtime &rt, int argc, object_iterator argv,
-                                const continuation &cont) {
-      assert_arity(pl, "throw", argc, 1);
-      basic_decoder dc;
-      pl.raise(rt.reconstruct(dc.decode_object(argv)));
-    });
-
 
     // Type testing
     iso_type_testing(pl);

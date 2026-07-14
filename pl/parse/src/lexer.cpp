@@ -292,5 +292,7 @@ lexer::_read_token(std::istream &in) const
 
   if (_tryget(in, "=")) return {assignlike, "="};
 
+  if (_tryget(in, "\\+")) return {assignlike, "\\+"};
+
   throw std::runtime_error {std::format("invalid symbol ({})", char(in.peek()))};
 }
