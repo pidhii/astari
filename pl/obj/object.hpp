@@ -85,15 +85,15 @@ word_type(word_t word)
   }
 }
 
-inline bool
+[[nodiscard, gnu::pure]] inline bool
 is_nonterminal(word_t word)
 { return (word & 0b11) == 0b11; }
 
-inline bool
+[[nodiscard, gnu::pure]] inline bool
 is_term(word_t word)
 { return (word & 0b11) == 0b01; }
 
-inline bool
+[[nodiscard, gnu::pure]] inline bool
 is_blob(word_t word)
 { return (word & 0b11) == 0b00; }
 
