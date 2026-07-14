@@ -23,6 +23,10 @@ class runtime: public object_allocator {
   object_view
   adopt(varnamespace &ns, object_view in);
 
+  object_view
+  adopt(object_view in)
+  { varnamespace ns; return adopt(ns, in); }
+
   object
   reconstruct(object_iterator in);
 

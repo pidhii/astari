@@ -135,9 +135,13 @@ class interpreter: public runtime {
   make_true(object_view expr, const continuation &cont)
   {
     runtime save = *this;
-    _make_true(*this, expr, cont);
+    make_true(*this, expr, cont);
     static_cast<runtime&>(*this) = save;
   }
+
+  void
+  make_true(runtime &rt, object_view expr, const continuation &cont)
+  { _make_true(rt, expr, cont); }
 
   template <typename Object>
   [[noreturn]] void
