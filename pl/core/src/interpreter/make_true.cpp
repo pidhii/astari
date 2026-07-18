@@ -34,10 +34,7 @@ interpreter::_make_true(runtime &rt, size_t, object_iterator e,
 
         case op_if:
           assert(hdr.arity == 3);
-          if (hdr.arity == 3)
-            [[clang::musttail]] return _make_true__if(rt, PLUG, e + 1, cont);
-          else
-            [[clang::musttail]] return _make_true__and(rt, 2, e + 1, cont);
+          [[clang::musttail]] return _make_true__if(rt, PLUG, e + 1, cont);
 
         case op_fail:
           return;
@@ -69,13 +66,15 @@ interpreter::_make_true__and(runtime &rt, size_t i, object_iterator eit,
                              const continuation &cont)
 {
   basic_decoder dc;
+  if (i == 1)
+    [[clang::musttail]] return _make_true(rt, PLUG, eit, cont);
   if (i > 0)
   {
     const object_iterator e = eit;
     dc.decode_object(eit); // call for side-effects
     return _make_true(rt, PLUG, e, [this, i, eit, cont](runtime &rt) {
       return _make_true__and(rt, i - 1, eit, cont); // TODO: tailcall
-    }); // TODO: tailcall
+    });
   }
   else // i == 0
     return cont(rt); // TODO: tailcall
@@ -105,25 +104,21 @@ interpreter::_make_true__if(runtime &rt, size_t _, object_iterator eit,
 {
   basic_decoder dc;
 
-  word_t *condp = allocate(1);
-  *condp = 0;
-
   const object_view econd = dc.decode_object(eit);
   const object_view ethen = dc.decode_object(eit);
   const object_view eelse = dc.decode_object(eit);
 
+  object_view econt = eelse;
   {
-    const continuation thencont = [this, condp, ethen, cont] (runtime &rt) {
-      *condp = 1;
-      return _make_true(rt, PLUG, ethen.begin(), cont); // TODO: tailcall
-    };
-
-    state_saver _ {rt};
-    _make_true(rt, PLUG, econd.begin(), thencont);
+    runtime contrt = rt;
+    _make_true(rt, PLUG, econd.begin(), [&](runtime &rt) {
+      contrt = rt;
+      econt = ethen;
+    });
+    rt = contrt;
   }
 
-  if (*condp == 0)
-    [[clang::musttail]] return _make_true(rt, PLUG, eelse.begin(), cont);
+  [[clang::musttail]] return _make_true(rt, PLUG, econt.begin(), cont);
 }
 
 
@@ -132,6 +127,7 @@ interpreter::_make_true__predicate(runtime &rt, size_t _, object_iterator e_,
                                    const continuation &cont)
 {
   static varnamespace ns;
+  static matcher::memory mmem;
 
   basic_decoder dc;
   const object_view e = dc.decode_object(e_);
@@ -147,7 +143,7 @@ interpreter::_make_true__predicate(runtime &rt, size_t _, object_iterator e_,
       {
         ns.clear();
         const object_view predsign = rt.adopt(ns, sign);
-        if (matcher(rt,dc)(e, predsign))
+        if (mmem.clear(), matcher(rt, dc).match(e, predsign, mmem))
         {
           if (not body.empty())
           {
@@ -166,8 +162,7 @@ interpreter::_make_true__predicate(runtime &rt, size_t _, object_iterator e_,
       state_saver _ {rt};
       ns.clear();
       const object_view predsign = rt.adopt(ns, sign);
-      matcher match {rt, dc};
-      if (match(e, predsign))
+      if (mmem.clear(), matcher(rt, dc).match(e, predsign, mmem))
       {
         if (not body.empty())
         {
@@ -202,6 +197,6 @@ interpreter::_make_true__predicate(runtime &rt, size_t _, object_iterator e_,
       throw std::runtime_error {std::format("no such predicate ({}/{})",
                                             m_symdict[hdr.id], hdr.arity)};
     }
-    return it->second(rt, hdr.arity, e.begin() + 1, cont); // TODO: tailcall
+    return it->second(rt, hdr.arity, e.begin() + 1, cont); // TODO: tailcall (?)
   }
 }

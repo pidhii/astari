@@ -1,9 +1,10 @@
 #include "match.hpp"
+#include "pl/coding/basic_decoder.hpp"
 #include <stdexcept>
 
 
 bool
-matcher::_match(object_iterator &lhs, object_iterator &rhs)
+matcher::_match(object_iterator lhs, object_iterator rhs, memory &mem)
 {
   // if (not m_memory.insert(std::make_pair(lhs, rhs)).second)
   //   return true;
@@ -13,8 +14,8 @@ matcher::_match(object_iterator &lhs, object_iterator &rhs)
       word_type(*rhs) == word_type::nonterminal)
   {
     nonterminal lhsvar, rhsvar;
-    m_decoder.decode(*lhs++, lhsvar);
-    m_decoder.decode(*rhs++, rhsvar);
+    m_decoder.decode(*lhs, lhsvar);
+    m_decoder.decode(*rhs, rhsvar);
     // bound + bound => dereference both and match results
     // bound + unbound => bind
     // unbound + unbound => bind
@@ -24,7 +25,7 @@ matcher::_match(object_iterator &lhs, object_iterator &rhs)
     {
       auto lhs = *lhsobj;
       auto rhs = *rhsobj;
-      return _match(lhs, rhs);
+      [[clang::musttail]] return _match(lhs, rhs, mem);
     }
     else
       return m_runtime.bind(lhsvar.id, rhsvar.id);
@@ -36,11 +37,11 @@ matcher::_match(object_iterator &lhs, object_iterator &rhs)
   if (word_type(*lhs) == word_type::nonterminal)
   {
     nonterminal var;
-    m_decoder.decode(*lhs++, var);
+    m_decoder.decode(*lhs, var);
     if (auto lhsobj = m_runtime.dereference(var.id))
     {
       auto lhs = *lhsobj;
-      return _match(lhs, rhs);
+      [[clang::musttail]] return _match(lhs, rhs, mem);
     }
     else
     {
@@ -53,7 +54,7 @@ matcher::_match(object_iterator &lhs, object_iterator &rhs)
   else if (word_type(*rhs) == word_type::nonterminal)
   {
     // "swap" LHS with RHS and go into the branch above
-    return _match(rhs, lhs);
+    [[clang::musttail]] return _match(rhs, lhs, mem);
   }
 
   // Structural equality
@@ -69,7 +70,7 @@ matcher::_match(object_iterator &lhs, object_iterator &rhs)
         switch (blob_tag(*lhs))
         {
           case blob_tag::string:
-            return string(*lhs++) == string(*rhs++);
+            return string(*lhs) == string(*rhs);
           default:
             throw std::runtime_error {"invalid blob tag"};
         }
@@ -78,7 +79,7 @@ matcher::_match(object_iterator &lhs, object_iterator &rhs)
       case word_type::signed_int_number:
       case word_type::unsigned_int_number:
       case word_type::float_number:
-        return *lhs++ == *rhs++;
+        return *lhs == *rhs;
       
       case word_type::structure:
       {
@@ -89,13 +90,19 @@ matcher::_match(object_iterator &lhs, object_iterator &rhs)
             lhs_header.arity != rhs_header.arity)
           return false;
 
-        for (size_t i = 0; i < lhs_header.arity; ++i)
+        if (lhs_header.arity == 0)
+          return true;
+
+        size_t n = lhs_header.arity;
+        while (n-- > 1)
         {
-          if (not _match(lhs, rhs))
+          if (not _match(lhs, rhs, mem))
             return false;
+          basic_decoder dc;
+          dc.decode_object(lhs); // call for side-effects
+          dc.decode_object(rhs); // call for side-effects
         }
-        
-        return true;
+        [[clang::musttail]] return _match(lhs, rhs, mem);
       }
       
       case word_type::nonterminal:
