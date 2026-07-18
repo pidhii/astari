@@ -25,17 +25,15 @@ class lib_tabulate {
       {
         _unsnapshot(goalview);
         if (it->second.is_building)
-        {
-          pl.make_true(rt, goal, cont);
-          return;
-        }
+          return pl.make_true(rt, goal, cont);
+
         // if (not it->second.solutions.empty())
         // {
         //   std::cerr << std::format("hit {} [table size = {}]", pl.dump(goalview),
         //                           it->second.solutions.size())
         //             << std::endl;
         // }
-        for (object &variant : it->second.solutions)
+        for (const object &variant : it->second.solutions)
         {
           state_saver _ {rt};
           const object_view g = rt.adopt(variant);
@@ -52,7 +50,7 @@ class lib_tabulate {
       pl.make_true(rt, goal, [&](runtime &rt) {
         table_entry &entry = m_table[goalview];
         entry.solutions.push_back(rt.reconstruct(goal));
-        todo.emplace_back(std::move(rt));
+        todo.emplace_back(rt);
       });
       m_table[goalview].is_building = false;
 
