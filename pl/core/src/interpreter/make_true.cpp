@@ -97,7 +97,36 @@ interpreter::_make_true__or(runtime &rt, size_t i, object_iterator eit,
   [[clang::musttail]] return _make_true(rt, PLUG, eit, cont);
 }
 
+// Soft cut version
+// void
+// interpreter::_make_true__if(runtime &rt, size_t _, object_iterator eit,
+//                             const continuation &cont)
+// {
+//   basic_decoder dc;
 
+//   word_t *condp = allocate(1);
+//   *condp = 0;
+
+//   const object_view econd = dc.decode_object(eit);
+//   const object_view ethen = dc.decode_object(eit);
+//   const object_view eelse = dc.decode_object(eit);
+
+//   {
+//     const continuation thencont = [this, condp, ethen, cont] (runtime &rt) {
+//       *condp = 1;
+//       return _make_true(rt, PLUG, ethen.begin(), cont); // TODO: tailcall
+//     };
+
+//     state_saver _ {rt};
+//     _make_true(rt, PLUG, econd.begin(), thencont);
+//   }
+
+//   if (*condp == 0)
+//     [[clang::musttail]] return _make_true(rt, PLUG, eelse.begin(), cont);
+// }
+
+
+// Strong cut version
 void
 interpreter::_make_true__if(runtime &rt, size_t _, object_iterator eit,
                             const continuation &cont)
