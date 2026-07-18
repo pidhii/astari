@@ -2,9 +2,7 @@
 #include "pl/builtins/iso.hpp"
 #include "pl/builtins/parsing.hpp"
 #include "pl/builtins/tabulate.hpp"
-#include "pl/coding/basic_encoder.hpp"
 #include "pl/core/interpreter.hpp"
-#include "pl/dictionary.hpp"
 #include "pl/parse/prolog_parser.hpp"
 
 #include <iostream>
@@ -22,7 +20,7 @@ repl(interpreter &pl)
 
 
   const auto prompt = [&]() {
-    std::cout << (tokens.list.empty() ? "> " : "~ ");
+    std::cout << (tokens.list.empty() ? "?- " : " | ");
     std::cout.flush();
   };
 
@@ -71,10 +69,5 @@ main(int argc, char **argv)
   lib_parsing _pars {pl};
 
   pl.eval("write('Hello World!'), nl");
-  // pl.eval("X is 1 + 2");
-
-  pl.load_file("parser.pl");
-  // pl.debug();
-
   repl(pl);
 }
