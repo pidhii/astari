@@ -9,6 +9,7 @@
 #include "pl/obj/object.hpp"
 #include "pl/parse/parse_error.hpp"
 #include "pl/parse/syntax_parser.hpp"
+#include "pl/misc/object_file.hpp"
 
 #include <stdexcept>
 #include <fstream>
@@ -16,6 +17,10 @@
 
 #define ERROR(fmt, ...)                                                        \
   throw std::runtime_error { std::format(fmt, ##__VA_ARGS__) }
+
+#ifndef PARSER_OBJFILE_PATH
+# define PARSER_OBJFILE_PATH "./parser.plo"
+#endif
 
 
 static object
@@ -27,6 +32,52 @@ _tokenize(interpreter &pl, dictionary &vardict, std::string_view text)
   // std::clog << "tokenlist: " << pl.dump(result) << std::endl;
   return result;
 }
+
+
+static void
+transfer_symbols(dictionary &from, dictionary &to, object &obj)
+{
+  basic_encoder ec;
+  basic_decoder dc;
+
+  for (word_t &word : obj)
+  {
+    if (is_term(word))
+    {
+      term_header hdr;
+      dc.decode(word, hdr);
+      const size_t newid = to[from[hdr.id]];
+      word = ec.encode(term_header(newid, hdr.arity));
+    }
+  }
+}
+
+
+static void
+recover_variables(runtime &rt, varnamespace &ns, object &obj)
+{
+  basic_encoder ec;
+  basic_decoder dc;
+  for (word_t &word : obj)
+  {
+    if (is_nonterminal(word))
+    {
+      // Find if this variable is bound with an original variable (from `ns`).
+      // If so, rename it to this original ID.
+      nonterminal var;
+      dc.decode(word, var);
+      for (const auto [nsid, rtid] : ns)
+      {
+        if (rt.bound(var.id, rtid))
+        {
+          word = ec.encode(nonterminal(nsid));
+          break;
+        }
+      }
+    }
+  }
+}
+
 
 
 prolog_parser::prolog_parser() : m_lib_bf {m_pl}, m_lib_tab {m_pl}
@@ -63,9 +114,17 @@ prolog_parser::prolog_parser() : m_lib_bf {m_pl}, m_lib_tab {m_pl}
     cont(rt);
   });
 
-  std::ifstream parserfile {"./backward-fair.pl"};
+  std::ifstream parserfile {PARSER_OBJFILE_PATH};
   assert(parserfile);
-  _load(parserfile);
+
+  object_file objfile;
+  objfile.read(parserfile, m_pl);
+
+  for (object &obj : objfile.objects)
+  {
+    transfer_symbols(objfile.symbols, m_pl.symbols(), obj);
+    m_pl.interpret(obj);
+  }
 }
 
 
@@ -132,49 +191,6 @@ prolog_parser::_interpret_token(const token &stmt, const dictionary &vardict)
 
 }
 
-
-static void
-transfer_symbols(dictionary &from, dictionary &to, object &obj)
-{
-  basic_encoder ec;
-  basic_decoder dc;
-
-  for (word_t &word : obj)
-  {
-    if (is_term(word))
-    {
-      term_header hdr;
-      dc.decode(word, hdr);
-      const size_t newid = to[from[hdr.id]];
-      word = ec.encode(term_header(newid, hdr.arity));
-    }
-  }
-}
-
-static void
-recover_variables(runtime &rt, varnamespace &ns, object &obj)
-{
-  basic_encoder ec;
-  basic_decoder dc;
-  for (word_t &word : obj)
-  {
-    if (is_nonterminal(word))
-    {
-      // Find if this variable is bound with an original variable (from `ns`).
-      // If so, rename it to this original ID.
-      nonterminal var;
-      dc.decode(word, var);
-      for (const auto [nsid, rtid] : ns)
-      {
-        if (rt.bound(var.id, rtid))
-        {
-          word = ec.encode(nonterminal(nsid));
-          break;
-        }
-      }
-    }
-  }
-}
 
 
 object
