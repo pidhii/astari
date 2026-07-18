@@ -9,6 +9,24 @@ minimal_predicates(interpreter &pl)
   pl.add_predicate(pl.make_term(term("true")));
   pl.add_predicate(pl.make_term(term("=", var("X"), var("X"))));
 
+
+  dictionary vardict;
+  basic_encoder ec;
+  const auto var = [&](const auto &name) {
+    return nonterminal(vardict[name]);
+  };
+  // \+ Goal :- Goal -> fail; true.
+  pl.add_predicate(
+      pl.make_term(term("\\+", var("Goal"))),
+      pl.make_term(term("if", var("Goal"), term("fail"), term("true"))));
+
+  vardict.clear();
+  // X \= Y -> X = Y -> fail; true.
+  pl.add_predicate(pl.make_term(term("\\=", var("X"), var("Y"))),
+                   pl.make_term(term("if", term("=", var("X"), var("Y")),
+                                     term("fail"), term("true"))));
+
+
   iso_type_testing(pl); // Doesn't use parser
   iso_term_comparison(pl); // Doesn't use parser
   iso_term_creation_and_decomposition(pl); // Doesn't use parser
