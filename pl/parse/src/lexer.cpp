@@ -8,28 +8,6 @@
 #include <format>
 
 
-tokstream
-lexer::tokenize(std::istream &in)
-{
-  tokstream result;
-  while (true)
-  {
-    const std::istream::pos_type pstart = in.tellg();
-    token tok;
-    try { tok = _read_token(in); }
-    catch (const std::exception &exn)
-    { throw parse_error {exn.what(), {pstart, pstart + 1l}}; }
-    const std::istream::pos_type pend = in.tellg();
-    if (tok.type == eof)
-      return result;
-    else
-    {
-      result.tokens.emplace_back(std::move(tok));
-      result.pos.emplace_back(pstart, pend);
-    }
-  }
-}
-
 static bool
 _is_op_char(int c)
 {
@@ -39,6 +17,7 @@ _is_op_char(int c)
   };
   return std::find(chars.begin(), chars.end(), c) != chars.end();
 }
+
 
 std::string
 _read_op(std::istream &in)
@@ -60,6 +39,7 @@ _is_word_char(int c)
           std::find(chars.begin(), chars.end(), c) != chars.end();
 }
 
+
 static bool
 _is_num_char(int c)
 {
@@ -67,6 +47,7 @@ _is_num_char(int c)
   return std::isalnum(c) or
           std::find(chars.begin(), chars.end(), c) != chars.end();
 }
+
 
 static bool
 _is_number(std::istream &in)
@@ -93,6 +74,7 @@ _is_number(std::istream &in)
   return false;
 }
 
+
 static std::string
 _read_word(std::istream &in)
 {
@@ -101,6 +83,7 @@ _read_word(std::istream &in)
     result.push_back(in.get());
   return result;
 }
+
 
 static std::string
 _read_number(std::istream &in)
@@ -134,6 +117,7 @@ _tryget(std::istream &in, std::string_view s)
   }
   return false;
 }
+
 
 static std::string
 _read_string(std::istream &in)
@@ -181,6 +165,7 @@ _read_string(std::istream &in)
   return result;
 }
 
+
 static bool
 _trygetword(std::istream &in, std::string_view word)
 {
@@ -193,141 +178,9 @@ _trygetword(std::istream &in, std::string_view word)
   return false;
 }
 
-token
-lexer::_read_token(std::istream &in) const
-{
-  // Skip whitespaces
-  while (std::isspace(in.peek())) in.get();
-
-  // Skip comments
-  if (in.peek() == '%')
-  {
-    std::string _line;
-    std::getline(in, _line);
-    return _read_token(in);
-  }
-
-  // EOF
-  if (not in or in.eof())
-    return {eof, ""};
-
-  if (in.peek() == '\'')
-  {
-    in.get();
-    std::string result;
-    while (in and in.peek() != '\'')
-      result += in.get();
-    in.get();
-    return {terminal_symbol, result};
-  }
-
-  if (_tryget(in, "->"))
-    return {rarrow, "->"};
-
-  // String literal
-  if (in.peek() == '"')
-  {
-    in.get();
-    return {str, _read_string(in)};
-  }
-
-  if (_trygetword(in, "is"))
-    return {assignlike, "is"};
-
-  // Nonterminal
-  if (std::isupper(in.peek()) or in.peek() == '_')
-    return {nonterminal_symbol, _read_word(in)};
-  // Terminal
-  if (std::islower(in.peek()))
-    return {terminal_symbol, _read_word(in)};
-  // Numbers
-  if (_is_number(in))
-    return {number, _read_number(in)};
-  // Comma
-  if (in.peek() == ',')
-  {
-    in.get();
-    return {',', ","};
-  }
-  // Open bracket
-  if (in.peek() == '(')
-  {
-    in.get();
-    return {'(', "("};
-  }
-  // Close bracket
-  if (in.peek() == ')')
-  {
-    in.get();
-    return {')', ")"};
-  }
-
-  if (in.peek() == ':')
-  {
-    in.get();
-    if (in.peek() == '-')
-    {
-      in.get();
-      return {colon_minus, ":-"};
-    }
-    else
-      return {':', ":"};
-  }
-
-  if (in.peek() == '.')
-  {
-    in.get();
-    return {'.', "."};
-  }
-
-  if (in.peek() == '?')
-  {
-    in.get();
-    return {'?', "?"};
-  }
-
-  if (in.peek() == ';')
-  {
-    in.get();
-    return {';', ";"};
-  }
-
-  if (_tryget(in, "+")) return {pluslike, "+"};
-  if (_tryget(in, "-")) return {pluslike, "-"};
-  if (_tryget(in, "*")) return {mullike, "*"};
-  if (_tryget(in, "//")) return {mullike, "//"};
-  if (_tryget(in, "/")) return {mullike, "/"};
-
-  if (_tryget(in, "[")) return {'[', "["};
-  if (_tryget(in, "]")) return {']', "]"};
-  if (_tryget(in, "|")) return {'|', "|"};
-  if (_tryget(in, "==")) return {cmplike, "=="};
-  if (_tryget(in, "\\==")) return {cmplike, "\\=="};
-  if (_tryget(in, "\\=")) return {cmplike, "\\="};
-  if (_tryget(in, "@>=")) return {cmplike, "@>="};
-  if (_tryget(in, "@=<")) return {cmplike, "@=<"};
-  if (_tryget(in, "@>")) return {cmplike, "@>"};
-  if (_tryget(in, "@<")) return {cmplike, "@<"};
-
-  if (_tryget(in, "=:=")) return {cmplike, "=:="};
-  if (_tryget(in, "=\\=")) return {cmplike, "=\\="};
-  if (_tryget(in, "=<")) return {cmplike, "=<"};
-  if (_tryget(in, ">=")) return {cmplike, ">="};
-  if (_tryget(in, "<")) return {cmplike, "<"};
-  if (_tryget(in, ">")) return {cmplike, ">"};
-
-  if (_tryget(in, "=..")) return {assignlike, "=.."};
-
-  if (_tryget(in, "=")) return {assignlike, "="};
-
-  if (_tryget(in, "\\+")) return {assignlike, "\\+"};
-
-  throw std::runtime_error {std::format("invalid symbol ({})", char(in.peek()))};
-}
-
 
 std::pair<object, size_t>
-lexer::list(interpreter &pl, dictionary &vardict, std::istream &in)
+lexer::tokens(interpreter &pl, dictionary &vardict, std::istream &in)
 {
   object result;
   size_t nelts = 0;
@@ -354,6 +207,7 @@ lexer::list(interpreter &pl, dictionary &vardict, std::istream &in)
     }
   }
 }
+
 
 static word_t
 _make_number(std::string_view x)

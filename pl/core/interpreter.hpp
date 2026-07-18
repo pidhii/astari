@@ -1,16 +1,17 @@
 #pragma once
 
-#include "pl/obj/object.hpp"
 #include "runtime.hpp"
 
 #include "pl/coding/basic_decoder.hpp"
 #include "pl/coding/tape_writer.hpp"
 #include "pl/dictionary.hpp"
 #include "pl/misc/display.hpp"
-#include "pl/parse/object_parser.hpp"
+#include "pl/obj/object.hpp"
 
+#include <format>
 #include <functional>
 #include <iostream>
+#include <sstream>
 
 
 using continuation = std::function<void(runtime&)>;
@@ -116,15 +117,6 @@ class interpreter: public runtime {
   bool
   has(size_t id) const noexcept;
 
-  [[deprecated]] std::pair<object, dictionary>
-  parse_expr(std::string_view expr)
-  {
-    dictionary vardict;
-    object_parser p {m_symdict, vardict};
-    object obj = p.parse_object(expr);
-    return {std::move(obj), std::move(vardict)};
-  }
-
   void
   operator << (std::string_view str)
   { std::istringstream ss {str.data(), std::ios_base::binary}; load(ss); }
@@ -149,31 +141,6 @@ class interpreter: public runtime {
   { return dump_object(m_symdict, obj); }
 
   using solution = std::unordered_map<std::string_view, object>;
-
-  template <typename Cont>
-  [[deprecated("Probably doesnt work")]] void
-  make_true(std::string_view exprstr, const Cont &cont)
-  {
-    dictionary vardict;
-    varnamespace ns;
-
-    const object obj = object_parser(m_symdict, vardict).parse_object(exprstr);
-    const object_view expr = adopt(ns, obj);
-
-    make_true(expr, [&](runtime &rt) {
-      basic_decoder dc;
-      solution sol;
-      for (const auto [nsid, rtid] : ns)
-      {
-        const std::string_view varname = vardict[nsid];
-        if (const auto varval = rt.dereference(rtid))
-          sol[varname] = rt.reconstruct(*varval);
-        else
-          sol[varname] = {};
-      }
-      cont(sol);
-    });
-  }
 
   void
   make_true(object_view expr, const continuation &cont)

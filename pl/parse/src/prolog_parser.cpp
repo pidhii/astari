@@ -1,4 +1,5 @@
 #include "prolog_parser.hpp"
+
 #include "pl/builtins/minimal.hpp"
 #include "pl/coding/basic_decoder.hpp"
 #include "pl/coding/basic_encoder.hpp"
@@ -6,10 +7,8 @@
 #include "pl/core/runtime.hpp"
 #include "pl/dictionary.hpp"
 #include "pl/misc/display.hpp"
-#include "pl/obj/object.hpp"
-#include "pl/parse/parse_error.hpp"
-#include "pl/parse/syntax_parser.hpp"
 #include "pl/misc/object_file.hpp"
+#include "pl/obj/object.hpp"
 
 #include <stdexcept>
 #include <fstream>
@@ -27,7 +26,7 @@ static object
 _tokenize(interpreter &pl, dictionary &vardict, std::string_view text)
 {
   std::istringstream stream {std::string(text)};
-  const auto [elts, nelts] = lexer().list(pl, vardict, stream);
+  const auto [elts, nelts] = lexer().tokens(pl, vardict, stream);
   const object result = make_list(pl, nelts, object_view(elts).begin());
   // std::clog << "tokenlist: " << pl.dump(result) << std::endl;
   return result;
@@ -126,71 +125,6 @@ prolog_parser::prolog_parser() : m_lib_bf {m_pl}, m_lib_tab {m_pl}
     m_pl.interpret(obj);
   }
 }
-
-
-void
-prolog_parser::_load(std::istream &in)
-{
-  tokstream tokens = lexer().tokenize(in);
-
-  auto it = tokens.tokens.begin();
-  while (it != tokens.tokens.end())
-  {
-    // Find statement boundary
-    const auto dot = std::find(it, tokens.tokens.end(), token {'.', "."});
-    if (dot == tokens.tokens.end())
-      ERROR("unterminated syntax");
-
-    // Parse and interpret one statement
-    dictionary vardict;
-    syntax_parser stxparser {m_pl.symbols(), vardict};
-    load_default_grammar(stxparser);
-    stxparser.load(it, dot + 1);
-    token stmt;
-    try { stmt = stxparser.parse(); }
-    catch (const std::exception &exn)
-    {
-      const size_t startidx = std::distance(tokens.tokens.begin(), it);
-      const size_t endidx = std::distance(tokens.tokens.begin(), dot);
-      const size_t start = tokens.pos[startidx].first;
-      const size_t end = tokens.pos[endidx].second;
-      throw parse_error {exn.what(), {start, end}};
-    }
-    _interpret_token(stmt, vardict);
-    // Shift offset iterator past the interpreted statement
-    it = dot + 1;
-  }
-}
-
-void
-prolog_parser::_interpret_token(const token &stmt, const dictionary &vardict)
-{
-  switch (stmt.type)
-  {
-    case predicate:
-    {
-      const object_view resobj = std::get<object>(stmt.val);
-      auto it = resobj.begin();
-      basic_decoder dc;
-      const object_view sign = dc.decode_object(it);
-      const object_view body = dc.decode_object(it);
-      m_pl.add_predicate(sign, body);
-      break;
-    }
-
-    case statement:
-    {
-      const object_view sign = std::get<object>(stmt.val);
-      m_pl.add_predicate(sign);
-      break;
-    }
-
-    default:
-      throw std::runtime_error {"can't interpret given token"};
-  }
-
-}
-
 
 
 object

@@ -71,7 +71,7 @@ class lib_tabulate {
   _unsnapshot(object_view snapshot)
   {
     state_saver _ {m_cache};
-    return m_cache.unallocate(obj);
+    return m_cache.unallocate(snapshot);
   }
 
   private:

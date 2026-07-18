@@ -57,12 +57,6 @@ class prolog_parser {
   { return m_pl.symbols(); }
 
   private:
-  void
-  _load(std::istream &in);
-
-  void
-  _interpret_token(const token &stmt, const dictionary &vardict);
-
   std::pair<object, object>
   _parse_first_stmt(dictionary &vardict, object_view toklist);
 
