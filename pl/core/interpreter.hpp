@@ -185,7 +185,7 @@ class interpreter: public runtime {
 
   void
   make_true(runtime &rt, object_view expr, const continuation &cont)
-  { _make_true(rt, expr, cont); }
+  { _make_true(rt, 0, expr.begin(), cont); }
 
   template <typename Object>
   object
@@ -207,7 +207,7 @@ class interpreter: public runtime {
 
   private:
   void
-  _make_true(runtime &rt, object_view e, const continuation &cont);
+  _make_true(runtime &rt, size_t _, object_iterator e, const continuation &cont);
 
   void
   _make_true__and(runtime &rt, size_t i, object_iterator eit,
@@ -218,10 +218,12 @@ class interpreter: public runtime {
                  const continuation &cont);
 
   void
-  _make_true__if(runtime &rt, object_iterator eit,  const continuation &cont);
-  
+  _make_true__if(runtime &rt, size_t _, object_iterator eit,
+                 const continuation &cont);
+
   void
-  _make_true__predicate(runtime &rt, object_view e, const continuation &cont);
+  _make_true__predicate(runtime &rt, size_t _, object_iterator e,
+                        const continuation &cont);
 
   private:
   // arxt::radixhash_node<word_t, object> m_predicates;
