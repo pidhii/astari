@@ -236,12 +236,27 @@ prolog_parser::tokenize(std::string_view text)
   return {list, vardict};
 }
 
+tokens
+prolog_parser::tokenize(std::istream &in)
+{
+  const std::string text {std::istreambuf_iterator<char>(in),
+                          std::istreambuf_iterator<char>()};
+  return tokenize(text);
+}
 
 object
 prolog_parser::tokenize(dictionary &vardict, std::string_view text)
 {
   object list = _tokenize(m_pl, vardict, text);
   return list;
+}
+
+object
+prolog_parser::tokenize(dictionary &vardict, std::istream &in)
+{
+  const std::string text {std::istreambuf_iterator<char>(in),
+                          std::istreambuf_iterator<char>()};
+  return tokenize(vardict, text);
 }
 
 

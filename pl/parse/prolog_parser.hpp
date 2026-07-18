@@ -30,11 +30,15 @@ class prolog_parser {
   object
   parse_one_stmt(dictionary &symbols, tokens &toks);
 
-  tokens
-  tokenize(std::string_view text);
+  template <typename OIter>
+  void
+  parse_stmts(dictionary &symbols, tokens &toks, OIter stmts)
+  { while (toks.list.size() > 1) *stmts++ = parse_one_stmt(symbols, toks); }
 
-  object
-  tokenize(dictionary &vardict, std::string_view text);
+  tokens tokenize(std::string_view text);
+  object tokenize(dictionary &vardict, std::string_view text);
+  tokens tokenize(std::istream &in);
+  object tokenize(dictionary &vardict, std::istream &in);
 
   void
   tokenize_more(tokens &tokens, std::string_view text);
