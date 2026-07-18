@@ -4,6 +4,9 @@ project(astari VERSION 0.1.0)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_EXPORT_COMPILE_COMMANDS TRUE)
 
+set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS} -Ofast")
+set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS} -O0 -ggdb -foptimize-sibling-calls")
+
 enable_testing()
 
 set(astari_packages "")
@@ -40,8 +43,8 @@ macro(make_astari_package package_name)
   endif ()
 endmacro()
 
-# include_directories(${PROJECT_SOURCE_DIR})
 add_subdirectory(pl)
+add_subdirectory(apps)
 
 message(STATUS "astari packages: ${astari_packages}")
 
@@ -52,7 +55,3 @@ set_target_properties(astari_shared PROPERTIES OUTPUT_NAME astari)
 add_library(astari_static STATIC ${astari_objects})
 install (TARGETS astari_static DESTINATION lib)
 set_target_properties(astari_static PROPERTIES OUTPUT_NAME astari)
-
-add_executable(astari_main main.cpp)
-target_link_libraries(astari_main PUBLIC astari_static)
-target_include_directories(astari_main PRIVATE ${PROJECT_SOURCE_DIR})

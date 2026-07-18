@@ -1,10 +1,12 @@
 #include "pl/coding/basic_decoder.hpp"
 #include "pl/core/runtime.hpp"
+#include "pl/misc/display.hpp"
 #include "pl/obj/object.hpp"
 
 #include <cassert>
 #include <compare>
 #include <unordered_set>
+#include <iostream>
 
 
 using memory_entry = std::pair<object_iterator, object_iterator>;
@@ -60,6 +62,8 @@ _compare(runtime &rt, object_iterator &lhs, object_iterator &rhs,
       dc.decode(rhs[0], rhsvar);
       if (rt.bound(lhsvar.id, rhsvar.id))
         return std::strong_ordering::equal;
+      else
+        return lhs[0] <=> rhs[0];
     }
 
     if (is_nonterminal(lhs[0]))
@@ -114,8 +118,9 @@ _compare(runtime &rt, object_iterator &lhs, object_iterator &rhs,
 
 
 std::strong_ordering
-compare(runtime &rt, object_iterator lhs, object_iterator rhs)
+compare(runtime &rt, object_view lhs, object_view rhs)
 {
   std::unordered_set<memory_entry, memhash> mem;
-  return _compare(rt, lhs, rhs, mem);
+  object_iterator a = lhs.begin(), b = rhs.begin();
+  return _compare(rt, a, b, mem);
 }

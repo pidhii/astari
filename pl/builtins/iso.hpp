@@ -4,6 +4,8 @@
 #include "pl/core/interpreter.hpp"
 #include "pl/dictionary.hpp"
 #include "pl/misc/display.hpp"
+#include "pl/obj/object.hpp"
+#include "pl/parse/lexer.hpp"
 #include "utl/state_saver.hpp"
 
 #include <map>
@@ -38,11 +40,12 @@ struct iso_io {
   {
     // current_output/1
     pl.add_meta_op("current_output", [&](runtime &rt, int argc,
-                                        object_iterator argv,
-                                        const continuation &cont) {
+                                         object_iterator argv,
+                                         const continuation &cont) {
       assert_arity(pl, "current_output", argc, 1);
       basic_decoder dc;
-      if (rt.match(dc.decode_object(argv), current_output))
+      const object_view x = dc.decode_object(argv);
+      if (rt.match(x, current_output))
         cont(rt);
     });
   }
@@ -77,6 +80,8 @@ void iso_term_comparison(interpreter &pl);
 
 void iso_arithmetics(interpreter &pl);
 
+void iso_term_creation_and_decomposition(interpreter &pl);
+
 struct iso {
   iso_io io;
 
@@ -107,10 +112,19 @@ struct iso {
       const object_view goal = dc.decode_object(argv);
       const object_view catcher = dc.decode_object(argv);
       const object_view handler = dc.decode_object(argv);
+      struct pass { exception exn; };
       try
       {
         state_saver _ {rt};
-        pl.make_true(rt, goal, cont);
+        pl.make_true(rt, goal, [cont](runtime &rt) {
+          try { cont(rt); }
+          catch (const exception &exn)
+          { throw pass {exn}; }
+        });
+      }
+      catch (const pass &pass)
+      {
+        throw pass.exn;
       }
       catch (const exception &exn)
       {
@@ -126,29 +140,28 @@ struct iso {
     // Logic and Control
     //
     pl << R"(
-      \+ Goal :-
-        Goal -> fail;
-        true.
+      \+ Goal :- Goal -> fail; true.
 
       repeat.
       repeat :-
         repeat.
     )";
     // once/1
-    pl.add_meta_op("once", [&](runtime &rt, int argc, object_iterator argv,
-                               const continuation &cont) {
+  pl.add_meta_op("once", [&](runtime &rt, int argc, object_iterator argv,
+                              const continuation &cont) {
+    assert_arity(pl, "once", argc, 1);
+    struct cut { };
+    try
+    {
       basic_decoder dc;
-      assert_arity(pl, "once", argc, 1);
-      word_t *once = rt.allocate(1);
-      *once = false;
-      pl.make_true(rt, dc.decode_object(argv), [&](runtime &rt) {
-        if (not *once)
-        {
-          cont(rt);
-          *once = true;
-        }
+      const object_view expr = dc.decode_object(argv);
+      pl.make_true(rt, expr, [cont](runtime &rt) {
+        cont(rt);
+        throw cut {};
       });
-    });
+    }
+    catch (cut) { }
+  });
 
     ////////////////////////////////////////////////////////////////////////////
     // Unification
@@ -156,8 +169,7 @@ struct iso {
     pl << R"(
       X = X.
 
-      X \= Y :-
-        \+ X = Y.
+      X \= Y :- \+ X = Y.
     )";
 
     ////////////////////////////////////////////////////////////////////////////
@@ -184,5 +196,8 @@ struct iso {
 
     // Arithmetics
     iso_arithmetics(pl);
+
+    // Term Creation and Decomposition
+    iso_term_creation_and_decomposition(pl);
   }
 };

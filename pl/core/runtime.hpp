@@ -44,6 +44,12 @@ class runtime: public object_allocator {
   std::optional<object_iterator>
   dereference(size_t varid);
 
+  object_iterator
+  reduce(object_iterator x);
+
+  object_view
+  reduce(object_view x);
+
   bool
   bind(size_t lhsid, size_t rhsid) noexcept
   { return m_dsf.join(lhsid, rhsid); }

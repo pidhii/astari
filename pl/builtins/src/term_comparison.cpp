@@ -12,9 +12,8 @@ iso_term_comparison(interpreter &pl)
                            const continuation &cont) {                         \
     assert_arity(pl, name, argc, 2);                                           \
     basic_decoder dc;                                                          \
-    const object_iterator lhs = argv;                                          \
-    dc.decode_object(argv);                                                    \
-    const object_iterator rhs = argv;                                          \
+    const object_view lhs = rt.reduce(dc.decode_object(argv));                 \
+    const object_view rhs = rt.reduce(dc.decode_object(argv));                 \
     if (compare(rt, lhs, rhs) op 0)                                            \
       cont(rt);                                                                \
   });

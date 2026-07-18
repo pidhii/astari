@@ -26,6 +26,11 @@ term(std::string_view name)
 { return {name}; }
 
 
+struct var {
+  var(std::string_view name): name {name} { }
+  std::string name;
+};
+
 template <typename OutIter>
 class tape_writer: public basic_encoder {
   public:
@@ -43,6 +48,13 @@ class tape_writer: public basic_encoder {
     const uint64_t id = m_dict[sh.name];
     *m_oit++ = encode(term_header {id, sizeof...(Fields)});
     _encode_fields<0>(sh.fields);
+    return *this;
+  }
+
+  tape_writer &
+  operator << (const var &var)
+  {
+    *m_oit++ = encode(nonterminal {m_vardict[var.name]});
     return *this;
   }
 
@@ -83,6 +95,7 @@ class tape_writer: public basic_encoder {
 
   private:
   dictionary &m_dict;
+  dictionary m_vardict;
   OutIter m_oit;
 };
 

@@ -1,4 +1,7 @@
 #include "iso.hpp"
+#include "pl/coding/basic_decoder.hpp"
+#include "pl/dictionary.hpp"
+#include "pl/obj/object.hpp"
 
 
 void
@@ -8,13 +11,10 @@ iso_type_testing(interpreter &pl)
   pl.add_meta_op("var", [&](runtime &rt, int argc, object_iterator argv,
                             const continuation &cont) {
     assert_arity(pl, "var", argc, 1);
-    if (not is_nonterminal(argv[0]))
-      return;
-    nonterminal var;
-    basic_decoder().decode(argv[0], var);
-    if (rt.dereference(var.id))
-      return;
-    cont(rt);
+    basic_decoder dc;
+    object_view x = rt.reduce(dc.decode_object(argv));
+    if (is_nonterminal(x[0]))
+      cont(rt);
   });
 
   // atom/1
@@ -65,17 +65,31 @@ iso_type_testing(interpreter &pl)
       cont(rt);
   });
 
-  pl << R"(
-    nonvar(X) :-
-      var(X) -> fail; true.
+  dictionary v;
+  auto var = [&] (std::string_view name) { return nonterminal(v[name]); };
 
-    number(X) :-
-      integer(X); float(X).
+  // nonvar/1
+  //   nonvar(X) :- if(var(X), fail, true).
+  pl.add_predicate(pl.make_term(term("nonvar", var("X"))),
+                   pl.make_term(term("if", term("var", var("X")), term("fail"),
+                                     term("true"))));
 
-    atomic(X) :-
-      atom(X); number(X); string(X).
+  // number/1
+  //   number(X) :- integer(X); float(X).
+  pl.add_predicate(pl.make_term(term("number", var("X"))),
+                   pl.make_term(term(";", term("integer", var("X")),
+                                     term("float", var("X")))));
 
-    compound(X) :-
-      atomic(X) -> fail; nonvar(X).
-  )";
+  // atomic/1
+  //   atomic(X) :- atom(X); number(X); string(X).
+  pl.add_predicate(pl.make_term(term("atomic", var("X"))),
+                   pl.make_term(term(";", term("atom", var("X")),
+                                     term("number", var("X")),
+                                     term("string", var("X")))));
+
+  // compound/1
+  //   compound(X) :- if(atomic(X), fail, nonvar(X)).
+  pl.add_predicate(pl.make_term(term("compound", var("X"))),
+                   pl.make_term(term("if", term("atomic", var("X")),
+                                     term("fail"), term("nonvar", var("X")))));
 }

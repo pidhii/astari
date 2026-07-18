@@ -1,6 +1,7 @@
 #pragma once
 
-#include "../obj/object.hpp"
+#include "pl/dictionary.hpp"
+#include "pl/obj/object.hpp"
 
 #include <istream>
 #include <sstream>
@@ -32,6 +33,8 @@ enum token_type {
   mullike,
 };
 
+class interpreter;
+
 struct token {
   int type;
   std::variant<std::string, object> val;
@@ -50,6 +53,7 @@ struct tokstream {
 class lexer {
   public:
   template <typename OIter>
+  [[deprecated("outdated, use lexer::tokens() or helpers from prolog_parser")]]
   void
   tokenize(std::istream &in, OIter oit)
   {
@@ -64,10 +68,18 @@ class lexer {
   }
 
   template <typename OIter>
+  [[deprecated("outdated, use lexer::tokens() or helpers from prolog_parser")]]
   void
   tokenize(std::string_view str, OIter oit)
   { std::istringstream ss {str.data()}; tokenize(ss, oit); }
 
+  [[deprecated("outdated, use lexer::tokens() or helpers from prolog_parser")]]
+  std::pair<object, size_t>
+  list(interpreter &pl, dictionary &vardict, std::istream &in);
+
+  std::pair<object, size_t>
+  tokens(interpreter &pl, dictionary &vardict, std::istream &in)
+  { return list(pl, vardict, in); }
 
   tokstream
   tokenize(std::istream &in);
@@ -75,4 +87,8 @@ class lexer {
   private:
   token
   _read_token(std::istream &in) const;
+
+  word_t
+  _read_elt(interpreter &pl, dictionary &vardict, std::istream &in,
+            bool &quote) const;
 };

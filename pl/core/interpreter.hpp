@@ -1,5 +1,6 @@
 #pragma once
 
+#include "pl/obj/object.hpp"
 #include "runtime.hpp"
 
 #include "pl/coding/basic_decoder.hpp"
@@ -9,6 +10,7 @@
 #include "pl/parse/object_parser.hpp"
 
 #include <functional>
+#include <iostream>
 
 
 using continuation = std::function<void(runtime&)>;
@@ -47,7 +49,29 @@ class interpreter: public runtime {
 
   public:
   interpreter();
-  
+
+  void
+  debug() const
+  {
+    basic_decoder dc;
+    for (const auto &[w, variants] : m_predicates)
+    {
+      term_header hdr;
+      dc.decode(w, hdr);
+      std::cerr << std::format("  have {}/{}:", m_symdict[hdr.id], hdr.arity)
+                << std::endl;
+      for (const auto &[s, b] : variants)
+      {
+        if (b.empty())
+          std::clog << "  - " << dump(s) << "." << std::endl;
+        else
+          std::clog << "  - " << dump(s) << " :- " << dump(b) << std::endl;
+      }
+    }
+    for (const auto &[id, _] : m_metaops)
+      std::cerr << std::format("  have {}/*:", m_symdict[id]) << std::endl;
+  }
+
   dictionary &
   symbols() noexcept
   { return m_symdict; }
@@ -64,11 +88,21 @@ class interpreter: public runtime {
     return {p, buf.size()};
   }
 
+  template <typename ...Args>
+  object
+  make_term_noalloc(Args &&...args)
+  {
+    object buf;
+    tape_writer tape {std::back_inserter(buf), symbols()};
+    tape.operator<<(std::forward<Args>(args)...);
+    return buf;
+  }
+
   void
-  add_predicate(std::string_view sign, std::string_view body);
-  
+  add_predicate(object_view sign, object_view body);
+
   void
-  add_predicate(std::string_view sign);
+  add_predicate(object_view sign);
 
   void
   add_meta_op(std::string_view name, const meta_op_handle &handle);
@@ -93,7 +127,7 @@ class interpreter: public runtime {
 
   void
   operator << (std::string_view str)
-  { std::istringstream ss {str.data()}; load(ss); }
+  { std::istringstream ss {str.data(), std::ios_base::binary}; load(ss); }
 
   void
   load_file(std::string_view path);
@@ -104,10 +138,20 @@ class interpreter: public runtime {
   void
   eval(object_view obj, const dictionary &vardict);
 
+  void
+  eval(std::string_view expr);
+
+  void
+  interpret(object_view stmt, const dictionary &vardict = {});
+
+  std::string
+  dump(object_view obj) const
+  { return dump_object(m_symdict, obj); }
+
   using solution = std::unordered_map<std::string_view, object>;
 
   template <typename Cont>
-  void
+  [[deprecated("Probably doesnt work")]] void
   make_true(std::string_view exprstr, const Cont &cont)
   {
     dictionary vardict;
@@ -144,6 +188,16 @@ class interpreter: public runtime {
   { _make_true(rt, expr, cont); }
 
   template <typename Object>
+  object
+  make(Object what)
+  {
+    object term;
+    tape_writer tape {std::back_inserter(term), m_symdict};
+    tape << what;
+    return term;
+  }
+
+  template <typename Object>
   [[noreturn]] void
   raise(Object what);
 
@@ -152,9 +206,6 @@ class interpreter: public runtime {
   number(runtime &rt, object_iterator x, Cont &&c);
 
   private:
-  void
-  _interpret(const token &stmt, const dictionary &vardict = {});
-
   void
   _make_true(runtime &rt, object_view e, const continuation &cont);
 
@@ -174,7 +225,7 @@ class interpreter: public runtime {
 
   private:
   // arxt::radixhash_node<word_t, object> m_predicates;
-  std::unordered_multimap<word_t, std::pair<object, object>> m_predicates;
+  std::unordered_map<word_t, std::vector<std::pair<object, object>>> m_predicates;
   std::unordered_map<size_t, meta_op_handle> m_metaops;
   dictionary m_symdict;
 }; // class interpreter
@@ -240,4 +291,85 @@ interpreter::number(runtime &rt, object_iterator x, Cont &&c)
       raise(term("type_error", term("number"), dc.decode_object(x)));
       return;
   }
+}
+
+static object
+make_list(interpreter &pl, runtime &rt, size_t n, object_iterator it)
+{
+  basic_encoder ec;
+  basic_decoder dc;
+  const word_t nil0 = ec.encode(term_header(pl.symbols()["nil"], 0));
+  const word_t cons2 = ec.encode(term_header(pl.symbols()["cons"], 2));
+
+  object buf;
+  while (n--)
+  {
+    buf += cons2;
+    buf += rt.reduce(dc.decode_object(it));
+  }
+  buf += nil0;
+
+  return buf;
+}
+
+
+static std::pair<object, size_t>
+unmake_list(interpreter &pl, runtime &rt, object_iterator it)
+{
+  basic_encoder ec;
+  basic_decoder dc;
+  const word_t nil0 = ec.encode(term_header(pl.symbols()["nil"], 0));
+  const word_t cons2 = ec.encode(term_header(pl.symbols()["cons"], 2));
+
+  size_t n = 0;
+  object buf;
+  for (it = rt.reduce(it); *it != nil0; it = rt.reduce(it))
+  {
+    assert(*it++ == cons2);
+    buf += rt.reduce(dc.decode_object(it));
+    n++;
+  }
+
+  return {buf, n};
+}
+
+
+static object
+make_list(interpreter &pl, size_t n, object_iterator it)
+{
+  basic_encoder ec;
+  basic_decoder dc;
+  const word_t nil0 = ec.encode(term_header(pl.symbols()["nil"], 0));
+  const word_t cons2 = ec.encode(term_header(pl.symbols()["cons"], 2));
+
+  object buf;
+  while (n--)
+  {
+    buf += cons2;
+    buf += dc.decode_object(it);
+  }
+  buf += nil0;
+
+  return buf;
+}
+
+
+static std::pair<object, size_t>
+unmake_list(interpreter &pl, object_iterator it)
+{
+  basic_encoder ec;
+  basic_decoder dc;
+  const word_t nil0 = ec.encode(term_header(pl.symbols()["nil"], 0));
+  const word_t cons2 = ec.encode(term_header(pl.symbols()["cons"], 2));
+
+  size_t n = 0;
+  object buf;
+  while (*it != nil0)
+  {
+    assert(*it++ == cons2);
+    buf += dc.decode_object(it);
+    n++;
+  }
+
+  return {buf, n};
 }

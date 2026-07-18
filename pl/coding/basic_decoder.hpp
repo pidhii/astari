@@ -71,3 +71,11 @@ class basic_decoder {
     return n;
   }
 };
+
+
+inline bool
+is_term_n(word_t word, int arity)
+{
+  const word_t expect = (word_t(arity) << 8) | word_t(0b01);
+  return (word & 0b1111111100000011) == expect;
+}

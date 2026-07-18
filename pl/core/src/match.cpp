@@ -5,8 +5,8 @@
 bool
 matcher::_match(object_iterator &lhs, object_iterator &rhs)
 {
-  if (not m_memory.insert(std::make_pair(lhs, rhs)).second)
-    return true;
+  // if (not m_memory.insert(std::make_pair(lhs, rhs)).second)
+  //   return true;
 
   // Special case when both are nonterminals (includes optimization)
   if (word_type(*lhs) == word_type::nonterminal and
@@ -45,6 +45,7 @@ matcher::_match(object_iterator &lhs, object_iterator &rhs)
     else
     {
       const object_view obj = m_decoder.decode_object(rhs);
+      assert(not obj.empty());
       m_runtime.assign(var.id, obj.begin());
       return true;
     }

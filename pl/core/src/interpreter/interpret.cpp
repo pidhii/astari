@@ -2,15 +2,18 @@
 
 #include "pl/dictionary.hpp"
 #include "pl/misc/display.hpp"
-#include "pl/parse/syntax_parser.hpp"
+#include "pl/parse/parse_error.hpp"
+#include "pl/misc/show_location.hpp"
+#include "pl/parse/prolog_parser.hpp"
 
-#include <iostream>
 #include <fstream>
+#include <iostream>
+#include <iterator>
+
 
 
 #define ERROR(fmt, ...)                                                        \
   throw std::runtime_error { std::format(fmt, ##__VA_ARGS__) }
-
 
 void
 interpreter::load_file(std::string_view path)
@@ -20,34 +23,30 @@ interpreter::load_file(std::string_view path)
     ERROR("failed to open file for reading ({})", path);
 
   try { load(file); }
+  catch (const parse_error &exn)
+  {
+    show_location(std::cerr, path, exn.where.first, exn.where.second, 2);
+    throw;
+  }
   catch (const std::exception &exn)
-  { ERROR("failed to load file {} ({})", path, exn.what()); }
+  {
+    ERROR("failed to load file {} ({})", path, exn.what());
+  }
 }
 
 
 void
 interpreter::load(std::istream &in)
 {
-  const tokstream tokens = lexer().tokenize(in);
+  prolog_parser p;
+  std::string text {std::istreambuf_iterator<char>(in),
+                    std::istreambuf_iterator<char>()};
+  tokens toks = p.tokenize(text);
 
-  auto it = tokens.tokens.begin();
-  while (it != tokens.tokens.end())
+  while (toks.list.size() > 1)
   {
-    // Find statement boundary
-    const auto dot = std::find(it, tokens.tokens.end(), token {'.', "."});
-    if (dot == tokens.tokens.end())
-      ERROR("unterminated syntax");
-
-    // Parse and interpret one statement
-    dictionary vardict;
-    syntax_parser stxparser {m_symdict, vardict};
-    load_default_grammar(stxparser);
-    stxparser.load(it, dot + 1);
-    const token stmt = stxparser.parse();
-    _interpret(stmt, vardict);
-
-    // Shift offset iterator past the interpreted statement
-    it = dot + 1;
+    const object obj = p.parse_one_stmt(m_symdict, toks);
+    interpret(obj);
   }
 }
 
@@ -55,6 +54,7 @@ interpreter::load(std::istream &in)
 void
 interpreter::eval(object_view obj, const dictionary &vardict)
 {
+  std::cout << "[eval] " << dump_object(m_symdict, obj) << std::endl;
   varnamespace ns;
   const object_view expr = adopt(ns, obj);
   make_true(expr, [this, ns, vardict](runtime &rt) {
@@ -81,54 +81,40 @@ interpreter::eval(object_view obj, const dictionary &vardict)
 
 
 void
-interpreter::_interpret(const token &stmt, const dictionary &vardict)
+interpreter::eval(std::string_view text)
 {
-  switch (stmt.type)
+  prolog_parser p;
+  dictionary vardict;
+  const object expr = p.parse_expr(m_symdict, vardict, text);
+  eval(expr, vardict);
+}
+
+
+void
+interpreter::interpret(object_view stmt, const dictionary &vardict)
+{
+  assert(not stmt.empty());
+
+  basic_encoder ec;
+  basic_decoder dc;
+  #define ATOM(name, arity) ec.encode(term_header(m_symdict[name], arity))
+  #define ARITY(term) dc.decode_term_header(term).arity
+
+  if (stmt[0] == ATOM(":-", 2)) // Predicate
   {
-    case predicate:
-    {
-      const object_view resobj = std::get<object>(stmt.val);
-      auto it = resobj.begin();
-      basic_decoder dc;
-      const object_view sign = dc.decode_object(it);
-      const object_view body = dc.decode_object(it);
-      m_predicates.emplace(sign[0], std::make_pair(sign, body));
-      break;
-    }
-
-    case statement:
-    {
-      const object_view sign = std::get<object>(stmt.val);
-      m_predicates.emplace(sign[0], std::make_pair(sign, object_view {}));
-      break;
-    }
-
-    case directive:
-    {
-      basic_decoder dc;
-      const object_view term = std::get<object>(stmt.val);
-      if (not is_term(term[0]))
-        ERROR("invalid directive ({})", dump_object(m_symdict, term));
-      term_header hdr;
-      dc.decode(term[0], hdr);
-
-      // initialization/1
-      if (m_symdict[hdr.id] == "initialization" and hdr.arity == 1)
-      {
-        const object_view goal = dc.decode_object(term.begin() + 1);
-        eval(goal, vardict);
-        break;
-      }
-
-      ERROR("invalid directive ({}/{})", m_symdict[hdr.id], hdr.arity);
-    }
-
-    case obj:
-    {
-      varnamespace ns;
-      const object_view obj = std::get<object>(stmt.val);
-      eval(obj, vardict);
-      break;
-    }
+    auto it = stmt.begin() + 1;
+    const object_view sign = dc.decode_object(it);
+    const object_view body = dc.decode_object(it);
+    add_predicate(sign, body);
+    return;
   }
+
+  if (is_term(stmt[0])) // Statement
+  {
+    add_predicate(stmt);
+    return;
+  }
+
+  throw std::runtime_error {
+      std::format("can't interpret {}", dump_object(m_symdict, stmt))};
 }

@@ -3,6 +3,7 @@
 
 #include "pl/coding/basic_decoder.hpp"
 #include "pl/coding/basic_encoder.hpp"
+#include "pl/obj/object.hpp"
 
 
 object_view
@@ -115,14 +116,47 @@ runtime::_reconstruct(object_iterator &in, OutputIter &out)
     {
       nonterminal var;
       basic_decoder().decode(*in++, var);
-      if (const auto val = dereference(var.id))
+      const size_t id = m_dsf.find(var.id);
+      if (const auto val = dereference(id))
       {
         auto it = *val;
         _reconstruct(it, out);
       }
       else
-        *out++ = basic_encoder().encode(nonterminal {var.id});
+        *out++ = basic_encoder().encode(nonterminal {id});
       return;
     }
   }
+}
+
+
+object_iterator
+runtime::reduce(object_iterator x)
+{
+  if (is_nonterminal(x[0]))
+  {
+    basic_decoder dc;
+    nonterminal var;
+    dc.decode(x[0], var);
+    if (auto val = dereference(var.id))
+      return val.value();
+  }
+
+  return x;
+}
+
+
+object_view
+runtime::reduce(object_view x)
+{
+  if (is_nonterminal(x[0]))
+  {
+    basic_decoder dc;
+    nonterminal var;
+    dc.decode(x[0], var);
+    if (auto val = dereference(var.id))
+      return dc.decode_object(val.value());
+  }
+
+  return x;
 }

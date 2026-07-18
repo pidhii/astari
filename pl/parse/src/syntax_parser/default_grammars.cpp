@@ -262,14 +262,14 @@ load_default_grammar(syntax_parser &stxparser)
   stxparser.add_grammar<generic_grammar>(
     left, [&](token_iterator it) -> token {
       object result;
-      result += TERM("", 0);
+      result += TERM("()", 0);
       return {obj, result};
     }, '(', ')'
   );
   stxparser.add_grammar<generic_grammar>(
     left, [&](token_iterator it) -> token {
       object result;
-      result += TERM("", 1);
+      result += TERM(",", 1);
       result += OBJ(it[1]);
       return {obj, result};
     }, '(', obj, ')'
@@ -277,7 +277,7 @@ load_default_grammar(syntax_parser &stxparser)
   stxparser.add_grammar<generic_grammar>(
     left, [&](token_iterator it) -> token {
       object result;
-      result += TERM("", LEN(OBJ(it[1])));
+      result += TERM(",", LEN(OBJ(it[1])));
       result += OBJ(it[1]);
       return {obj, result};
     }, '(', andseq, ')'
@@ -370,7 +370,7 @@ load_default_grammar(syntax_parser &stxparser)
       andseq, left,
       [&](const object_view &x) -> token {
         object result;
-        result += TERM("", LEN(x));
+        result += TERM(",", LEN(x));
         result += x;
         return token {obj, result};
       }
@@ -397,7 +397,7 @@ load_default_grammar(syntax_parser &stxparser)
         object result;
         result += TERM("if", 3);
         result += ifthen;
-        result += TERM("or", LEN(orseq));
+        result += TERM(";", LEN(orseq));
         result += orseq;
         return token {obj, result};
       }
@@ -422,7 +422,7 @@ load_default_grammar(syntax_parser &stxparser)
       orseq, left,
       [&](object_view x) -> token {
         object result;
-        result += TERM("or", LEN(x));
+        result += TERM(";", LEN(x));
         result += x;
         return token {obj, result};
       }

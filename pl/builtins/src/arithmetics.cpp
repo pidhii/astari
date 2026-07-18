@@ -1,6 +1,7 @@
 #include "iso.hpp"
 #include "pl/coding/basic_decoder.hpp"
 #include "pl/core/interpreter.hpp"
+#include "pl/obj/object.hpp"
 
 
 // unsigned + signed = signed
@@ -21,20 +22,21 @@ eval(interpreter &pl, runtime &rt, int argc, object_iterator argv, OType acc, Op
     return {p, 1};
   }
 
+  object_iterator x = argv;
   if (is_nonterminal(argv[0]))
   {
     nonterminal var;
     dc.decode(argv[0], var);
     if (auto xval = rt.dereference(var.id))
-      argv = xval.value();
+      x = xval.value();
   }
 
-  switch (word_type(argv[0]))
+  switch (word_type(x[0]))
   {
     case word_type::signed_int_number:
     {
       int val;
-      dc.decode(argv[0], val);
+      dc.decode(x[0], val);
       if constexpr (std::is_same_v<OType, unsigned>)
         return eval<Op>(pl, rt, argc - 1, argv + 1, op(int(acc), int(val)), op);
       else if constexpr (std::is_same_v<OType, float>)
@@ -46,7 +48,7 @@ eval(interpreter &pl, runtime &rt, int argc, object_iterator argv, OType acc, Op
     case word_type::unsigned_int_number:
     {
       unsigned val;
-      dc.decode(argv[0], val);
+      dc.decode(x[0], val);
       if constexpr (std::is_same_v<OType, int>)
         return eval<Op>(pl, rt, argc - 1, argv + 1, op(int(acc), int(val)), op);
       else if constexpr (std::is_same_v<OType, float>)
@@ -58,12 +60,12 @@ eval(interpreter &pl, runtime &rt, int argc, object_iterator argv, OType acc, Op
     case word_type::float_number:
     {
       float val;
-      dc.decode(argv[0], val);
+      dc.decode(x[0], val);
       return eval<Op>(pl, rt, argc - 1, argv + 1, op(float(acc), float(val)), op);
     }
 
     default:
-      pl.raise(term("type_error", term("number"), dc.decode_object(argv)));
+      pl.raise(term("type_error", term("number"), dc.decode_object(x)));
   }
 }
 
@@ -76,41 +78,42 @@ eval_(interpreter &pl, runtime &rt, int argc, object_iterator argv, Op op = Op {
   if (argc <= 0)
     pl.raise(term("arity_error", term("arithmetics")));
 
+  object_iterator x = argv;
   if (is_nonterminal(argv[0]))
   {
     nonterminal var;
     dc.decode(argv[0], var);
     if (auto xval = rt.dereference(var.id))
-      argv = xval.value();
+      x = xval.value();
     else
       pl.raise(term("instantiation_error"));
   }
 
-  switch (word_type(argv[0]))
+  switch (word_type(x[0]))
   {
     case word_type::signed_int_number:
     {
       int val;
-      dc.decode(argv[0], val);
+      dc.decode(x[0], val);
       return eval<Op>(pl, rt, argc - 1, argv + 1, val, op);
     }
 
     case word_type::unsigned_int_number:
     {
       unsigned val;
-      dc.decode(argv[0], val);
+      dc.decode(x[0], val);
       return eval<Op>(pl, rt, argc - 1, argv + 1, val, op);
     }
 
     case word_type::float_number:
     {
       float val;
-      dc.decode(argv[0], val);
+      dc.decode(x[0], val);
       return eval<Op>(pl, rt, argc - 1, argv + 1, val, op);
     }
 
     default:
-      pl.raise(term("type_error", term("number"), dc.decode_object(argv)));
+      pl.raise(term("type_error", term("number"), dc.decode_object(x)));
   }
 }
 
@@ -209,7 +212,16 @@ iso_arithmetics(interpreter &pl)
   DEFINE_CMP("numle", <=)
   DEFINE_CMP("numge", >=)
 
+    // %eval(Result, Expr) :-
+    // %  Expr = X + Y  -> Lhs is X, Rhs is Y, sum(Lhs, Rhs, Result);
+    // %  Expr = X - Y  -> Lhs is X, Rhs is Y, sub(Lhs, Rhs, Result);
+    // %  Expr = X * Y  -> Lhs is X, Rhs is Y, prod(Lhs, Rhs, Result);
+    // %  Expr = X / Y  -> Lhs is X, Rhs is Y, fdiv(Lhs, Rhs, Result);
+    // %  Expr = X // Y -> Lhs is X, Rhs is Y, idiv(Lhs, Rhs, Result);
+    // %  throw(type_error(evaluable, Expr)).
+
   pl << R"(
+
     Result is Expr :-
       number(Expr)  -> Result = Expr;
       Expr = X + Y  -> Lhs is X, Rhs is Y, sum(Lhs, Rhs, Result);

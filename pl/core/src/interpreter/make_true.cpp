@@ -1,7 +1,11 @@
 #include "interpreter.hpp"
 #include "match.hpp"
 
+#include "pl/misc/display.hpp"
+#include "pl/obj/object.hpp"
 #include "utl/state_saver.hpp"
+
+#include <iostream>
 
 
 void
@@ -25,7 +29,11 @@ interpreter::_make_true(runtime &rt, object_view e, const continuation &cont)
           return;
 
         case op_if:
-          _make_true__if(rt, e.begin() + 1, cont);
+          assert(hdr.arity == 3);
+          if (hdr.arity == 3)
+            _make_true__if(rt, e.begin() + 1, cont);
+          else
+            _make_true__and(rt, 2, e.begin() + 1, cont);
           return;
 
         case op_fail:
@@ -101,6 +109,7 @@ interpreter::_make_true__if(runtime &rt, object_iterator eit,
 
   const object_view econd = dc.decode_object(eit);
   const object_view ethen = dc.decode_object(eit);
+  const object_view eelse = dc.decode_object(eit);
   const continuation thencont = [this, condp, ethen, cont] (runtime &rt) {
     *condp = 1;
     _make_true(rt, ethen, cont);
@@ -112,10 +121,7 @@ interpreter::_make_true__if(runtime &rt, object_iterator eit,
   }
 
   if (*condp == 0)
-  {
-    const object_view eelse = dc.decode_object(eit);
     _make_true(rt, eelse, cont);
-  }
 }
 
 
@@ -124,16 +130,35 @@ interpreter::_make_true__predicate(runtime &rt, object_view e,
                                    const continuation &cont)
 {
   basic_decoder dc;
-  const auto begin = m_predicates.find(e[0]);
-  if (begin != m_predicates.end())
+  const auto it = m_predicates.find(e[0]);
+  if (it != m_predicates.end())
   {
-    const size_t b = m_predicates.bucket(e[0]);
-    size_t n = m_predicates.bucket_size(b);
-    for (auto it = m_predicates.begin(b); n--; ++it)
+    const std::vector<std::pair<object, object>> &variants = it->second;
+    size_t n = variants.size();
+    for (const auto [sign, body] : variants)
     { // TODO: (opt) no need to lock RT state before the last / single option
+      if (n-- == 1)
+      {
+        varnamespace ns;
+        const object_view predsign = rt.adopt(ns, sign);
+        matcher match {rt, dc};
+        if (match(e, predsign))
+        {
+          if (not body.empty())
+          {
+            const object_view predbody = rt.adopt(ns, body);
+            return _make_true(rt, predbody, cont);
+          }
+          else
+            return cont(rt);
+        }
+        else
+          rt.unallocate(predsign);
+        return;
+      }
+
       state_saver _ {rt};
       varnamespace ns;
-      const auto &[sign, body] = it->second;;
       const object_view predsign = rt.adopt(ns, sign);
       matcher match {rt, dc};
       if (match(e, predsign))
@@ -152,13 +177,24 @@ interpreter::_make_true__predicate(runtime &rt, object_view e,
   }
   else
   {
-    state_saver _ {rt};
     term_header hdr;
     dc.decode(e[0], hdr);
     const auto it = m_metaops.find(hdr.id);
     if (it == m_metaops.end())
+    {
+      std::cerr << std::format("no such predicate ({}/{})", m_symdict[hdr.id], hdr.arity) << std::endl;
+      for (const auto &[w, _] : m_predicates)
+      {
+        term_header hdr;
+        dc.decode(w, hdr);
+        std::cerr << std::format("  have {}/{}", m_symdict[hdr.id], hdr.arity)
+                  << std::endl;
+      }
+
       throw std::runtime_error {
-          std::format("no such predicate ({})", m_symdict[hdr.id])};
+          std::format("no such predicate ({}/{})", m_symdict[hdr.id], hdr.arity)};
+    }
     it->second(rt, hdr.arity, e.begin() + 1, cont);
+    return;
   }
 }

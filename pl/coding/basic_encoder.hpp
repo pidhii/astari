@@ -52,3 +52,11 @@ class basic_encoder {
     return (word_t(nonterm.id) << 8) | word_t(0b11);
   }
 };
+
+
+inline bool
+is_term(word_t word, int id, int arity)
+{
+  basic_encoder ec;
+  return word == ec.encode(term_header(id, arity));
+}

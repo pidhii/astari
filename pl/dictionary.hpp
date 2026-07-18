@@ -32,6 +32,14 @@ class dictionary {
       return "_";
   }
 
+  dictionary
+  subscope() const
+  {
+    dictionary result;
+    result.m_cnt = m_cnt;
+    return result;
+  }
+
   void
   clear() noexcept
   { m_ids.clear(); m_names.clear(); }

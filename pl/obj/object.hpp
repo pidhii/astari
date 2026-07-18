@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <stdexcept>
+#include <string_view>
 
 
 using word_t = uint64_t;
@@ -65,6 +66,22 @@ enum class word_type {
 };
 
 
+[[gnu::pure]] inline std::string_view
+to_string(word_type type)
+{
+  switch (type)
+  {
+    case word_type::blob: return "blob";
+    case word_type::structure: return "structure";
+    case word_type::signed_int_number: return "signed_int_number";
+    case word_type::unsigned_int_number: return "unsigned_int_number";
+    case word_type::float_number: return "float_number";
+    case word_type::nonterminal: return "nonterminal";
+    default: throw std::runtime_error {"invalid word type"};
+  }
+}
+
+
 [[gnu::pure]] inline word_type
 word_type(word_t word)
 {
@@ -126,3 +143,25 @@ string(word_t word)
   return {p->data, p->size};
 }
 
+
+namespace std {
+template <>
+struct hash<object_view> {
+  size_t
+  operator () (object_view x) const noexcept
+  {
+    std::hash<std::string_view> hsh;
+    return hsh({(const char*)x.data(), x.size() * sizeof(word_t)});
+  }
+};
+
+template <>
+struct hash<object> {
+  size_t
+  operator () (const object &x) const noexcept
+  {
+    std::hash<std::string_view> hsh;
+    return hsh({(const char*)x.data(), x.size() * sizeof(word_t)});
+  }
+};
+}

@@ -56,7 +56,61 @@ _dump_object(const dictionary &dict, InIter &it, std::ostream &os)
     {
       term_header hdr;
       dc.decode(*it++, hdr);
-      os << dict[hdr.id];
+      const std::string_view name = dict[hdr.id];
+
+      if (name == "nil" and hdr.arity == 0)
+      {
+        os << "[]";
+        return;
+      }
+
+      if (name == "cons" and hdr.arity == 2)
+      {
+        os << "[";
+        _dump_object(dict, it, os);
+
+        for (;;)
+        {
+          if (word_type(*it) == word_type::structure)
+          {
+            term_header nexthdr;
+            dc.decode(*it, nexthdr);
+            const std::string_view nextname = dict[nexthdr.id];
+
+            if (nextname == "nil" and nexthdr.arity == 0)
+            {
+              ++it;
+              break;
+            }
+
+            if (nextname == "cons" and nexthdr.arity == 2)
+            {
+              ++it;
+              os << ", ";
+              _dump_object(dict, it, os);
+              continue;
+            }
+          }
+
+          // improper list: dump the remaining tail after a '|'
+          os << " | ";
+          _dump_object(dict, it, os);
+          break;
+        }
+
+        os << "]";
+        return;
+      }
+
+      if (name.empty())
+      {
+        if (hdr.arity == 0)
+          os << "''";
+      }
+      else if (not std::isalnum(name[0]))
+        os << "'" << name << "'";
+      else
+        os << name;
       if (hdr.arity > 0)
       {
         os << "(";
@@ -69,6 +123,7 @@ _dump_object(const dictionary &dict, InIter &it, std::ostream &os)
       }
       break;
     }
+
     
     case word_type::signed_int_number:
     {

@@ -1,4 +1,9 @@
 #include "lexer.hpp"
+#include "parse_error.hpp"
+
+#include "pl/coding/basic_encoder.hpp"
+#include "pl/core/interpreter.hpp"
+#include "pl/dictionary.hpp"
 
 #include <format>
 
@@ -10,7 +15,10 @@ lexer::tokenize(std::istream &in)
   while (true)
   {
     const std::istream::pos_type pstart = in.tellg();
-    token tok = _read_token(in);
+    token tok;
+    try { tok = _read_token(in); }
+    catch (const std::exception &exn)
+    { throw parse_error {exn.what(), {pstart, pstart + 1l}}; }
     const std::istream::pos_type pend = in.tellg();
     if (tok.type == eof)
       return result;
@@ -191,9 +199,27 @@ lexer::_read_token(std::istream &in) const
   // Skip whitespaces
   while (std::isspace(in.peek())) in.get();
 
+  // Skip comments
+  if (in.peek() == '%')
+  {
+    std::string _line;
+    std::getline(in, _line);
+    return _read_token(in);
+  }
+
   // EOF
   if (not in or in.eof())
     return {eof, ""};
+
+  if (in.peek() == '\'')
+  {
+    in.get();
+    std::string result;
+    while (in and in.peek() != '\'')
+      result += in.get();
+    in.get();
+    return {terminal_symbol, result};
+  }
 
   if (_tryget(in, "->"))
     return {rarrow, "->"};
@@ -290,9 +316,196 @@ lexer::_read_token(std::istream &in) const
   if (_tryget(in, "<")) return {cmplike, "<"};
   if (_tryget(in, ">")) return {cmplike, ">"};
 
+  if (_tryget(in, "=..")) return {assignlike, "=.."};
+
   if (_tryget(in, "=")) return {assignlike, "="};
 
   if (_tryget(in, "\\+")) return {assignlike, "\\+"};
 
   throw std::runtime_error {std::format("invalid symbol ({})", char(in.peek()))};
+}
+
+
+std::pair<object, size_t>
+lexer::list(interpreter &pl, dictionary &vardict, std::istream &in)
+{
+  object result;
+  size_t nelts = 0;
+  while (true)
+  {
+    const std::istream::pos_type pstart = in.tellg();
+    bool quote;
+    word_t elt;
+    try { elt = _read_elt(pl, vardict, in, quote); }
+    catch (const std::exception &exn)
+    { throw parse_error {exn.what(), {pstart, pstart + 1l}}; }
+    const std::istream::pos_type pend = in.tellg();
+    if (elt == 0)
+      return {result, nelts};
+    else
+    {
+      if (quote)
+      {
+        basic_encoder ec;
+        result += ec.encode(term_header(pl.symbols()["q"], 1));
+      }
+      result += elt;
+      nelts++;
+    }
+  }
+}
+
+static word_t
+_make_number(std::string_view x)
+{
+  basic_encoder ec;
+  size_t pos;
+
+  try {
+    const int32_t v = std::stoi(std::string(x), &pos);
+    if (pos == x.size())
+      return ec.encode(v);
+  }
+  catch (...) { }
+
+  try {
+    const float v = std::stof(std::string(x), &pos);
+    if (pos == x.size())
+      return ec.encode(v);
+  }
+  catch (...) { }
+
+  throw std::runtime_error {"can't make number"};
+}
+
+
+word_t
+lexer::_read_elt(interpreter &pl, dictionary &vardict, std::istream &in,
+                 bool &quote) const
+{
+  quote = false;
+
+  basic_encoder ec;
+
+  #define ATOM(name) ec.encode(term_header(pl.symbols()[name], 0))
+  #define VAR(name) ec.encode(nonterminal(vardict[name]))
+  #define NUM(s) _make_number(s)
+
+  // Skip whitespaces
+  while (std::isspace(in.peek())) in.get();
+
+  // Skip comments
+  if (in.peek() == '%')
+  {
+    std::string _line;
+    std::getline(in, _line);
+    return _read_elt(pl, vardict, in, quote);
+  }
+
+  // EOF
+  if (not in or in.eof())
+    return 0;
+
+  if (in.peek() == '\'')
+  {
+    in.get();
+    std::string result;
+    while (in and in.peek() != '\'')
+      result += in.get();
+    in.get();
+    quote = true;
+    return ATOM(result);
+  }
+
+  if (_tryget(in, "->"))
+    return ATOM("->");
+
+  // String literal
+  if (in.peek() == '"')
+  {
+    in.get();
+    return pl.make_string(_read_string(in));
+  }
+
+  if (_trygetword(in, "is")) return ATOM("is");
+
+  // Nonterminal
+  if (std::isupper(in.peek()) or in.peek() == '_')
+  {
+    quote = true;
+    return VAR(_read_word(in));
+  }
+
+  // Terminal
+  if (std::islower(in.peek()))
+    return ATOM(_read_word(in));
+  // Numbers
+  if (_is_number(in))
+    return NUM(_read_number(in));
+  // Comma
+  if (_tryget(in, ","))
+    return ATOM(",");
+  // Open bracket
+  if (_tryget(in, "("))
+    return ATOM("(");
+  // Close bracket
+  if (_tryget(in, ")"))
+    return ATOM(")");
+
+  if (in.peek() == ':')
+  {
+    in.get();
+    if (in.peek() == '-')
+    {
+      in.get();
+      return ATOM(":-");
+    }
+    else
+      return ATOM(":");
+  }
+
+  if (_tryget(in, "."))
+    return ATOM(".");
+
+  if (_tryget(in, "?"))
+    return ATOM("?");
+
+  if (_tryget(in, ";"))
+    return ATOM(";");
+
+  if (_tryget(in, "+")) return ATOM("+");
+  if (_tryget(in, "-")) return ATOM("-");
+  if (_tryget(in, "*")) return ATOM("*");
+  if (_tryget(in, "//")) return ATOM("//");
+  if (_tryget(in, "/")) return ATOM("/");
+
+  if (_tryget(in, "[")) return ATOM("[");
+  if (_tryget(in, "]")) return ATOM("]");
+  if (_tryget(in, "|")) return ATOM("|");
+  if (_tryget(in, "==")) return ATOM("==");
+  if (_tryget(in, "\\==")) return ATOM("\\==");
+  if (_tryget(in, "\\=")) return ATOM("\\=");
+  if (_tryget(in, "@>=")) return ATOM("@>=");
+  if (_tryget(in, "@=<")) return ATOM("@=<");
+  if (_tryget(in, "@>")) return ATOM("@>");
+  if (_tryget(in, "@<")) return ATOM("@<");
+
+  if (_tryget(in, "=:=")) return ATOM("=:=");
+  if (_tryget(in, "=\\=")) return ATOM("=\\=");
+  if (_tryget(in, "=<")) return ATOM("=<");
+  if (_tryget(in, ">=")) return ATOM(">=");
+  if (_tryget(in, "<")) return ATOM("<");
+  if (_tryget(in, ">")) return ATOM(">");
+
+  if (_tryget(in, "=..")) return ATOM("=..");
+
+  if (_tryget(in, "=")) return ATOM("=");
+
+  if (_tryget(in, "\\+")) return ATOM("\\+");
+
+  throw std::runtime_error {std::format("invalid symbol ({})", char(in.peek()))};
+
+  #undef ATOM
+  #undef VAR
+  #undef NUM
 }
