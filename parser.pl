@@ -200,21 +200,21 @@ flatten(var(X), X).
 flatten(func(F, A), Result) :-
   flatten(A, FlatA),
   (
-    nonvar(FlatA), FlatA =.. [',' | Args] -> Result =.. [F | Args];
+    nonvar(FlatA), FlatA \= ',', FlatA =.. [',' | Args] -> Result =.. [F | Args];
     Result =.. [F, FlatA]
   ).
 
 flatten(inbrackets(E), Result) :-
   flatten(E, FlatE),
   (
-    nonvar(FlatE), FlatE =.. [','|Args] -> Result =.. [','|Args];
+    nonvar(FlatE), FlatE \= ',', FlatE =.. [','|Args] -> Result =.. [','|Args];
     Result = FlatE
   ).
 
 flatten(list(E), Result) :-
   flatten(E, FE),
   (
-    nonvar(FE), FE =.. [','|Result] -> true;
+    nonvar(FE), FE \= ',', FE =.. [','|Result] -> true;
     Result = [FE]
   ).
 
@@ -222,7 +222,7 @@ flatten(implist(A, B), Result) :-
   flatten(A, FA),
   flatten(B, FB),
   (
-    nonvar(FA), FA =.. [','|FArgs] -> append(FArgs, FB, Result);
+    nonvar(FA), FA \= ',', FA =.. [','|FArgs] -> append(FArgs, FB, Result);
     Result = [FA|FB]
   ).
 
@@ -230,10 +230,10 @@ flatten(xfx(Lhs, Op, Rhs), Result) :-
   flatten(Lhs, L),
   flatten(Rhs, R),
   (
-    Op = ',', nonvar(R), R =.. [','|T]          -> Result =.. [',', L |T]    ;
-    Op = ';', nonvar(L), L =.. [if, C, T, fail] -> Result =   if(C, T, R)    ;
-    Op = ';', nonvar(R), R =.. [';'|T]          -> Result =.. [';', L |T]    ;
-    Op = '->'                                   -> Result =   if(L, R, fail) ;
+    Op = ',', nonvar(R), R \= ',', R =.. [','|T] -> Result =.. [',', L |T]    ;
+    Op = ';', nonvar(L), L =.. [if, C, T, fail]  -> Result =   if(C, T, R)    ;
+    Op = ';', nonvar(R), R \= ';', R =.. [';'|T] -> Result =.. [';', L |T]    ;
+    Op = '->'                                    -> Result =   if(L, R, fail) ;
     Result =.. [Op, L, R]
   ).
 
@@ -300,21 +300,15 @@ parse_expr(TokensOrString, Term) :-
   %flatten(Balanced, Term).
 
 do_parse_one_stmt(Tokens, Term) :-
-  %debug(qtokesns),
   qtokens(Tokens, QTokens),
-  %debug(parsing),
   once(parses([stmt(Unbalanced)], QTokens)),
-  %debug(balancing),
   balance(Unbalanced, Balanced),
-  %debug(flattening),
   flatten(Balanced, Term).
 
 parse_one_stmt(Tokens, Term, RemTokens) :-
   breadthfirst,
-  %debug(findstmt),
   once(append(L, ['.'|RemTokens], Tokens)),
   yield,
-  %debug(appenddot),
   append(L, ['.'], StmtToks),
   yield,
   do_parse_one_stmt(StmtToks, Term).
