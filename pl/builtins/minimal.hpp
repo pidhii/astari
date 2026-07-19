@@ -25,11 +25,6 @@ minimal_predicates(interpreter &pl)
                    pl.make_term(term("if", term("=", var("X"), var("Y")),
                                      term("fail"), term("true"))));
 
-
-  iso_type_testing(pl); // Doesn't use parser
-  iso_term_comparison(pl); // Doesn't use parser
-  iso_term_creation_and_decomposition(pl); // Doesn't use parser
-
   // once/1
   pl.add_meta_op("once", [&](runtime &rt, int argc, object_iterator argv,
                              const continuation &cont) {
@@ -45,4 +40,9 @@ minimal_predicates(interpreter &pl)
     catch (cut)
     { TAILCALL cont(contrt); }
   });
+
+  iso_type_testing(pl); // Doesn't use parser
+  iso_term_comparison(pl); // Doesn't use parser
+  iso_term_creation_and_decomposition(pl); // Doesn't use parser
+  iso_throwcatch(pl); // Doesn't use parser
 }
