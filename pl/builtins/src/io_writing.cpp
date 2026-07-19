@@ -1,5 +1,6 @@
 #include "pl/builtins/iso.hpp"
 #include "pl/coding/basic_decoder.hpp"
+#include "pl/coding/basic_encoder.hpp"
 #include "pl/misc/display.hpp"
 
 
@@ -17,21 +18,40 @@ void
 iso_writing_terms(iso_io &io, interpreter &pl)
 {
   // write_term/2, write_term/3
-  pl.add_meta_op("write_term", [&](runtime &rt, int argc,
+  pl.add_meta_op("write_term__", [&](runtime &rt, int argc,
                                      object_iterator argv,
                                      const continuation &cont) {
-    assert_arity(pl, "write_term", argc, 2, 3);
+    assert_arity(pl, "write_term__", argc, 5);
 
     basic_decoder dc;
-    const object s = argc == 2 ? object {io.current_output}
-                               : rt.reconstruct(dc.decode_object(argv));
+    basic_encoder ec;
+    const object s = rt.reconstruct(dc.decode_object(argv));
     const object term = rt.reconstruct(dc.decode_object(argv));
-    [[maybe_unused]] const object opts = rt.reconstruct(dc.decode_object(argv));
-    dump_object(io.symbols, term, io.get_output(s));
+    const object quoted = rt.reconstruct(dc.decode_object(argv));
+    const object ignore_ops = rt.reconstruct(dc.decode_object(argv));
+    const object numbervars = rt.reconstruct(dc.decode_object(argv));
+    const word_t true0 = ec.encode(term_header(pl.symbols()["true"], 0));
+    dump_object(io.symbols, term, io.get_output(s), quoted[0] == true0,
+                ignore_ops[0] == true0, numbervars[0] == true0);
     TAILCALL cont(rt);
   });
 
+  // TODO: remove custom member/2 after adding a list library
   pl << R"(
+    iso_io_member__(X, [X|_]).
+    iso_io_member__(X, [_|T]) :-
+      iso_io_member__(X, T).
+
+    write_term(S, Term, Options) :-
+      (iso_io_member__(quoted(Quoted), Options) -> true; Quoted = false),
+      (iso_io_member__(ignore_ops(IgnoreOps), Options) -> true; IgnoreOps = false),
+      (iso_io_member__(numbervars(Numbervars), Options) -> true; Numbervars = false),
+      write_term__(S, Term, Quoted, IgnoreOps, Numbervars).
+
+    write_term(Term, Options) :-
+      current_output(S),
+      write_term(S, Term, Options).
+
     write(Term) :-
       current_output(S),
       write_term(S, Term, [numbervars(true)]).

@@ -68,6 +68,6 @@ main(int argc, char **argv)
   lib_tabulate _tab {pl};
   lib_parsing _pars {pl};
 
-  pl.eval("write('Hello World!'), nl");
+  pl.eval("write(\"Hello World!\"), nl");
   repl(pl);
 }

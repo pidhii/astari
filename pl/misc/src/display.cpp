@@ -1,6 +1,7 @@
 #include "display.hpp"
 
 #include "pl/coding/basic_decoder.hpp"
+#include "pl/parse/lexer.hpp"
 
 #include <format>
 #include <sstream>
@@ -32,9 +33,11 @@ _dump_escaped_string(std::string_view s, std::ostream &os)
 
 template <typename InIter>
 void
-_dump_object(const dictionary &dict, InIter &it, std::ostream &os)
+_dump_object(const dictionary &dict, InIter &it, std::ostream &os, bool quoted,
+             bool ignore_ops, bool numbervars)
 {
-  basic_decoder dc;
+  static lexer lex;
+  static basic_decoder dc;
   
   switch (word_type(*it))
   {
@@ -43,7 +46,10 @@ _dump_object(const dictionary &dict, InIter &it, std::ostream &os)
       switch (blob_tag(*it))
       {
         case blob_tag::string:
-          _dump_escaped_string(string(*it++), os);
+          if (quoted)
+            _dump_escaped_string(string(*it++), os);
+          else
+            os << string(*it++);
           return;
 
         default:
@@ -67,7 +73,7 @@ _dump_object(const dictionary &dict, InIter &it, std::ostream &os)
       if (name == "cons" and hdr.arity == 2)
       {
         os << "[";
-        _dump_object(dict, it, os);
+        _dump_object(dict, it, os, quoted, ignore_ops, numbervars);
 
         for (;;)
         {
@@ -87,14 +93,14 @@ _dump_object(const dictionary &dict, InIter &it, std::ostream &os)
             {
               ++it;
               os << ", ";
-              _dump_object(dict, it, os);
+              _dump_object(dict, it, os, quoted, ignore_ops, numbervars);
               continue;
             }
           }
 
           // improper list: dump the remaining tail after a '|'
           os << " | ";
-          _dump_object(dict, it, os);
+          _dump_object(dict, it, os, quoted, ignore_ops, numbervars);
           break;
         }
 
@@ -102,22 +108,56 @@ _dump_object(const dictionary &dict, InIter &it, std::ostream &os)
         return;
       }
 
-      if (name.empty())
+      if (not ignore_ops and lex.is_operator(name) and hdr.arity > 0)
       {
-        if (hdr.arity == 0)
-          os << "''";
+
+        if (name == "," and hdr.arity >= 2)
+        {
+          os << '(';
+          for (size_t i = 0; i < hdr.arity; ++i)
+          {
+            if (i > 0) os << ", ";
+            _dump_object(dict, it, os, quoted, ignore_ops, numbervars);
+          }
+          os << ')';
+          return;
+        }
+
+        switch (hdr.arity)
+        {
+          case 1:
+            os << '(' << name << ' ';
+            _dump_object(dict, it, os, quoted, ignore_ops, numbervars);
+            os << ')';
+            return;
+
+          case 2:
+            os << '(';
+            _dump_object(dict, it, os, quoted, ignore_ops, numbervars);
+            os << ' ' << name << ' ';
+            _dump_object(dict, it, os, quoted, ignore_ops, numbervars);
+            os << ')';
+            return;
+        }
       }
-      else if (not std::isalnum(name[0]))
-        os << "'" << name << "'";
-      else
+
+      if (lex.is_symbol(name))
         os << name;
+      else
+      {
+        if (quoted)
+          os << "'" << name << "'";
+        else
+          os << name;
+      }
+
       if (hdr.arity > 0)
       {
         os << "(";
         for (size_t i = 0; i < hdr.arity; ++i)
         {
           if (i > 0) os << ", ";
-          _dump_object(dict, it, os);
+          _dump_object(dict, it, os, quoted, ignore_ops, numbervars);
         }
         os << ")";
       }
@@ -160,18 +200,20 @@ _dump_object(const dictionary &dict, InIter &it, std::ostream &os)
 }
 
 void
-dump_object(const dictionary &dict, object_view obj, std::ostream &os)
+dump_object(const dictionary &dict, object_view obj, std::ostream &os,
+            bool quoted, bool ignore_ops, bool numbervars)
 {
   object_view::iterator it = obj.begin();
-  _dump_object(dict, it, os);
+  _dump_object(dict, it, os, quoted, ignore_ops, numbervars);
 }
 
 std::string
-dump_object(const dictionary &dict, object_view obj)
+dump_object(const dictionary &dict, object_view obj, bool quoted,
+            bool ignore_ops, bool numbervars)
 {
   std::ostringstream os;
   object_view::iterator it = obj.begin();
-  _dump_object(dict, it, os);
+  _dump_object(dict, it, os, quoted, ignore_ops, numbervars);
   return os.str();
 }
 

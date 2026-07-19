@@ -13,7 +13,7 @@ _is_op_char(int c)
 {
   static const std::array chars = {
     '+', '-', '@', '=', ':', '*', '/', '\\',
-    '<', '>'
+    '<', '>', ',', ';'
   };
   return std::find(chars.begin(), chars.end(), c) != chars.end();
 }
@@ -223,6 +223,26 @@ lexer::tokens(interpreter &pl, dictionary &vardict, std::istream &in)
       nelts++;
     }
   }
+}
+
+
+bool
+lexer::is_operator(std::string_view name)
+{
+  if (name.empty())
+    return false;
+  else
+    return std::all_of(name.begin(), name.end(), _is_op_char) or name == "is";
+}
+
+
+bool
+lexer::is_symbol(std::string_view name)
+{
+  if (name.empty())
+    return false;
+  else
+    return std::all_of(name.begin(), name.end(), _is_word_char);
 }
 
 

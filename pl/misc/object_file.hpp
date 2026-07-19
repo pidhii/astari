@@ -55,7 +55,7 @@ struct object_file {
           reinterpret_cast<const char *>(adobj.data()),
           adobj.size() * sizeof(word_t)};
       out << base64_encode(objdata) << '\n';
-      dump_object(symbols, adobj, out); out << '\n';
+      dump_object(symbols, adobj, out, true, true, false); out << '\n';
     }
   }
 
