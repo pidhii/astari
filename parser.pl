@@ -4,11 +4,11 @@ member(X, [_|T]) :-
   member(X, T).
 
 
-append(nil, L, L).
+append([], L, L).
 append([H|T], L, [H|TL]) :- append(T, L, TL).
 
 rappend([H|T], L, [H|TL]) :- rappend(T, L, TL).
-rappend(nil, L, L).
+rappend([], L, L).
 
 
 notempty([_|_]).
@@ -17,7 +17,7 @@ notempty([_|_]).
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%                              Parser
 %%
-parses(nil, nil).
+parses([], []).
 parses(Goals, Input) :-
   parses_(Goals, Input).
 
@@ -65,6 +65,9 @@ parse_(expr(inbrackets(E)), ['(' | Input]) :-
   append(I, [')'], Input),
   parse(expr(E), I).
 
+%% expr => '[' ']'
+parse_(expr([]), ['[', ']']).
+
 %% expr => '[' expr ']'
 parse_(expr(list(E)), ['[' | Input]) :-
   append(I, [']'], Input),
@@ -94,7 +97,7 @@ parse(stmt(S), In) :-
 
 
 
-qtokens(nil, nil).
+qtokens([], []).
 qtokens([TH|TT], [QH|QT]) :-
   (
     var(TH)                                    -> QH = var(TH);
