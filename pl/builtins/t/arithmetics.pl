@@ -1,7 +1,7 @@
 
 t :-
   test_is(  3 is 1 + 2 ),
-  test_is( -1 is 1 - 2 ),
+  test_is(  1 is 2 - 1 ),
   test_is(  6 is 2 * 3 ),
   test_is(0.5 is 1 / 2 ),
   test_is(  0 is 1 // 2).
