@@ -141,7 +141,9 @@ right_assoc_(Ol, Or) :-
   op(Or, Pr, Ar),
   (
     Pl @< Pr -> true;
-    Pr = Pl, Al = Ar, Al = right
+    Pl @> Pr -> fail;
+    (Al \= Ar; Al = nonassoc) -> throw(syntax_error(operator_priority_clash(Ol, Or)));
+    Al = right
   ).
 
 left_assoc_(Ol, Or) :-
@@ -149,7 +151,9 @@ left_assoc_(Ol, Or) :-
   op(Or, Pr, Ar),
   (
     Pl @> Pr -> true;
-    Pr = Pl, Al = Ar, Al = left
+    Pl @< Pr -> fail;
+    (Al \= Ar; Al = nonassoc) -> throw(syntax_error(operator_priority_clash(Ol, Or)));
+    Al = left
   ).
 
 %% rotate_right(In, Out).
