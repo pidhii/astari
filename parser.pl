@@ -245,7 +245,10 @@ flatten(xfx(Lhs, Op, Rhs), Result) :-
 
 flatten(fx(Op, Arg), Result) :-
   flatten(Arg, FArg),
-  Result =.. [Op, FArg].
+  (
+    nonvar(FArg), FArg \= ',', FArg =.. [',' | Args] -> Result =.. [Op | Args];
+    Result =.. [Op, FArg]
+  ).
 
   
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
