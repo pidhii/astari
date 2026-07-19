@@ -197,7 +197,7 @@ _trygetop(std::istream &in, std::string_view word)
 
 
 std::pair<object, size_t>
-lexer::tokens(interpreter &pl, dictionary &vardict, std::istream &in)
+lexer::tokens(dictionary &symbols, dictionary &vardict, std::istream &in)
 {
   object result;
   size_t nelts = 0;
@@ -206,7 +206,7 @@ lexer::tokens(interpreter &pl, dictionary &vardict, std::istream &in)
     const std::istream::pos_type pstart = in.tellg();
     bool quote;
     word_t elt;
-    try { elt = _read_elt(pl, vardict, in, quote); }
+    try { elt = _read_elt(symbols, vardict, in, quote); }
     catch (const std::exception &exn)
     { throw parse_error {exn.what(), {pstart, pstart + 1l}}; }
     // const std::istream::pos_type pend = in.tellg();
@@ -217,7 +217,7 @@ lexer::tokens(interpreter &pl, dictionary &vardict, std::istream &in)
       if (quote)
       {
         basic_encoder ec;
-        result += ec.encode(term_header(pl.symbols()["q"], 1));
+        result += ec.encode(term_header(symbols["q"], 1));
       }
       result += elt;
       nelts++;
@@ -271,14 +271,16 @@ _make_number(std::string_view x)
 
 
 word_t
-lexer::_read_elt(interpreter &pl, dictionary &vardict, std::istream &in,
+lexer::_read_elt(dictionary &symbols, dictionary &vardict, std::istream &in,
                  bool &quote) const
 {
+  static object_allocator strings;
+
   quote = false;
 
   basic_encoder ec;
 
-  #define ATOM(name) ec.encode(term_header(pl.symbols()[name], 0))
+  #define ATOM(name) ec.encode(term_header(symbols[name], 0))
   #define VAR(name) ec.encode(nonterminal(vardict[name]))
   #define NUM(s) _make_number(s)
 
@@ -290,7 +292,7 @@ lexer::_read_elt(interpreter &pl, dictionary &vardict, std::istream &in,
   {
     std::string _line;
     std::getline(in, _line);
-    return _read_elt(pl, vardict, in, quote);
+    return _read_elt(symbols, vardict, in, quote);
   }
 
   // EOF
@@ -354,7 +356,7 @@ lexer::_read_elt(interpreter &pl, dictionary &vardict, std::istream &in,
   if (in.peek() == '"')
   {
     in.get();
-    return pl.make_string(_read_string(in));
+    return strings.make_string(_read_string(in));
   }
 
   // Numerical literal

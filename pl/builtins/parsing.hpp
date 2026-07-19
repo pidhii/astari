@@ -31,7 +31,7 @@ class lib_parsing {
   _tokenize(interpreter &pl, dictionary &vardict, std::string_view text)
   {
     std::istringstream stream {std::string(text)};
-    const auto [elts, nelts] = lexer().tokens(pl, vardict, stream);
+    const auto [elts, nelts] = lexer().tokens(pl.symbols(), vardict, stream);
     const object result = make_list(pl, nelts, object_view(elts).begin());
     return result;
   }

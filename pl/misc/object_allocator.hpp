@@ -30,12 +30,14 @@ class object_allocator {
   make_string(std::string_view str)
   {
     const size_t size = sizeof(string_data) + str.size();
-    const size_t nwords = size / sizeof(word_t) + !!(size % sizeof(word_t));
+    const size_t nwords = (size + sizeof(word_t) - 1) / sizeof(word_t);
     string_data *p = reinterpret_cast<string_data*>(allocate(nwords));
     p->tag = blob_tag::string;
     p->size = str.size();
-    std::copy(str.begin(), str.end(), p->data);
-    return reinterpret_cast<word_t>(p);
+    std::copy(str.begin(), str.end(), &p->data[0]);
+    const word_t result = reinterpret_cast<word_t>(p);
+    assert(word_type(result) == word_type::blob);
+    return result;
   }
 
   private:

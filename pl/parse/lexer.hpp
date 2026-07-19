@@ -11,7 +11,7 @@ class interpreter;
 class lexer {
   public:
   std::pair<object, size_t>
-  tokens(interpreter &pl, dictionary &vardict, std::istream &in);
+  tokens(dictionary &symbols, dictionary &vardict, std::istream &in);
 
   bool
   is_operator(std::string_view name);
@@ -21,6 +21,6 @@ class lexer {
 
   private:
   word_t
-  _read_elt(interpreter &pl, dictionary &vardict, std::istream &in,
+  _read_elt(dictionary &symbols, dictionary &vardict, std::istream &in,
             bool &quote) const;
 };
