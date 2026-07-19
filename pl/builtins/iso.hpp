@@ -46,7 +46,7 @@ struct iso_io {
       basic_decoder dc;
       const object_view x = dc.decode_object(argv);
       if (rt.match(x, current_output))
-        cont(rt);
+        TAILCALL cont(rt);
     });
   }
 
@@ -130,7 +130,7 @@ struct iso {
       {
         const object_view exnterm = rt.adopt(exn.term());
         if (rt.match(catcher, exnterm))
-          pl.make_true(rt, handler, cont);
+          TAILCALL pl.make_true(rt, handler, cont);
         else
           rt.unallocate(exnterm);
       }

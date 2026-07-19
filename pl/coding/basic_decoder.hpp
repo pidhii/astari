@@ -24,8 +24,12 @@ class basic_decoder {
   void
   decode(word_t word, float &x)
   {
+    static_assert(sizeof(uint32_t) == sizeof(float));
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wuninitialized"
     const uint32_t tmp = static_cast<uint32_t>(word >> 32);
     x = *reinterpret_cast<const float*>(&tmp);
+#pragma GCC diagnostic pop
   }
   void
   decode(word_t word, nonterminal &x)

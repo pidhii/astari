@@ -28,7 +28,7 @@ iso_writing_terms(iso_io &io, interpreter &pl)
     const object term = rt.reconstruct(dc.decode_object(argv));
     [[maybe_unused]] const object opts = rt.reconstruct(dc.decode_object(argv));
     dump_object(io.symbols, term, io.get_output(s));
-    cont(rt);
+    TAILCALL cont(rt);
   });
 
   pl << R"(
@@ -77,8 +77,7 @@ iso_writing_characters(iso_io &io, interpreter &pl)
         int cv;
         dc.decode(c[0], cv);
         io.get_output(s) << char(cv);
-        cont(rt);
-        return;
+        TAILCALL cont(rt);
       }
       case word_type::nonterminal:
         pl.raise(term("instantiation_error"));

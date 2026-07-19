@@ -16,7 +16,6 @@ class lib_tabulate {
                                            const continuation &cont) {
       assert(argc == 1);
       basic_decoder dc;
-      basic_encoder ec;
       const object_view goal = rt.reduce(dc.decode_object(argv));
 
       const object_view goalview = _snapshot(rt, goal);
@@ -25,7 +24,7 @@ class lib_tabulate {
       {
         _unsnapshot(goalview);
         if (it->second.is_building)
-          return pl.make_true(rt, goal, cont);
+          TAILCALL pl.make_true(rt, goal, cont);
 
         // if (not it->second.solutions.empty())
         // {

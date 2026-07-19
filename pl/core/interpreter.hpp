@@ -17,8 +17,16 @@
 using continuation = std::function<void(runtime&)>;
 
 using meta_op_handle =
-    std::function<void(runtime &, size_t, object_iterator, const continuation &)>;
+    std::function<void(runtime &, size_t, object_iterator, continuation &)>;
 
+#ifdef __clang__
+# warning "Won't ensure tail-calls with clang. Your stack is may evaporate."
+# define TAILCALL return
+#elif ASTARI_DEBUG
+# define TAILCALL return
+#else
+# define TAILCALL [[gnu::musttail]] return
+#endif
 
 class exception: public std::exception {
   public:
@@ -151,7 +159,11 @@ class interpreter: public runtime {
   }
 
   void
-  make_true(runtime &rt, object_view expr, const continuation &cont)
+  make_true(runtime &rt, object_view expr, continuation &cont)
+  { _make_true(rt, 0, expr.begin(), cont); }
+
+  void
+  make_true(runtime &rt, object_view expr, continuation cont)
   { _make_true(rt, 0, expr.begin(), cont); }
 
   template <typename Object>
@@ -174,23 +186,23 @@ class interpreter: public runtime {
 
   private:
   void
-  _make_true(runtime &rt, size_t _, object_iterator e, const continuation &cont);
+  _make_true(runtime &rt, size_t _, object_iterator e, continuation &cont);
 
   void
   _make_true__and(runtime &rt, size_t i, object_iterator eit,
-                  const continuation &cont);
+                  continuation &cont);
 
   void
   _make_true__or(runtime &rt, size_t i, object_iterator eit,
-                 const continuation &cont);
+                 continuation &cont);
 
   void
   _make_true__if(runtime &rt, size_t _, object_iterator eit,
-                 const continuation &cont);
+                 continuation &cont);
 
   void
   _make_true__predicate(runtime &rt, size_t _, object_iterator e,
-                        const continuation &cont);
+                        continuation &cont);
 
   private:
   // arxt::radixhash_node<word_t, object> m_predicates;

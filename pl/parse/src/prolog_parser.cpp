@@ -81,8 +81,6 @@ recover_variables(runtime &rt, varnamespace &ns, object &obj)
 
 prolog_parser::prolog_parser() : m_lib_bf {m_pl}, m_lib_tab {m_pl}
 {
-  basic_encoder ec;
-
   minimal_predicates(m_pl);
 
   // tokens/2
@@ -90,7 +88,6 @@ prolog_parser::prolog_parser() : m_lib_bf {m_pl}, m_lib_tab {m_pl}
                                     const continuation &cont) {
     assert(argc == 2);
     basic_decoder dc;
-    basic_encoder ec;
     const object_view string = rt.reduce(dc.decode_object(argv));
     const object_view tokens = rt.reduce(dc.decode_object(argv));
     assert(is_blob(string[0]));
@@ -232,7 +229,6 @@ object
 prolog_parser::parse_one_stmt(dictionary &symbols, tokens &toks)
 {
   // std::clog << "parse_one_stmt from: " << m_pl.dump(toks.list) << std::endl;
-  basic_decoder dc;
   auto [stmt, remlist] = _parse_first_stmt(toks.vars, toks.list);
   toks.list = remlist;
   transfer_symbols(m_pl.symbols(), symbols, stmt);

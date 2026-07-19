@@ -14,7 +14,7 @@ iso_type_testing(interpreter &pl)
     basic_decoder dc;
     object_view x = rt.reduce(dc.decode_object(argv));
     if (is_nonterminal(x[0]))
-      cont(rt);
+      TAILCALL cont(rt);
   });
 
   // atom/1
@@ -24,7 +24,7 @@ iso_type_testing(interpreter &pl)
     basic_decoder dc;
     const object x = rt.reconstruct(dc.decode_object(argv));
     if (is_term(x[0]) and dc.decode_term_header(x[0]).arity == 0)
-      cont(rt);
+      TAILCALL cont(rt);
   });
 
   // integer/1
@@ -36,7 +36,7 @@ iso_type_testing(interpreter &pl)
     switch (word_type(x[0]))
     {
       case word_type::signed_int_number: // fallthrough
-      case word_type::unsigned_int_number: cont(rt); break;
+      case word_type::unsigned_int_number: TAILCALL cont(rt);
       default: return;
     }
   });
@@ -49,7 +49,7 @@ iso_type_testing(interpreter &pl)
     const object x = rt.reconstruct(dc.decode_object(argv));
     switch (word_type(x[0]))
     {
-      case word_type::float_number: cont(rt); break;
+      case word_type::float_number: TAILCALL cont(rt);
       default: return;
     }
   });
@@ -62,7 +62,7 @@ iso_type_testing(interpreter &pl)
     const object x = rt.reconstruct(dc.decode_object(argv));
     if (word_type(x[0]) == word_type::blob and
         blob_tag(x[0]) == blob_tag::string)
-      cont(rt);
+      TAILCALL cont(rt);
   });
 
   dictionary v;

@@ -15,7 +15,7 @@ iso_term_comparison(interpreter &pl)
     const object_view lhs = rt.reduce(dc.decode_object(argv));                 \
     const object_view rhs = rt.reduce(dc.decode_object(argv));                 \
     if (compare(rt, lhs, rhs) op 0)                                            \
-      cont(rt);                                                                \
+      TAILCALL cont(rt);                                                       \
   });
 
   DEFINE_CMP("@=<", <=)

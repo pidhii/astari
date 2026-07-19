@@ -27,7 +27,6 @@ class lib_breadthfirst {
     pl.add_meta_op("yield", [this](runtime &rt, int argc, object_iterator argv,
                                    const continuation &cont) {
       assert(argc == 0);
-      basic_decoder dc;
       m_breadth_nodes.emplace_back(rt, cont);
     });
   }

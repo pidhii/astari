@@ -25,7 +25,7 @@ interpreter::has_meta_op(size_t id) const noexcept
 bool
 interpreter::has_predicate(size_t id) const noexcept
 {
-  for (const auto [w, _] : m_predicates)
+  for (const auto &[w, _] : m_predicates)
   {
     term_header hdr;
     basic_decoder().decode(w, hdr);

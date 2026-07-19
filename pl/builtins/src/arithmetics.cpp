@@ -4,6 +4,7 @@
 #include "pl/obj/object.hpp"
 
 
+
 // unsigned + signed = signed
 // unsigned + float = float
 // signed + float = float
@@ -162,48 +163,50 @@ iso_arithmetics(interpreter &pl)
     basic_decoder dc;
     const object_view x = eval<op_add>(pl, rt, argc - 1, argv, 0u);
     if (rt.match(x, dc.decode_object(argv + argc - 1)))
-      cont(rt);
+      TAILCALL cont(rt);
   });
   pl.add_meta_op("sub", [&](runtime &rt, int argc, object_iterator argv,
                             const continuation &cont) {
     basic_decoder dc;
     const object_view x = eval_<op_sub>(pl, rt, argc - 1, argv);
     if (rt.match(x, dc.decode_object(argv + argc - 1)))
-      cont(rt);
+      TAILCALL cont(rt);
   });
   pl.add_meta_op("prod", [&](runtime &rt, int argc, object_iterator argv,
                              const continuation &cont) {
     basic_decoder dc;
     const object_view x = eval<op_mul>(pl, rt, argc - 1, argv, 1u);
     if (rt.match(x, dc.decode_object(argv + argc - 1)))
-      cont(rt);
+      TAILCALL cont(rt);
   });
   pl.add_meta_op("fdiv", [&](runtime &rt, int argc, object_iterator argv,
                             const continuation &cont) {
     basic_decoder dc;
     const object_view x = eval_<op_fdiv>(pl, rt, argc - 1, argv);
     if (rt.match(x, dc.decode_object(argv + argc - 1)))
-      cont(rt);
+      TAILCALL cont(rt);
   });
   pl.add_meta_op("idiv", [&](runtime &rt, int argc, object_iterator argv,
                             const continuation &cont) {
     basic_decoder dc;
     const object_view x = eval_(pl, rt, argc - 1, argv, op_idiv {pl});
     if (rt.match(x, dc.decode_object(argv + argc - 1)))
-      cont(rt);
+      TAILCALL cont(rt);
   });
 
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wsign-compare"
 #define DEFINE_CMP(name, op)                                                   \
   pl.add_meta_op(name, [&](runtime &rt, int argc, object_iterator argv,        \
                            const continuation &cont) {                         \
     assert_arity(pl, name, argc, 2);                                           \
+    bool ans;                                                                  \
     pl.number(rt, argv + 0, [&](auto &&lhs) {                                  \
-      pl.number(rt, argv + 1, [&](auto &&rhs) {                                \
-        if (lhs op rhs)                                                        \
-          cont(rt);                                                            \
-      });                                                                      \
+      pl.number(rt, argv + 1, [&](auto &&rhs) { ans = lhs op rhs; });          \
     });                                                                        \
+    if (ans)                                                                   \
+      TAILCALL cont(rt);                                                       \
   });
   DEFINE_CMP("numeq", ==)
   DEFINE_CMP("numne", !=)
@@ -211,6 +214,7 @@ iso_arithmetics(interpreter &pl)
   DEFINE_CMP("numgt", >)
   DEFINE_CMP("numle", <=)
   DEFINE_CMP("numge", >=)
+#pragma GCC diagnostic pop
 
     // %eval(Result, Expr) :-
     // %  Expr = X + Y  -> Lhs is X, Rhs is Y, sum(Lhs, Rhs, Result);

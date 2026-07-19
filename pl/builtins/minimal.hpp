@@ -11,7 +11,6 @@ minimal_predicates(interpreter &pl)
 
 
   dictionary vardict;
-  basic_encoder ec;
   const auto var = [&](const auto &name) {
     return nonterminal(vardict[name]);
   };
@@ -33,18 +32,17 @@ minimal_predicates(interpreter &pl)
 
   // once/1
   pl.add_meta_op("once", [&](runtime &rt, int argc, object_iterator argv,
-                              const continuation &cont) {
+                             const continuation &cont) {
     assert_arity(pl, "once", argc, 1);
+    runtime contrt;
     struct cut { };
     try
     {
       basic_decoder dc;
       const object_view expr = dc.decode_object(argv);
-      pl.make_true(rt, expr, [cont](runtime &rt) {
-        cont(rt);
-        throw cut {};
-      });
+      pl.make_true(rt, expr, [&contrt](runtime &rt) { contrt = rt; throw cut {}; });
     }
-    catch (cut) { }
+    catch (cut)
+    { TAILCALL cont(contrt); }
   });
 }

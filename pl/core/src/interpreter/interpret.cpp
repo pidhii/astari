@@ -59,7 +59,6 @@ interpreter::eval(object_view obj, const dictionary &vardict)
   const object_view expr = adopt(ns, obj);
   make_true(expr, [this, ns, vardict](runtime &rt) {
     std::cout << "yes";
-    basic_decoder dc;
     bool isfirst = true;
     for (const auto [nsid, rtid] : ns)
     {
