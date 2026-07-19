@@ -59,6 +59,9 @@ parse_(expr(var(X)), [var(X)]).
 parse_(expr(func(F, E)), [fun(F), '(' | Input]) :-
   append(I, [')'], Input),
   parse(expr(E), I).
+%
+%% expr => sym '(' ')'
+parse_(expr(F), [fun(F), '(', ')']).
 
 %% expr => '(' expr ')'
 parse_(expr(inbrackets(E)), ['(' | Input]) :-
