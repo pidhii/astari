@@ -14,8 +14,11 @@ class matcher {
 
   struct memhash {
     size_t
-    operator () (const memory_entry &x) const noexcept
+    operator () (memory_entry x) const noexcept
     {
+      if (x.first > x.second)
+        std::swap(x.first, x.second);
+
       std::hash<object_iterator> hasher;
       const size_t a = hasher(x.first);
       const size_t b = hasher(x.second);

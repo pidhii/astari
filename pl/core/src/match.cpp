@@ -6,9 +6,6 @@
 bool
 matcher::_match(object_iterator lhs, object_iterator rhs, memory &mem)
 {
-  // if (not m_memory.insert(std::make_pair(lhs, rhs)).second)
-  //   return true;
-
   // Special case when both are nonterminals (includes optimization)
   if (word_type(*lhs) == word_type::nonterminal and
       word_type(*rhs) == word_type::nonterminal)
@@ -23,6 +20,9 @@ matcher::_match(object_iterator lhs, object_iterator rhs, memory &mem)
     const auto rhsobj = m_runtime.dereference(rhsvar.id);
     if (lhsobj and rhsobj)
     {
+      if (not m_memory.emplace(lhs, rhs).second)
+        return true;
+
       auto lhs = *lhsobj;
       auto rhs = *rhsobj;
       [[clang::musttail]] return _match(lhs, rhs, mem);
@@ -40,6 +40,9 @@ matcher::_match(object_iterator lhs, object_iterator rhs, memory &mem)
     m_decoder.decode(*lhs, var);
     if (auto lhsobj = m_runtime.dereference(var.id))
     {
+      if (not m_memory.emplace(lhs, rhs).second)
+        return true;
+
       auto lhs = *lhsobj;
       [[clang::musttail]] return _match(lhs, rhs, mem);
     }
