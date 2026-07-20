@@ -62,9 +62,8 @@ class runtime: public object_allocator {
   assign(size_t varid, object_iterator value);
 
   private:
-  template <typename InputIter, typename OutputIter>
   void
-  _adopt(varnamespace &ns, InputIter in, InputIter end, OutputIter out);
+  _adopt(varnamespace &ns, object_view in, word_t *out);
 
   template <typename OutputIter>
   void

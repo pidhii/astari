@@ -165,27 +165,9 @@ interpreter::_make_true__predicate(runtime &rt, size_t _, object_iterator e_,
   if (it != m_predicates.end())
   {
     const std::vector<std::pair<object, object>> &variants = it->second;
-    size_t n = variants.size();
-    for (const auto &[sign, body] : variants)
-    { // Tail-call on the last variant
-      if (n-- == 1)
-      {
-        ns.clear();
-        const object_view predsign = rt.adopt(ns, sign);
-        if (mmem.clear(), matcher(rt, dc).match(e, predsign, mmem))
-        {
-          if (not body.empty())
-          {
-            const object_view predbody = rt.adopt(ns, body);
-            TAILCALL _make_true(rt, PLUG, predbody.begin(), cont);
-          }
-          else
-            TAILCALL cont(rt);
-        }
-        else
-          rt.unallocate(predsign);
-        return;
-      }
+    for (size_t i = 0; i < variants.size() - 1; ++i)
+    {
+      const auto &[sign, body] = variants[i];
 
       state_saver _ {rt, cont};
       ns.clear();
@@ -203,6 +185,25 @@ interpreter::_make_true__predicate(runtime &rt, size_t _, object_iterator e_,
       else
         rt.unallocate(predsign);
     }
+
+    // Tail-call on the last variant
+    const auto &[sign, body] = variants.back();
+
+    ns.clear();
+    const object_view predsign = rt.adopt(ns, sign);
+    if (mmem.clear(), matcher(rt, dc).match(e, predsign, mmem))
+    {
+      if (not body.empty())
+      {
+        const object_view predbody = rt.adopt(ns, body);
+        TAILCALL _make_true(rt, PLUG, predbody.begin(), cont);
+      }
+      else
+        TAILCALL cont(rt);
+    }
+    else
+      rt.unallocate(predsign);
+    return;
   }
   else
   {

@@ -11,7 +11,7 @@ runtime::adopt(varnamespace &ns, object_view in)
 {
   object_view out = allocate_object(in.size());
   word_t *outiter = const_cast<word_t*>(out.begin());
-  _adopt(ns, in.begin(), in.end(), outiter);
+  _adopt(ns, in, outiter);
   return out;
 }
 
@@ -34,6 +34,21 @@ runtime::match(object_view lhs, object_view rhs, basic_decoder &dc)
 }
 
 
+static size_t
+_revbytes(size_t h)
+{
+  union {
+    uint8_t a[8];
+    size_t u;
+  } v = {.u = h};
+
+  std::swap(v.a[0], v.a[3]);
+  std::swap(v.a[1], v.a[2]);
+
+  return v.u;
+}
+
+
 std::optional<object_iterator>
 runtime::dereference(size_t varid)
 {
@@ -41,6 +56,7 @@ runtime::dereference(size_t varid)
   if (not m_dsf.is_root(varid))
     return std::nullopt;
 
+  varid = _revbytes(varid);
   const std::string_view key {(char*)&varid, sizeof(varid)};
   if (const auto it = m_assignments.find(key))
     return *it;
@@ -55,25 +71,25 @@ runtime::assign(size_t varid, object_iterator value)
   varid = m_dsf.find(varid);
   if (dereference(varid))
     throw std::runtime_error {"double assignment"};
-  const size_t proxyvar = m_dsf.make_root_set();
+  size_t proxyvar = m_dsf.make_root_set();
   m_dsf.join(varid, proxyvar);
+  proxyvar = _revbytes(proxyvar);
   const std::string_view key {(char*)&proxyvar, sizeof(proxyvar)};
   m_assignments.emplace(key, value);
 }
 
 
-template <typename InputIter, typename OutputIter>
 void
-runtime::_adopt(varnamespace &ns, InputIter in, InputIter end, OutputIter out)
+runtime::_adopt(varnamespace &ns, object_view in, word_t *out)
 {
-  while (in != end)
+  for (size_t i = 0; i < in.size(); ++i)
   {
-    if (not is_nonterminal(*in))
-      *out++ = *in++;
+    if (not is_nonterminal(in[i]))
+      out[i] = in[i];
     else // nonterminal
     {
       nonterminal var;
-      basic_decoder().decode(*in++, var);
+      basic_decoder().decode(in[i], var);
       const auto it = ns.find(var.id);
       size_t runtimeid;
       if (it == ns.end())
@@ -83,7 +99,7 @@ runtime::_adopt(varnamespace &ns, InputIter in, InputIter end, OutputIter out)
       }
       else
         runtimeid = it->second;
-      *out++ = basic_encoder().encode(nonterminal(runtimeid));
+      out[i] = basic_encoder().encode(nonterminal(runtimeid));
     }
   }
 }
