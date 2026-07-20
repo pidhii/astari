@@ -337,13 +337,14 @@ unmake_list(interpreter &pl, runtime &rt, object_iterator it)
   basic_encoder ec;
   basic_decoder dc;
   const word_t nil0 = ec.encode(term_header(pl.symbols()["nil"], 0));
-  const word_t cons2 = ec.encode(term_header(pl.symbols()["cons"], 2));
+  [[maybe_unused]] const word_t cons2 =
+      ec.encode(term_header(pl.symbols()["cons"], 2));
 
   size_t n = 0;
   object buf;
   for (it = rt.reduce(it); (*it & term_mask) != nil0; it = rt.reduce(it))
   {
-    assert((*it++ & term_mask) == cons2);
+    assert((*it & term_mask) == cons2); it++;
     buf += rt.reduce(dc.decode_object(it));
     n++;
   }
@@ -378,13 +379,14 @@ unmake_list(interpreter &pl, object_iterator it)
   basic_encoder ec;
   basic_decoder dc;
   const word_t nil0 = ec.encode(term_header(pl.symbols()["nil"], 0));
-  const word_t cons2 = ec.encode(term_header(pl.symbols()["cons"], 2));
+  [[maybe_unused]] const word_t cons2 =
+      ec.encode(term_header(pl.symbols()["cons"], 2));
 
   size_t n = 0;
   object buf;
   while ((*it & term_mask) != nil0)
   {
-    assert((*it++ & term_mask) == cons2);
+    assert((*it & term_mask) == cons2); it++;
     buf += dc.decode_object(it);
     n++;
   }

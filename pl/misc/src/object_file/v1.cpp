@@ -82,7 +82,7 @@ object_file::read_v1(std::istream &in, object_allocator &alloc)
 
   // 3. Read objects
   in >> nobj;
-  assert(in.get() == '\n');
+  assert(in.peek() == '\n'); in.get();
   while (nobj--)
   {
     std::string b64obj;

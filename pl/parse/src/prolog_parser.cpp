@@ -204,7 +204,7 @@ prolog_parser::tokenize_more(tokens &tokens, std::string_view text)
     return;
   }
 
-  basic_encoder ec;
+  [[maybe_unused]] basic_encoder ec;
   assert(the_word(tokens.list.back()) ==
          ec.encode(term_header(m_pl.symbols()["nil"], 0)));
   tokens.list.pop_back();

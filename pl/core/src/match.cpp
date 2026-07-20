@@ -1,6 +1,7 @@
 #include "match.hpp"
+
 #include "pl/coding/basic_decoder.hpp"
-#include <stdexcept>
+#include "pl/core/interpreter.hpp"
 
 
 bool
@@ -105,7 +106,7 @@ matcher::_match(object_iterator lhs, object_iterator rhs, memory &mem)
           dc.decode_object(lhs); // call for side-effects
           dc.decode_object(rhs); // call for side-effects
         }
-        [[clang::musttail]] return _match(lhs, rhs, mem);
+        TAILCALL _match(lhs, rhs, mem);
       }
       
       case word_type::nonterminal:
