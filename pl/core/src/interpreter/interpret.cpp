@@ -122,19 +122,17 @@ interpreter::interpret(object_view stmt, const dictionary &vardict)
   {
     if (the_word(stmt[1]) == ATOM("ensure_loaded", 1))
     {
-      const object_view arg = dc.decode_object(stmt.begin() + 1);
-      assert(is_blob(arg[0]));
-      assert(blob_tag(arg[0]) == blob_tag::string);
-      ensure_loaded(string(arg[0]));
+      assert(is_blob(stmt[2]));
+      assert(blob_tag(stmt[2]) == blob_tag::string);
+      ensure_loaded(string(stmt[2]));
       return;
     }
 
     if (the_word(stmt[1]) == ATOM("import_directory", 1))
     {
-      const object_view arg = dc.decode_object(stmt.begin() + 1);
-      assert(is_blob(arg[0]));
-      assert(blob_tag(arg[0]) == blob_tag::string);
-      import_directory(string(arg[0]));
+      assert(is_blob(stmt[2]));
+      assert(blob_tag(stmt[2]) == blob_tag::string);
+      import_directory(string(stmt[2]));
       return;
     }
   }

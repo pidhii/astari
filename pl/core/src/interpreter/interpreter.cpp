@@ -115,9 +115,9 @@ interpreter::ensure_loaded(std::string_view path_)
         return; // File was already loaded
 
       if (fullpath.extension() == ".pl")
-        load_file(fullpath.c_str());
+        return load_file(fullpath.c_str());
       else if (fullpath.extension() == ".plo")
-        load_objfile(fullpath.c_str());
+        return load_objfile(fullpath.c_str());
       else
         assert(not "unreachable code" );
     }
