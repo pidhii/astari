@@ -72,5 +72,6 @@ class runtime: public object_allocator {
 
   private:
   pidhii::pradix256dense<object_iterator> m_assignments;
-  rooted_forest<pidhii::pvector> m_dsf;
+  template <typename T> using pvector = pidhii::pvector<T, 5>;
+  rooted_forest<pvector> m_dsf;
 };

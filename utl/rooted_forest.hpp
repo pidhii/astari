@@ -6,11 +6,11 @@
 template <template <typename> typename Container = std::vector>
 class rooted_forest
 : protected pidhii::forest<
-      pidhii::forest_traits<pidhii::find_method::path_halving,
+      pidhii::forest_traits<pidhii::find_method::naive,
                             pidhii::union_method::naive>,
       Container> {
   using base =
-      pidhii::forest<pidhii::forest_traits<pidhii::find_method::path_halving,
+      pidhii::forest<pidhii::forest_traits<pidhii::find_method::naive,
                                            pidhii::union_method::naive>,
                      Container>;
 
