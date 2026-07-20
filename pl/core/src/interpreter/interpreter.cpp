@@ -48,11 +48,8 @@ interpreter::has(size_t id) const noexcept
 void
 interpreter::add_predicate(object_view signobj, object_view bodyobj)
 {
-  // if (bodyobj.empty())
-  //   std::clog << "[add_predicate] add predicate: " << dump(signobj) << "." << std::endl;
-  // else
-  //   std::clog << "[add_predicate] add predicate: " << dump(signobj) << " :- "
-  //             << dump(bodyobj) << std::endl;
+  basic_decoder dc;
+
   assert(not signobj.empty());
   if (not is_term(signobj[0]))
     throw std::runtime_error {"invalid predicate signature: " + dump(signobj)};
@@ -62,7 +59,12 @@ interpreter::add_predicate(object_view signobj, object_view bodyobj)
     throw std::runtime_error {std::format(
         "predicate name already used for meta operator ({})", m_symdict[id])};
   }
-  m_predicates[signobj[0]].emplace_back(signobj, bodyobj);
+
+  dc.decode_object(signobj.begin()); // call for side-effects
+  if (not bodyobj.empty())
+    dc.decode_object(bodyobj.begin()); // call for side-effects
+
+  m_predicates[signobj[0] & term_mask].emplace_back(signobj, bodyobj);
 }
 
 

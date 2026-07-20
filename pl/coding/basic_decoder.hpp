@@ -41,10 +41,23 @@ class basic_decoder {
     const object_iterator objstart = it;
     if (word_type(*it) == word_type::structure)
     {
+      // Check object size cache
+      const size_t sizecache = (*it >> 2) & 0b111111;
+      if (sizecache > 0)
+      {
+        it += sizecache;
+        return {objstart, sizecache};
+      }
+
       term_header hdr;
       decode(*it++, hdr);
       for (size_t i = 0; i < hdr.arity; ++i)
         decode_object(it);
+
+      // Cache object size
+      const size_t nwords = it - objstart;
+      if (nwords < 64)
+        *const_cast<word_t*>(objstart) |= nwords << 2;
     }
     else
       it += 1;

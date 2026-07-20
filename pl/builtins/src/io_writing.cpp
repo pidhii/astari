@@ -31,8 +31,9 @@ iso_writing_terms(iso_io &io, interpreter &pl)
     const object ignore_ops = rt.reconstruct(dc.decode_object(argv));
     const object numbervars = rt.reconstruct(dc.decode_object(argv));
     const word_t true0 = ec.encode(term_header(pl.symbols()["true"], 0));
-    dump_object(io.symbols, term, io.get_output(s), quoted[0] == true0,
-                ignore_ops[0] == true0, numbervars[0] == true0);
+    dump_object(io.symbols, term, io.get_output(s),
+                the_word(quoted[0]) == true0, the_word(ignore_ops[0]) == true0,
+                the_word(numbervars[0]) == true0);
     TAILCALL cont(rt);
   });
 

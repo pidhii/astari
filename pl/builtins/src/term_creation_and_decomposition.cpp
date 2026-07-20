@@ -13,7 +13,9 @@ iso_term_creation_and_decomposition(interpreter &pl)
     const word_t nil = ec.encode(term_header(pl.symbols()["nil"], 0));
     const word_t cons = ec.encode(term_header(pl.symbols()["cons"], 2));
 
-    const auto isnull = [&] (object_iterator x) -> bool { return rt.reduce(x)[0] == nil; };
+    const auto isnull = [&](object_iterator x) -> bool {
+      return (rt.reduce(x)[0] & term_mask) == nil;
+    };
 
     assert(argc == 2);
     const object_view result = rt.reduce(dc.decode_object(argv));
@@ -22,13 +24,13 @@ iso_term_creation_and_decomposition(interpreter &pl)
     if (is_nonterminal(result[0]))
     {
       object_iterator l = rt.reduce(rhs.begin());
-      assert(l[0] == cons);
+      assert((l[0] & term_mask) == cons);
 
       size_t lsize = 0;
       object buf;
       while (not isnull(l))
       {
-        if (l[0] != cons)
+        if ((l[0] & term_mask) != cons)
           pl.raise(term("type_error", term("list"), rhs));
 
         const object_view car = dc.decode_object(l + 1);

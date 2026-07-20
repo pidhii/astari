@@ -58,5 +58,5 @@ inline bool
 is_term(word_t word, int id, int arity)
 {
   basic_encoder ec;
-  return word == ec.encode(term_header(id, arity));
+  return (word & term_mask) == ec.encode(term_header(id, arity));
 }

@@ -341,9 +341,9 @@ unmake_list(interpreter &pl, runtime &rt, object_iterator it)
 
   size_t n = 0;
   object buf;
-  for (it = rt.reduce(it); *it != nil0; it = rt.reduce(it))
+  for (it = rt.reduce(it); (*it & term_mask) != nil0; it = rt.reduce(it))
   {
-    assert(*it++ == cons2);
+    assert((*it++ & term_mask) == cons2);
     buf += rt.reduce(dc.decode_object(it));
     n++;
   }
@@ -382,9 +382,9 @@ unmake_list(interpreter &pl, object_iterator it)
 
   size_t n = 0;
   object buf;
-  while (*it != nil0)
+  while ((*it & term_mask) != nil0)
   {
-    assert(*it++ == cons2);
+    assert((*it++ & term_mask) == cons2);
     buf += dc.decode_object(it);
     n++;
   }

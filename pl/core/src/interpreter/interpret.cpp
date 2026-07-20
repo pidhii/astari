@@ -118,9 +118,9 @@ interpreter::interpret(object_view stmt, const dictionary &vardict)
   #define ATOM(name, arity) ec.encode(term_header(m_symdict[name], arity))
   #define ARITY(term) dc.decode_term_header(term).arity
 
-  if (stmt[0] == ATOM(":-", 1)) // Directive
+  if (the_word(stmt[0]) == ATOM(":-", 1)) // Directive
   {
-    if (stmt[1] == ATOM("ensure_loaded", 1))
+    if (the_word(stmt[1]) == ATOM("ensure_loaded", 1))
     {
       const object_view arg = dc.decode_object(stmt.begin() + 1);
       assert(is_blob(arg[0]));
@@ -129,7 +129,7 @@ interpreter::interpret(object_view stmt, const dictionary &vardict)
       return;
     }
 
-    if (stmt[1] == ATOM("import_directory", 1))
+    if (the_word(stmt[1]) == ATOM("import_directory", 1))
     {
       const object_view arg = dc.decode_object(stmt.begin() + 1);
       assert(is_blob(arg[0]));
@@ -139,7 +139,7 @@ interpreter::interpret(object_view stmt, const dictionary &vardict)
     }
   }
 
-  else if (stmt[0] == ATOM(":-", 2)) // Predicate
+  else if (the_word(stmt[0]) == ATOM(":-", 2)) // Predicate
   {
     auto it = stmt.begin() + 1;
     const object_view sign = dc.decode_object(it);

@@ -45,12 +45,19 @@ using word_t = uint64_t;
 */
 
 
+static constexpr word_t term_mask = ~word_t(0b11111100);
 struct term_header_layout { word_t tag:2, reserved:6, arity:8, id:48; };
 static_assert(sizeof(term_header_layout) == sizeof(word_t));
 
 struct nonterminal_layout { word_t tag:2, reserved:6, id:56; };
 static_assert(sizeof(nonterminal_layout) == sizeof(word_t));
 
+[[nodiscard, gnu::pure]] inline word_t
+the_word(word_t w)
+{
+  const word_t o[2] = {w, w & term_mask};
+  return o[(w & 0b11ull) == 0b01ull];
+}
 
 
 struct term_header { word_t id; word_t arity; };
@@ -164,4 +171,11 @@ struct hash<object> {
     return hsh({(const char*)x.data(), x.size() * sizeof(word_t)});
   }
 };
+}
+
+static void
+prune(object &obj)
+{
+  for (word_t &w : obj)
+    w = the_word(w);
 }

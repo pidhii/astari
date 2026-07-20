@@ -63,7 +63,9 @@ class lib_tabulate {
   _snapshot(runtime &rt, object_view obj)
   {
     state_saver _ {m_cache};
-    return m_cache.adopt(rt.reconstruct(obj));
+    object recobj = rt.reconstruct(obj);
+    prune(recobj);
+    return m_cache.adopt(recobj);
   }
 
   void

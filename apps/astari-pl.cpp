@@ -1,5 +1,6 @@
 #include "pl/builtins/breadthfirst.hpp"
 #include "pl/builtins/iso.hpp"
+#include "pl/builtins/minimal.hpp"
 #include "pl/builtins/parsing.hpp"
 #include "pl/builtins/tabulate.hpp"
 #include "pl/core/interpreter.hpp"
@@ -30,7 +31,7 @@ repl(interpreter &pl)
     parser.tokenize_more(tokens, line);
 
     const word_t dot = ec.encode(term_header(parser.symbols()["."], 0));
-    if (not tokens.list.empty() and tokens.list.end()[-2] == dot)
+    if (not tokens.list.empty() and the_word(tokens.list.end()[-2]) == dot)
     {
       try {
         parser.pop_token(tokens);

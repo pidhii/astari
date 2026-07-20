@@ -54,11 +54,11 @@ struct iso_io {
   {
     if (is_term(s))
     {
-      if (s == stdout_term)
+      if (the_word(s[0]) == the_word(stdout_term[0]))
         return std::cout;
-      else if (s == stderr_term)
+      else if (the_word(s[0]) == the_word(stderr_term[0]))
         return std::cerr;
-      else if (auto it = ostreams.find(s[0]); it != ostreams.end())
+      else if (auto it = ostreams.find(the_word(s[0])); it != ostreams.end())
         return *it->second.second;
       else
         throw std::runtime_error {

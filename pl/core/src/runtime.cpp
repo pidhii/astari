@@ -106,7 +106,7 @@ runtime::_reconstruct(object_iterator &in, OutputIter &out)
     {
       term_header hdr;
       basic_decoder().decode(*in, hdr);
-      *out++ = *in++;
+      *out++ = the_word(*in++);
       for (size_t i = 0; i < hdr.arity; ++i)
         _reconstruct(in, out);
       return;

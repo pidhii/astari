@@ -161,7 +161,7 @@ interpreter::_make_true__predicate(runtime &rt, size_t _, object_iterator e_,
 
   const object_view e = dc.decode_object(e_);
 
-  const auto it = m_predicates.find(e[0]);
+  const auto it = m_predicates.find(e[0] & term_mask);
   if (it != m_predicates.end())
   {
     const std::vector<std::pair<object, object>> &variants = it->second;

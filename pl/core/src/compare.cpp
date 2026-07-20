@@ -1,12 +1,10 @@
 #include "pl/coding/basic_decoder.hpp"
 #include "pl/core/runtime.hpp"
-#include "pl/misc/display.hpp"
 #include "pl/obj/object.hpp"
 
 #include <cassert>
 #include <compare>
 #include <unordered_set>
-#include <iostream>
 
 
 using memory_entry = std::pair<object_iterator, object_iterator>;
@@ -30,7 +28,7 @@ _compare(runtime &rt, object_iterator &lhs, object_iterator &rhs,
 {
   basic_decoder dc;
 
-  if (lhs[0] == rhs[0])
+  if (the_word(lhs[0]) == the_word(rhs[0]))
   {
     if (is_term(lhs[0]))
     {
@@ -112,7 +110,7 @@ _compare(runtime &rt, object_iterator &lhs, object_iterator &rhs,
       return std::strong_ordering::greater;
   }
 
-  return lhs[0] <=> rhs[0];
+  return the_word(lhs[0]) <=> the_word(rhs[0]);
 }
 
 

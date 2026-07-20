@@ -37,9 +37,10 @@ object_file::write_v1(std::ostream &out)
 
   // 3. Write objects
   out << objects.size() << '\n';
-  for (const object &obj : objects)
+  for (object &obj : objects)
   {
     runtime rt;
+    prune(obj);
     const object_view adobj = rt.adopt(obj);
     const std::string_view objdata {
         reinterpret_cast<const char *>(adobj.data()),

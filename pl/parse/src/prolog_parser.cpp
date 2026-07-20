@@ -205,8 +205,8 @@ prolog_parser::tokenize_more(tokens &tokens, std::string_view text)
   }
 
   basic_encoder ec;
-  assert(tokens.list.back() ==
-          ec.encode(term_header(m_pl.symbols()["nil"], 0)));
+  assert(the_word(tokens.list.back()) ==
+         ec.encode(term_header(m_pl.symbols()["nil"], 0)));
   tokens.list.pop_back();
   tokens.list += list;
 }
@@ -243,8 +243,8 @@ prolog_parser::_parse_first_stmt(dictionary &vardict, object_view toklist)
 
   if (term.empty() or remtokens.empty())
   {
-    std::cerr << "parse failure: " << dump_object(m_pl.symbols(), toklist)
-              << std::endl;
+    std::cerr << "parse failure: "
+              << dump_object(m_pl.symbols(), toklist, true, false) << std::endl;
     throw std::runtime_error {"parse failure"};
   }
 
