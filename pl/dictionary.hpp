@@ -49,5 +49,5 @@ class dictionary {
   std::unordered_map<std::string, uint64_t> m_ids;
   std::unordered_map<uint64_t, std::string_view> m_names;
 
-  friend class object_file;
+  friend struct object_file;
 };
