@@ -17,7 +17,7 @@
 void
 iso_writing_terms(iso_io &io, interpreter &pl)
 {
-  // write_term/2, write_term/3
+  // write_term__/5
   pl.add_meta_op("write_term__", [&](runtime &rt, int argc,
                                      object_iterator argv,
                                      const continuation &cont) {
@@ -36,40 +36,7 @@ iso_writing_terms(iso_io &io, interpreter &pl)
     TAILCALL cont(rt);
   });
 
-  // TODO: remove custom member/2 after adding a list library
-  pl << R"(
-    iso_io_member__(X, [X|_]).
-    iso_io_member__(X, [_|T]) :-
-      iso_io_member__(X, T).
-
-    write_term(S, Term, Options) :-
-      (iso_io_member__(quoted(Quoted), Options) -> true; Quoted = false),
-      (iso_io_member__(ignore_ops(IgnoreOps), Options) -> true; IgnoreOps = false),
-      (iso_io_member__(numbervars(Numbervars), Options) -> true; Numbervars = false),
-      write_term__(S, Term, Quoted, IgnoreOps, Numbervars).
-
-    write_term(Term, Options) :-
-      current_output(S),
-      write_term(S, Term, Options).
-
-    write(Term) :-
-      current_output(S),
-      write_term(S, Term, [numbervars(true)]).
-
-    writeq(Term) :-
-      current_output(S),
-      write_term(S, Term, [quoted(true), numbervars(true)]). 
-
-    writeq(S,Term) :-
-      write_term(S, Term, [quoted(true), numbervars(true)]). 
-
-    write_canonical(T) :-
-      current_output(S),
-      write_term(S, Term, [quoted(true), ignore_ops(true)]). 
-  
-    write_canonical(S,T) :-
-      write_term(S, Term, [quoted(true), ignore_ops(true)]). 
-  )";
+  pl.load_objfile(PLO_PATH_iso_writing_terms);
 }
 
 
@@ -106,22 +73,8 @@ iso_writing_characters(iso_io &io, interpreter &pl)
         pl.raise(term("representation_error", term("character")));
     }
   });
-  pl << R"(
-    put_char(S, Char) :-
-      char_code(Char, Code),
-      put_code(S, Code).
 
-    put_char(Code) :-
-      current_output(S),
-      put_char(S, Char). 
-
-    nl(S) :-
-      put_code(S, 10).
-
-    nl :-
-      current_output(S),
-      nl(S).
-  )";
+  pl.load_objfile(PLO_PATH_iso_writing_characters);
 };
 
 

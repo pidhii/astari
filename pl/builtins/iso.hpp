@@ -6,7 +6,6 @@
 #include "pl/misc/display.hpp"
 #include "pl/obj/object.hpp"
 #include "pl/parse/lexer.hpp"
-#include "utl/state_saver.hpp"
 
 #include <map>
 #include <iostream>
@@ -83,81 +82,5 @@ void iso_throwcatch(interpreter &pl);
 struct iso {
   iso_io io;
 
-  iso(interpreter &pl)
-  : io {pl}
-  {
-    ////////////////////////////////////////////////////////////////////////////
-    // Control constructs.
-    //
-    pl << R"(
-      true.
-
-      call(Goal) :-
-        Goal.
-    )";
-
-    ////////////////////////////////////////////////////////////////////////////
-    // Logic and Control
-    //
-    pl << R"(
-      \+ Goal :- Goal -> fail; true.
-
-      repeat.
-      repeat :-
-        repeat.
-    )";
-    // once/1
-  pl.add_meta_op("once", [&](runtime &rt, int argc, object_iterator argv,
-                              const continuation &cont) {
-    assert_arity(pl, "once", argc, 1);
-    struct cut { };
-    try
-    {
-      basic_decoder dc;
-      const object_view expr = dc.decode_object(argv);
-      pl.make_true(rt, expr, [cont](runtime &rt) {
-        cont(rt);
-        throw cut {};
-      });
-    }
-    catch (cut) { }
-  });
-
-    ////////////////////////////////////////////////////////////////////////////
-    // Unification
-    //
-    pl << R"(
-      X = X.
-
-      X \= Y :- \+ X = Y.
-    )";
-
-    ////////////////////////////////////////////////////////////////////////////
-    // halt/0, halt/1
-    //
-    pl.add_meta_op("halt", [&](runtime &rt, int argc, object_iterator argv,
-                                const continuation &cont) {
-      assert_arity(pl, "halt", argc, 0, 1);
-      if (argc == 1)
-        pl.number(rt, argv, std::exit);
-      else
-        std::exit(0);
-    });
-
-    // Type testing
-    iso_type_testing(pl);
-
-    // Term comparison
-    iso_term_comparison(pl);
-
-    // I/O
-    iso_writing_terms(io, pl);
-    iso_writing_characters(io, pl);
-
-    // Arithmetics
-    iso_arithmetics(pl);
-
-    // Term Creation and Decomposition
-    iso_term_creation_and_decomposition(pl);
-  }
+  iso(interpreter &pl);
 };

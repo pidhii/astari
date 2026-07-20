@@ -9,5 +9,5 @@ build: configure
 install: configure
 	make -C build -j32 install
 	
-test: build
+test: install
 	make -C build test

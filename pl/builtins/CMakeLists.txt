@@ -15,6 +15,8 @@ foreach (plfilepath ${plfiles})
     VERBATIM)
   add_custom_target(${targetname} ALL DEPENDS ${plofile})
   install(FILES ${CMAKE_CURRENT_BINARY_DIR}/${plofile} DESTINATION lib/astari-pl)
+  target_compile_definitions(builtins
+    PRIVATE "PLO_PATH_${targetname}=\"${CMAKE_INSTALL_PREFIX}/lib/astari-pl/${plofile}\"")
 endforeach ()
 
 
