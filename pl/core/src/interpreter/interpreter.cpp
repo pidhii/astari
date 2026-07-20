@@ -1,6 +1,10 @@
 #include "interpreter.hpp"
+
 #include "pl/coding/basic_decoder.hpp"
 #include "pl/obj/object.hpp"
+#include "utl/resolve_path.hpp"
+
+#include <filesystem>
 #include <stdexcept>
 
 
@@ -80,4 +84,45 @@ interpreter::add_meta_op(std::string_view name, const meta_op_handle &handle)
         "duplicate names for meta operators are not allowed ({})", name)};
   }
   m_metaops.emplace(id, handle);
+}
+
+
+void
+interpreter::ensure_loaded(std::string_view path_)
+{
+  namespace fs = std::filesystem;
+
+  const fs::path path {path_};
+
+  std::vector<fs::path> searchnames;
+  if (path.extension() == ".plo" or path.extension() == "pl")
+    searchnames.push_back(path);
+  else
+  {
+    searchnames.emplace_back(path.string() + ".plo");
+    searchnames.emplace_back(path.string() + ".pl");
+  }
+
+  for (const fs::path &p : searchnames)
+  {
+    try
+    {
+      const fs::path fullpath =
+          resolve_path(p, m_impordirs.begin(), m_impordirs.end());
+      if (not m_imports.emplace(fullpath).second)
+        return; // File was already loaded
+
+      if (fullpath.extension() == ".pl")
+        load_file(fullpath.c_str());
+      else if (fullpath.extension() == ".plo")
+        load_objfile(fullpath.c_str());
+      else
+        assert(not "unreachable code" );
+    }
+    catch (...)
+    { continue; }
+  }
+
+  throw std::runtime_error {
+      std::format("failed to resolve library ({})", path_)};
 }

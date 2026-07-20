@@ -1,5 +1,9 @@
 #pragma once
 
+#include "pl/coding/basic_decoder.hpp"
+#include "pl/coding/basic_encoder.hpp"
+#include "pl/obj/object.hpp"
+
 #include <cstdint>
 #include <string>
 #include <unordered_map>
@@ -51,3 +55,23 @@ class dictionary {
 
   friend struct object_file;
 };
+
+
+// TODO: move to cpp file
+static void
+transfer_symbols(dictionary &from, dictionary &to, object &obj)
+{
+  basic_encoder ec;
+  basic_decoder dc;
+
+  for (word_t &word : obj)
+  {
+    if (is_term(word))
+    {
+      term_header hdr;
+      dc.decode(word, hdr);
+      const size_t newid = to[from[hdr.id]];
+      word = ec.encode(term_header(newid, hdr.arity));
+    }
+  }
+}

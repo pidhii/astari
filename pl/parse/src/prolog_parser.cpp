@@ -35,25 +35,6 @@ _tokenize(interpreter &pl, dictionary &vardict, std::string_view text)
 
 
 static void
-transfer_symbols(dictionary &from, dictionary &to, object &obj)
-{
-  basic_encoder ec;
-  basic_decoder dc;
-
-  for (word_t &word : obj)
-  {
-    if (is_term(word))
-    {
-      term_header hdr;
-      dc.decode(word, hdr);
-      const size_t newid = to[from[hdr.id]];
-      word = ec.encode(term_header(newid, hdr.arity));
-    }
-  }
-}
-
-
-static void
 recover_variables(runtime &rt, varnamespace &ns, object &obj)
 {
   basic_encoder ec;

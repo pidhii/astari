@@ -12,6 +12,7 @@
 #include <functional>
 #include <iostream>
 #include <sstream>
+#include <set>
 
 
 using continuation = std::function<void(runtime&)>;
@@ -129,11 +130,46 @@ class interpreter: public runtime {
   operator << (std::string_view str)
   { std::istringstream ss {str.data(), std::ios_base::binary}; load(ss); }
 
+  /**
+   * @name Script loading primitives
+   * @{
+   */
+  /**
+   * @brief Load script from a file
+   * @details Parse all statements in the file and @ref interpret them.
+   * @param path File path.
+   */
   void
   load_file(std::string_view path);
 
+  /**
+   * @brief Load object file
+   * @details Get all statements from the file and @ref interpret them.
+   * @param path File path.
+   */
+  void
+  load_objfile(std::string_view path);
+
+  /**
+   * @brief Load script from a stream
+   * @details Parse all statements in the stream and @ref interpret them.
+   * @param in Input stream.
+   */
   void
   load(std::istream &in);
+  /** @} */
+
+  /**
+   * @name Importing libraries
+   * @{
+   */
+  void
+  ensure_loaded(std::string_view path);
+
+  void
+  import_directory(std::string_view path)
+  { m_impordirs.emplace(path); }
+  /** @} */
 
   void
   eval(object_view obj, const dictionary &vardict);
@@ -205,10 +241,11 @@ class interpreter: public runtime {
                         continuation &cont);
 
   private:
-  // arxt::radixhash_node<word_t, object> m_predicates;
   std::unordered_map<word_t, std::vector<std::pair<object, object>>> m_predicates;
   std::unordered_map<size_t, meta_op_handle> m_metaops;
   dictionary m_symdict;
+  std::set<std::string> m_impordirs;
+  std::set<std::string> m_imports;
 }; // class interpreter
 
 

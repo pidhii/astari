@@ -2,13 +2,13 @@
 
 #include "pl/dictionary.hpp"
 #include "pl/misc/display.hpp"
-#include "pl/parse/parse_error.hpp"
+#include "pl/misc/object_file.hpp"
 #include "pl/misc/show_location.hpp"
+#include "pl/parse/parse_error.hpp"
 #include "pl/parse/prolog_parser.hpp"
 
 #include <fstream>
 #include <iostream>
-#include <iterator>
 
 
 
@@ -31,6 +31,25 @@ interpreter::load_file(std::string_view path)
   catch (const std::exception &exn)
   {
     ERROR("failed to load file {} ({})", path, exn.what());
+  }
+}
+
+
+void
+interpreter::load_objfile(std::string_view path)
+{
+  object_file objfile;
+
+  { // fill in `objfile`
+    prolog_parser p;
+    std::ifstream file {path.data()};
+    objfile.read(file, *this);
+  }
+
+  for (object &obj : objfile.objects)
+  {
+    transfer_symbols(objfile.symbols, m_symdict, obj);
+    interpret(obj);
   }
 }
 
@@ -99,7 +118,28 @@ interpreter::interpret(object_view stmt, const dictionary &vardict)
   #define ATOM(name, arity) ec.encode(term_header(m_symdict[name], arity))
   #define ARITY(term) dc.decode_term_header(term).arity
 
-  if (stmt[0] == ATOM(":-", 2)) // Predicate
+  if (stmt[0] == ATOM(":-", 1)) // Directive
+  {
+    if (stmt[1] == ATOM("ensure_loaded", 1))
+    {
+      const object_view arg = dc.decode_object(stmt.begin() + 1);
+      assert(is_blob(arg[0]));
+      assert(blob_tag(arg[0]) == blob_tag::string);
+      ensure_loaded(string(arg[0]));
+      return;
+    }
+
+    if (stmt[1] == ATOM("import_directory", 1))
+    {
+      const object_view arg = dc.decode_object(stmt.begin() + 1);
+      assert(is_blob(arg[0]));
+      assert(blob_tag(arg[0]) == blob_tag::string);
+      import_directory(string(arg[0]));
+      return;
+    }
+  }
+
+  else if (stmt[0] == ATOM(":-", 2)) // Predicate
   {
     auto it = stmt.begin() + 1;
     const object_view sign = dc.decode_object(it);
@@ -108,7 +148,7 @@ interpreter::interpret(object_view stmt, const dictionary &vardict)
     return;
   }
 
-  if (is_term(stmt[0])) // Statement
+  else if (is_term(stmt[0])) // Statement
   {
     add_predicate(stmt);
     return;
