@@ -20,11 +20,10 @@ struct object_file {
   void
   read(std::istream &in, object_allocator &alloc);
   
-  void
-  write_v0(std::ostream &out);
-
-  void
-  read_v0(std::istream &in, object_allocator &alloc);
+  void write_v0(std::ostream &out);
+  void read_v0(std::istream &in, object_allocator &alloc);
   
+  void write_v1(std::ostream &out);
+  void read_v1(std::istream &in, object_allocator &alloc);
 };
 
