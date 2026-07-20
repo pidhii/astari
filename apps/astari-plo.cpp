@@ -4,16 +4,20 @@
 
 #include <fstream>
 
+
 int
 main(int argc, char **argv)
 {
-  if (argc != 2)
+  if (argc != 2 and argc != 3)
   {
-    std::cerr << "usage: astari-plo <path>" << std::endl;
+    std::cerr << "usage: astari-plo <path> [<opath>]" << std::endl;
     return 1;
   }
 
   const std::string inpath = argv[1];
+  const std::string opath = argc == 3                 ? std::string {argv[2]}
+                            : inpath.ends_with(".pl") ? inpath + "o"
+                                                      : inpath + ".plo";
 
   object_file objfile;
 
@@ -25,8 +29,6 @@ main(int argc, char **argv)
   }
 
   { // write out `objfile`
-    const std::string opath =
-        inpath.ends_with(".pl") ? inpath + "o" : inpath + ".plo";
     std::ofstream file {opath};
     objfile.write(file);
   }
