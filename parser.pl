@@ -93,11 +93,6 @@ parse(stmt(S), In) :-
   append(Input, ['.'], In),
   parses([expr(S)], Input).
 
-%%% stmt => :- expr '.'
-%parse(stmt(S), [':-' | In]) :-
-%  append(Input, ['.'], In),
-%  parses([expr(S)], Input).
-
 
 
 qtokens([], []).
