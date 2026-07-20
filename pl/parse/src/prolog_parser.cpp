@@ -10,8 +10,9 @@
 #include "pl/misc/object_file.hpp"
 #include "pl/obj/object.hpp"
 
-#include <stdexcept>
+#include <cstdlib>
 #include <fstream>
+#include <stdexcept>
 
 
 #define ERROR(fmt, ...)                                                        \
@@ -110,7 +111,12 @@ prolog_parser::prolog_parser() : m_lib_bf {m_pl}, m_lib_tab {m_pl}
     cont(rt);
   });
 
-  std::ifstream parserfile {PARSER_OBJFILE_PATH};
+  std::string parserfilepath;
+  if (getenv("ASTARI_PARSER_OBJFILE_PATH"))
+    parserfilepath = getenv("ASTARI_PARSER_OBJFILE_PATH");
+  else
+    parserfilepath = PARSER_OBJFILE_PATH;
+  std::ifstream parserfile {parserfilepath};
   assert(parserfile);
 
   object_file objfile;
