@@ -1,14 +1,13 @@
 #pragma once
 
-#include "pl/obj/object.hpp"
 #include "runtime.hpp"
 
-#include "pl/coding/basic_decoder.hpp"
+#include "pl/obj/object.hpp"
 
 #include <unordered_set>
 
 
-class matcher {
+struct matcher {
   public:
   using memory_entry = std::pair<object_iterator, object_iterator>;
 
@@ -27,32 +26,11 @@ class matcher {
   };
 
   using memory = std::unordered_set<memory_entry, memhash>;
-
-  matcher(runtime &rt, basic_decoder &dc): m_decoder {dc}, m_runtime {rt} { }
-
-  bool
-  operator () (object_view lhs, object_view rhs)
-  {
-    object_iterator lhsiter = lhs.begin();
-    object_iterator rhsiter = rhs.begin();
-    return match(lhsiter, rhsiter, m_memory);
-  }
-
-  bool
-  match(object_view lhs, object_view rhs, memory &mem)
-  {
-    object_iterator lhsit = lhs.begin();
-    object_iterator rhsit = rhs.begin();
-    return _match(lhsit, rhsit, mem);
-  }
-
-  private:
-  bool
-  _match(object_iterator lhs, object_iterator rhs, memory &mem);
-
-  private:
-  basic_decoder &m_decoder;
-  runtime &m_runtime;
-  std::unordered_set<memory_entry, memhash> m_memory;
-  bool m_is_matched;
 };
+
+bool
+shallow_match(object_iterator lhs, object_iterator rhs, size_t n = 1);
+
+bool
+match(runtime &rt, object_iterator lhs, object_iterator rhs, size_t n,
+      matcher::memory &mem);

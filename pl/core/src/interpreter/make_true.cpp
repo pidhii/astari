@@ -156,7 +156,6 @@ interpreter::_make_true__predicate(runtime &rt, size_t _, object_iterator e_,
                                    continuation &cont)
 {
   static varnamespace ns;
-  static matcher::memory mmem;
   static basic_decoder dc;
 
   const object_view e = dc.decode_object(e_);
@@ -169,10 +168,13 @@ interpreter::_make_true__predicate(runtime &rt, size_t _, object_iterator e_,
     {
       const auto &[sign, body] = variants[i];
 
+      if (not shallow_match(e.begin(), sign.data()))
+        continue;
+
       state_saver _ {rt, cont};
       ns.clear();
       const object_view predsign = rt.adopt(ns, sign);
-      if (mmem.clear(), matcher(rt, dc).match(e, predsign, mmem))
+      if (rt.match(e, predsign))
       {
         if (not body.empty())
         {
@@ -189,9 +191,12 @@ interpreter::_make_true__predicate(runtime &rt, size_t _, object_iterator e_,
     // Tail-call on the last variant
     const auto &[sign, body] = variants.back();
 
+    if (not shallow_match(e.begin(), sign.data()))
+      return;
+
     ns.clear();
     const object_view predsign = rt.adopt(ns, sign);
-    if (mmem.clear(), matcher(rt, dc).match(e, predsign, mmem))
+    if (rt.match(e, predsign))
     {
       if (not body.empty())
       {

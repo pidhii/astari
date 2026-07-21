@@ -27,10 +27,11 @@ runtime::reconstruct(object_iterator in)
 
 
 bool
-runtime::match(object_view lhs, object_view rhs, basic_decoder &dc)
+runtime::match(object_view lhs, object_view rhs)
 {
-  matcher m {*this, dc};
-  return m(lhs, rhs);
+  static matcher::memory mem;
+  mem.clear();
+  return ::match(*this, lhs.begin(), rhs.begin(), 1, mem);
 }
 
 
@@ -50,38 +51,28 @@ _revbytes(size_t h)
 
 
 std::optional<object_iterator>
-runtime::dereference(size_t varid)
+runtime::dereferencer(size_t &varid)
 {
-  varid = m_dsf.find(varid);
-  if (not m_dsf.is_root(varid))
-    return std::nullopt;
-
-  varid = _revbytes(varid);
-  const std::string_view key {(char*)&varid, sizeof(varid)};
-  if (const auto it = m_assignments.find(key))
-    return *it;
-  else
-    return std::nullopt;
+  const auto [v, i] = m_dsf.find(varid);
+  varid = i;
+  return v ? std::make_optional(v) : std::nullopt;
 }
 
 
 void
 runtime::assign(size_t varid, object_iterator value)
 {
-  varid = m_dsf.find(varid);
-  if (dereference(varid))
-    throw std::runtime_error {"double assignment"};
-  size_t proxyvar = m_dsf.make_root_set();
-  m_dsf.join(varid, proxyvar);
-  proxyvar = _revbytes(proxyvar);
-  const std::string_view key {(char*)&proxyvar, sizeof(proxyvar)};
-  m_assignments.emplace(key, value);
+  const size_t root = m_dsf.make_root(value);
+  m_dsf.join(varid, root);
 }
 
 
 void
 runtime::_adopt(varnamespace &ns, object_view in, word_t *out)
 {
+  const size_t var0 = m_dsf.size();
+  size_t varn = var0;
+
   for (size_t i = 0; i < in.size(); ++i)
   {
     if (not is_nonterminal(in[i]))
@@ -93,8 +84,8 @@ runtime::_adopt(varnamespace &ns, object_view in, word_t *out)
       const auto it = ns.find(var.id);
       size_t runtimeid;
       if (it == ns.end())
-      {
-        runtimeid = m_dsf.make_set();
+      { // Create new variable
+        runtimeid = varn++;
         ns.emplace(size_t(var.id), runtimeid);
       }
       else
@@ -102,6 +93,8 @@ runtime::_adopt(varnamespace &ns, object_view in, word_t *out)
       out[i] = basic_encoder().encode(nonterminal(runtimeid));
     }
   }
+
+  m_dsf.make_n_sets(varn - var0);
 }
 
 
@@ -132,14 +125,14 @@ runtime::_reconstruct(object_iterator &in, OutputIter &out)
     {
       nonterminal var;
       basic_decoder().decode(*in++, var);
-      const size_t id = m_dsf.find(var.id);
-      if (const auto val = dereference(id))
+      const auto [v, i] = m_dsf.find(var.id);
+      if (v)
       {
-        auto it = *val;
+        object_iterator it = v;
         _reconstruct(it, out);
       }
       else
-        *out++ = basic_encoder().encode(nonterminal {id});
+        *out++ = basic_encoder().encode(nonterminal {i});
       return;
     }
   }

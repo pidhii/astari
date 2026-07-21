@@ -1,9 +1,9 @@
 #pragma once
 
-#include "pl/coding/basic_decoder.hpp"
 #include "pl/misc/object_allocator.hpp"
 #include "pl/obj/object.hpp"
 #include "pvector/pvector.hpp"
+#include "ualloc/ualloc.hpp"
 #include "utl/rooted_forest.hpp"
 
 #include "radixtrees/pradix256dense.hpp"
@@ -35,14 +35,14 @@ class runtime: public object_allocator {
   { return reconstruct(in.begin()); }
 
   bool
-  match(object_view lhs, object_view rhs, basic_decoder &dc);
-
-  bool
-  match(object_view lhs, object_view rhs)
-  { basic_decoder dc; return match(lhs, rhs, dc); }
+  match(object_view lhs, object_view rhs);
 
   std::optional<object_iterator>
-  dereference(size_t varid);
+  dereferencer(size_t &varid);
+
+  std::optional<object_iterator>
+  dereference(size_t varid)
+  { return dereferencer(varid); }
 
   object_iterator
   reduce(object_iterator x);
@@ -56,7 +56,7 @@ class runtime: public object_allocator {
 
   [[nodiscard]] bool
   bound(size_t lhsid, size_t rhsid) noexcept
-  { return m_dsf.find(lhsid) == m_dsf.find(rhsid); }
+  { return m_dsf.find(lhsid).second == m_dsf.find(rhsid).second; }
 
   void
   assign(size_t varid, object_iterator value);
@@ -71,6 +71,7 @@ class runtime: public object_allocator {
 
   private:
   pidhii::pradix256dense<object_iterator> m_assignments;
-  template <typename T> using pvector = pidhii::pvector<T, 5>;
+  template <typename T>
+  using pvector = pidhii::pvector<T, 5, pidhii::static_uniform_allocator<T>>;
   rooted_forest<pvector> m_dsf;
 };

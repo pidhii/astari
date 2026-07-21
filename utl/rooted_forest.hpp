@@ -1,19 +1,21 @@
 #pragma once
 
-#include "../forest/forest.hpp"
+#include "pl/obj/object.hpp"
+
+#include <vector>
+
+
+struct cell {
+  enum class tag { var, val } tag;
+  union {
+    size_t next;
+    object_iterator value;
+  };
+};
 
 
 template <template <typename> typename Container = std::vector>
-class rooted_forest
-: protected pidhii::forest<
-      pidhii::forest_traits<pidhii::find_method::naive,
-                            pidhii::union_method::naive>,
-      Container> {
-  using base =
-      pidhii::forest<pidhii::forest_traits<pidhii::find_method::naive,
-                                           pidhii::union_method::naive>,
-                     Container>;
-
+class rooted_forest {
   public:
   rooted_forest() = default;
 
@@ -24,49 +26,90 @@ class rooted_forest
   }
 
   size_t
-  make_set()
-  { return _make_set(false); }
+  size() const noexcept
+  { return m_els.size(); }
 
   size_t
-  make_root_set()
-  { return _make_set(true); }
+  make_set()
+  {
+    const size_t i = m_els.size();
+    cell &c = m_els.emplace_back(i);
+    c.tag = cell::tag::var;
+    c.next = i;
+    return i;
+  }
 
-  bool
-  is_root(size_t i) const
-  { return m_roots[i]; }
+  size_t
+  make_root(object_iterator val)
+  {
+    const size_t i = m_els.size();
+    cell &c = m_els.emplace_back();
+    c.tag = cell::tag::val;
+    c.value = val;
+    return i;
+  }
+
+  void
+  make_n_sets(size_t n)
+  {
+    m_els.append(n, [](size_t i) -> cell {
+      return cell {.tag = cell::tag::var, .next = i};
+    });
+  }
 
   bool
   join(size_t i, size_t j)
   {
-    i = base::find(i);
-    j = base::find(j);
-    if (not is_root(i))
+    auto [ci, ri] = find_cell(i);
+    auto [cj, rj] = find_cell(j);
+    if (ci->tag == cell::tag::var and cj->tag == cell::tag::var)
     {
-      base::m_els[i].parent = j;
+      if (i < j)
+        ci->next = j;
+      else
+        cj->next = i;
       return true;
     }
-    else if (not is_root(j))
+    else if (ci->tag == cell::tag::var)
     {
-      base::m_els[j].parent = i;
+      ci->next = j;
+      return true;
+    }
+    else if (cj->tag == cell::tag::var)
+    {
+      cj->next = i;
       return true;
     }
     else
       return false;
   }
 
-  size_t
-  find(size_t i) 
-  { return base::find(i); }
-
-  private:
-  size_t
-  _make_set(bool isroot)
+  [[nodiscard]] std::pair<object_iterator, size_t>
+  find(size_t i) const
   {
-    const size_t k = base::make_set();
-    m_roots.push_back(isroot);
-    return k;
+    cell c = m_els[i];
+    while (true)
+    {
+      if (c.tag == cell::tag::val)
+        return {c.value, i};
+      if (c.next == i)
+        return {nullptr, i};
+      i = c.next;
+      c = m_els[i];
+    }
+  }
+
+  [[nodiscard]] std::pair<cell*, size_t>
+  find_cell(size_t i)
+  {
+    do {
+      cell &c = m_els[i];
+      if (c.tag == cell::tag::val or c.next == i)
+        return {&c, i};
+      i = c.next;
+    } while (true);
   }
 
   private:
-  Container<bool> m_roots;
+  Container<cell> m_els;
 }; // class disjoint_forest_set
