@@ -4,10 +4,10 @@ configure:
 	cmake -B ./build -S . -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=./install
 
 build: configure
-	make -C build -j32
+	$(MAKE) -C build
 	
 install: configure
-	make -C build -j32 install
+	$(MAKE) -C build install
 	
 test: install
-	make -C build test
+	$(MAKE) -C build test

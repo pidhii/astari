@@ -1,6 +1,5 @@
 #include "pl/builtins/breadthfirst.hpp"
 #include "pl/builtins/iso.hpp"
-#include "pl/builtins/minimal.hpp"
 #include "pl/builtins/parsing.hpp"
 #include "pl/builtins/tabulate.hpp"
 #include "pl/core/interpreter.hpp"
