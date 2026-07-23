@@ -5,7 +5,7 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_EXPORT_COMPILE_COMMANDS TRUE)
 
 set(WARNING_FLAGS "-Wall -Wextra -Wno-unused-function -Wno-unused-parameter -Wno-strict-aliasing -Wno-maybe-musttail-local-addr")
-set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS} ${WARNING_FLAGS} -Ofast")
+set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS} ${WARNING_FLAGS} -O3")
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS} ${WARNING_FLAGS} -O0 -ggdb -foptimize-sibling-calls")
 
 add_compile_definitions("ASTARI_DEBUG=$<CONFIG:Debug>")

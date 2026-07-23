@@ -34,16 +34,21 @@ class lib_tabulate {
         // }
         for (const object &variant : it->second.solutions)
         {
-          state_saver _ {rt};
+          barrier cp;
+          rt.push_choice_point(&cp);
           const object_view g = rt.adopt(variant);
           [[maybe_unused]] const bool ok = rt.match(goal, g);
           assert(ok);
           cont(rt);
+          if (rt.uwuc(&cp))
+            break;
         }
         return;
       }
 
       // std::cerr << "miss " << pl.dump(goalview) << std::endl;
+#define VER 1
+#if VER == 1
       m_table[goalview].is_building = true;
       std::list<runtime> todo;
       pl.make_true(rt, goal, [&](runtime &rt) {
@@ -55,6 +60,16 @@ class lib_tabulate {
 
       for (runtime &rt : todo)
         cont(rt);
+#else
+      m_table[goalview].is_building = true;
+      pl.make_true(rt, goal, [&](runtime &rt) {
+        table_entry &entry = m_table[goalview];
+        entry.solutions.push_back(rt.reconstruct(goal));
+        cont(rt);
+      });
+      m_table[goalview].is_building = false;
+
+#endif
     });
   }
 
@@ -62,6 +77,7 @@ class lib_tabulate {
   object_view
   _snapshot(runtime &rt, object_view obj)
   {
+    // FIXME: dont use runtime just for the renaming
     state_saver _ {m_cache};
     object recobj = rt.reconstruct(obj);
     prune(recobj);
@@ -71,7 +87,6 @@ class lib_tabulate {
   void
   _unsnapshot(object_view snapshot)
   {
-    state_saver _ {m_cache};
     return m_cache.unallocate(snapshot);
   }
 

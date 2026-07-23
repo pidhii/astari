@@ -11,8 +11,8 @@
 #include <format>
 #include <functional>
 #include <iostream>
-#include <sstream>
 #include <set>
+#include <sstream>
 
 
 using continuation = std::function<void(runtime&)>;
@@ -189,15 +189,22 @@ class interpreter: public runtime {
   void
   make_true(object_view expr, const continuation &cont)
   {
-    runtime save = *this;
+    barrier cp;
+    push_choice_point(&cp);
     make_true(*this, expr, cont);
-    static_cast<runtime&>(*this) = save;
+    unwind(&cp);
   }
 
+  /**
+   * @warning Do not use this as an entry point of a query.
+   */
   void
   make_true(runtime &rt, object_view expr, continuation &cont)
-  { _make_true(rt, 0, expr.begin(), cont); }
+  { TAILCALL _make_true(rt, 0, expr.begin(), cont); }
 
+  /**
+   * @warning Do not use this as an entry point of a query.
+   */
   void
   make_true(runtime &rt, object_view expr, continuation cont)
   { _make_true(rt, 0, expr.begin(), cont); }

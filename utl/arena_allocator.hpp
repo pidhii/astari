@@ -17,6 +17,7 @@ class arena_allocator {
 #ifdef MEMDEBUG
   { }
 #else
+  : m_curblock_free {nullptr}
   { std::tie(m_curblock_free, m_curblock_end) = _allocate_block(); }
 #endif
 

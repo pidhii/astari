@@ -8,26 +8,21 @@ iso::iso(interpreter &pl)
 
   // once/1
   pl.add_meta_op("once", [&](runtime &rt, int argc, object_iterator argv,
-                              const continuation &cont) {
+                             const continuation &cont) {
     assert_arity(pl, "once", argc, 1);
-    struct cut { };
-    try
-    {
-      basic_decoder dc;
-      const object_view expr = dc.decode_object(argv);
-      pl.make_true(rt, expr, [cont](runtime &rt) {
-        cont(rt);
-        throw cut {};
-      });
-    }
-    catch (cut) { }
+    basic_decoder dc;
+    const object_view expr = dc.decode_object(argv);
+    barrier cp;
+    rt.push_choice_point(&cp);
+    pl.make_true(rt, expr, [cont, &cp](runtime &rt) { rt.cut(&cp); cont(rt); });
+    rt.pop_choice_point(&cp); // let someone else to unwind it if needed
   });
 
   ////////////////////////////////////////////////////////////////////////////
   // halt/0, halt/1
   //
   pl.add_meta_op("halt", [&](runtime &rt, int argc, object_iterator argv,
-                              const continuation &cont) {
+                             const continuation &cont) {
     assert_arity(pl, "halt", argc, 0, 1);
     if (argc == 1)
       pl.number(rt, argv, std::exit);

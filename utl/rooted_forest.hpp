@@ -2,6 +2,7 @@
 
 #include "pl/obj/object.hpp"
 
+#include <cassert>
 #include <vector>
 
 
@@ -28,6 +29,14 @@ class rooted_forest {
   size_t
   size() const noexcept
   { return m_els.size(); }
+
+  void
+  resize(size_t n)
+  { m_els.resize(n); }
+
+  cell&
+  operator [] (size_t i) noexcept
+  { return m_els[i]; }
 
   size_t
   make_set()
@@ -57,32 +66,39 @@ class rooted_forest {
     });
   }
 
-  bool
+  size_t
   join(size_t i, size_t j)
   {
     auto [ci, ri] = find_cell(i);
     auto [cj, rj] = find_cell(j);
     if (ci->tag == cell::tag::var and cj->tag == cell::tag::var)
     {
-      if (i < j)
-        ci->next = j;
+      // Prioritize new to old
+      if (ri < rj)
+      {
+        cj->next = ri;
+        return rj;
+      }
       else
-        cj->next = i;
-      return true;
+      {
+        ci->next = rj;
+        return ri;
+      }
     }
     else if (ci->tag == cell::tag::var)
     {
-      ci->next = j;
-      return true;
+      ci->next = rj;
+      return ri;
     }
     else if (cj->tag == cell::tag::var)
     {
-      cj->next = i;
-      return true;
+      cj->next = ri;
+      return rj;
     }
-    else
-      return false;
+
+    assert(not "must not happen");
   }
+
 
   [[nodiscard]] std::pair<object_iterator, size_t>
   find(size_t i) const

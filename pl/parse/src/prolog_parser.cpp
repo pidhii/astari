@@ -126,7 +126,7 @@ prolog_parser::parse_expr(dictionary &symbols, dictionary &vardict,
   const object_view adgoal = m_pl.adopt(ns, goal);
 
   object result;
-  m_pl.make_true(m_pl, adgoal, [&] (runtime &rt) {
+  m_pl.make_true(adgoal, [&] (runtime &rt) {
     result = rt.reconstruct(rt.dereference(ns[exprvars["Expr"]]).value());
     transfer_symbols(m_pl.symbols(), symbols, result);
     recover_variables(rt, ns, result);
@@ -150,7 +150,7 @@ prolog_parser::parse_expr(dictionary &symbols, const tokens &toks)
   const object_view adgoal = m_pl.adopt(ns, goal);
 
   object result;
-  m_pl.make_true(m_pl, adgoal, [&] (runtime &rt) {
+  m_pl.make_true(adgoal, [&] (runtime &rt) {
     result = rt.reconstruct(rt.dereference(ns[exprvars["Expr"]]).value());
     transfer_symbols(m_pl.symbols(), symbols, result);
     recover_variables(rt, ns, result);
@@ -235,7 +235,7 @@ prolog_parser::_parse_first_stmt(dictionary &vardict, object_view toklist)
   const object_view adgoal = m_pl.adopt(ns, goal);
 
   object term, remtokens;
-  m_pl.make_true(m_pl, adgoal, [&] (runtime &rt) {
+  m_pl.make_true(adgoal, [&] (runtime &rt) {
     term = rt.reconstruct(rt.dereference(ns[exprvars["Term"]]).value());
     remtokens = rt.reconstruct(rt.dereference(ns[exprvars["RemTokens"]]).value());
   });

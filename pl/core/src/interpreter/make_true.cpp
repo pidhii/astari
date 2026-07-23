@@ -88,8 +88,13 @@ interpreter::_make_true__or(runtime &rt, size_t i, object_iterator eit,
   assert(i >= 1);
   while (i-- > 1) // Will taill-call on the last clause
   { 
-    state_saver _ {rt, cont};
+    state_saver _ {cont};
+    barrier cp;
+    rt.push_choice_point(&cp);
     _make_true(rt, PLUG, eit, cont);
+    if (rt.uwuc(&cp))
+      return;
+
     dc.decode_object(eit); // call for side-effects
   }
   TAILCALL _make_true(rt, PLUG, eit, cont);
@@ -135,19 +140,27 @@ interpreter::_make_true__if(runtime &rt, size_t _, object_iterator eit,
   const object_view ethen = dc.decode_object(eit);
   const object_view eelse = dc.decode_object(eit);
 
-  object_view econt = eelse;
+  bool cond = false;
+  barrier cp;
+  rt.push_choice_point(&cp);
   {
-    runtime contrt = rt;
-    state_saver _ {cont};
     continuation condcont = [&](runtime &rt) {
-      contrt = rt;
-      econt = ethen;
+      rt.cut(&cp);
+      cond = true;
     };
     _make_true(rt, PLUG, econd.begin(), condcont);
-    rt = contrt;
   }
 
-  TAILCALL _make_true(rt, PLUG, econt.begin(), cont);
+  if (cond)
+  { // Don't unwind and proceed with the then clause.
+    rt.pop_choice_point(&cp);
+    TAILCALL _make_true(rt, PLUG, ethen.begin(), cont);
+  }
+  else
+  { // Unwind unifications from the cond clause and go into the else clause.
+    rt.unwind(&cp);
+    TAILCALL _make_true(rt, PLUG, eelse.begin(), cont);
+  }
 }
 
 
@@ -171,11 +184,14 @@ interpreter::_make_true__predicate(runtime &rt, size_t _, object_iterator e_,
       if (not shallow_match(e.begin(), sign.data()))
         continue;
 
-      state_saver _ {rt, cont};
+      barrier cp;
+      rt.push_choice_point(&cp);
+
       ns.clear();
       const object_view predsign = rt.adopt(ns, sign);
       if (rt.match(e, predsign))
       {
+        state_saver _ {cont};
         if (not body.empty())
         {
           const object_view predbody = rt.adopt(ns, body);
@@ -186,6 +202,9 @@ interpreter::_make_true__predicate(runtime &rt, size_t _, object_iterator e_,
       }
       else
         rt.unallocate(predsign);
+
+      if (rt.uwuc(&cp))
+        return;
     }
 
     // Tail-call on the last variant

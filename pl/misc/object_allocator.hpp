@@ -6,8 +6,10 @@
 
 class object_allocator {
   public:
+  static constexpr size_t block_size = 20 * (2 << 20);
+
   object_allocator()
-  : m_arena {std::make_shared<arena_allocator<512 << 10, alignof(word_t)>>()}
+  : m_arena {std::make_shared<arena_allocator<block_size, alignof(word_t)>>()}
   { }
 
   word_t*
@@ -41,5 +43,5 @@ class object_allocator {
   }
 
   private:
-  std::shared_ptr<arena_allocator<512 << 10, alignof(word_t)>> m_arena;
+  std::shared_ptr<arena_allocator<block_size, alignof(word_t)>> m_arena;
 };

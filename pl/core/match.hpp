@@ -34,3 +34,7 @@ shallow_match(object_iterator lhs, object_iterator rhs, size_t n = 1);
 bool
 match(runtime &rt, object_iterator lhs, object_iterator rhs, size_t n,
       matcher::memory &mem);
+
+bool
+match_uw(runtime &rt, object_iterator lhs, object_iterator rhs, size_t n,
+         matcher::memory &mem, barrier bar);

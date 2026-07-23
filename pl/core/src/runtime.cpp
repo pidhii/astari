@@ -6,6 +6,10 @@
 #include "pl/obj/object.hpp"
 
 
+size_t unwind_heap[unwind_heap_length];
+size_t *unwind_p = unwind_heap;
+barrier *choice_point = nullptr;
+
 object_view
 runtime::adopt(varnamespace &ns, object_view in)
 {
@@ -26,27 +30,13 @@ runtime::reconstruct(object_iterator in)
 }
 
 
+
 bool
 runtime::match(object_view lhs, object_view rhs)
 {
   static matcher::memory mem;
   mem.clear();
-  return ::match(*this, lhs.begin(), rhs.begin(), 1, mem);
-}
-
-
-static size_t
-_revbytes(size_t h)
-{
-  union {
-    uint8_t a[8];
-    size_t u;
-  } v = {.u = h};
-
-  std::swap(v.a[0], v.a[3]);
-  std::swap(v.a[1], v.a[2]);
-
-  return v.u;
+  return ::match_uw(*this, lhs.begin(), rhs.begin(), 1, mem, *::choice_point);
 }
 
 
@@ -62,8 +52,21 @@ runtime::dereferencer(size_t &varid)
 void
 runtime::assign(size_t varid, object_iterator value)
 {
-  const size_t root = m_dsf.make_root(value);
-  m_dsf.join(varid, root);
+  cell *c = m_dsf.find_cell(varid).first;
+  c->tag = cell::tag::val;
+  c->value = value;
+}
+
+
+void
+runtime::assign_uw(size_t varid, object_iterator value, barrier bar)
+{
+  const auto [c, i] = m_dsf.find_cell(varid);
+  assert(c->tag == cell::tag::var);
+  c->tag = cell::tag::val;
+  c->value = value;
+  if (i < bar.varbar)
+    *unwind_p++ = i;
 }
 
 
@@ -168,4 +171,71 @@ runtime::reduce(object_view x)
   }
 
   return x;
+}
+
+
+
+void
+runtime::push_choice_point(barrier *bar) const noexcept
+{
+  bar->varbar = m_dsf.size();
+  bar->uwbar = ::unwind_p;
+  bar->cut = false;
+  bar->prev = ::choice_point;
+  ::choice_point = bar;
+}
+
+void
+runtime::unwind(barrier *cp)
+{
+  assert(cp == ::choice_point);
+  assert(::unwind_p >= cp->uwbar);
+  for (size_t *uwp = cp->uwbar; uwp < ::unwind_p; ++uwp)
+  {
+    const size_t i = *uwp;
+    if (i < cp->varbar)
+    {
+      cell &c = m_dsf[i];
+      c.tag = cell::tag::var;
+      c.next = i;
+    }
+  }
+  ::unwind_p = cp->uwbar;
+  ::choice_point = cp->prev;
+  m_dsf.resize(cp->varbar);
+}
+
+void
+runtime::cut(barrier *tgt)
+{
+  barrier *cp = ::choice_point;
+  while (true)
+  {
+    cp->cut = true;
+    if (cp == tgt)
+      break;
+    cp = cp->prev;
+  }
+}
+
+void
+runtime::pop_choice_point(barrier *cp)
+{
+  assert(cp == ::choice_point);
+  ::choice_point = cp->prev;
+}
+
+bool
+runtime::uwuc(barrier *cp)
+{
+  if (cp->cut)
+  {
+    pop_choice_point(cp);
+    return true;
+  }
+  else
+  {
+    unwind(cp);
+    return false;
+  }
 }
