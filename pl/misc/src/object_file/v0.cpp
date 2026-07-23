@@ -37,14 +37,11 @@ object_file::write_v0(std::ostream &out)
   out << objects.size() << '\n';
   for (object &obj : objects)
   {
-    runtime rt;
-    prune(obj);
-    const object_view adobj = rt.adopt(obj);
-    const std::string_view objdata {
-        reinterpret_cast<const char *>(adobj.data()),
-        adobj.size() * sizeof(word_t)};
+    normalize(obj, obj.data());
+    const std::string_view objdata {reinterpret_cast<const char *>(obj.data()),
+                                    obj.size() * sizeof(word_t)};
     out << base64_encode(objdata) << '\n';
-    dump_object(symbols, adobj, out, true, true, false); out << '\n';
+    dump_object(symbols, obj, out, true, true, false); out << '\n';
   }
 }
 

@@ -1,7 +1,7 @@
 #pragma once
 
 #include "pl/core/interpreter.hpp"
-#include "utl/state_saver.hpp"
+#include "pl/misc/object_allocator.hpp"
 
 #include <list>
 
@@ -24,7 +24,7 @@ class lib_tabulate {
       {
         _unsnapshot(goalview);
         if (it->second.is_building)
-          TAILCALL pl.make_true(rt, goal, cont);
+          return;
 
         // if (not it->second.solutions.empty())
         // {
@@ -36,7 +36,7 @@ class lib_tabulate {
         {
           barrier cp;
           rt.push_choice_point(&cp);
-          const object_view g = rt.adopt(variant);
+          const object_view g = rt.adopt_hp(variant);
           [[maybe_unused]] const bool ok = rt.match(goal, g);
           assert(ok);
           cont(rt);
@@ -77,18 +77,19 @@ class lib_tabulate {
   object_view
   _snapshot(runtime &rt, object_view obj)
   {
-    // FIXME: dont use runtime just for the renaming
-    state_saver _ {m_cache};
     object recobj = rt.reconstruct(obj);
-    prune(recobj);
-    return m_cache.adopt(recobj);
+    normalize(recobj, recobj.data());
+    word_t *p = m_cache.allocate(recobj.size());
+    std::copy(recobj.begin(), recobj.end(), p);
+    return {p, recobj.size()};
   }
 
   void
-  _unsnapshot(object_view snapshot)
+  _unsnapshot(object_view obj)
   {
-    return m_cache.unallocate(snapshot);
+    m_cache.unallocate(obj);
   }
+
 
   private:
   struct table_entry {
@@ -96,5 +97,5 @@ class lib_tabulate {
     std::vector<object> solutions;
   };
   std::unordered_map<object_view, table_entry> m_table;
-  runtime m_cache;
+  object_allocator m_cache;
 };

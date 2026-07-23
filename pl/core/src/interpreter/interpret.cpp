@@ -75,7 +75,7 @@ interpreter::eval(object_view obj, const dictionary &vardict)
 {
   std::cout << "[eval] " << dump_object(m_symdict, obj) << std::endl;
   varnamespace ns;
-  const object_view expr = adopt(ns, obj);
+  const object_view expr = adopt_g(ns, obj);
   make_true(expr, [this, ns, vardict](runtime &rt) {
     std::cout << "yes";
     bool isfirst = true;

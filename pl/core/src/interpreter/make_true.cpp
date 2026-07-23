@@ -188,20 +188,18 @@ interpreter::_make_true__predicate(runtime &rt, size_t _, object_iterator e_,
       rt.push_choice_point(&cp);
 
       ns.clear();
-      const object_view predsign = rt.adopt(ns, sign);
+      const object_view predsign = rt.adopt_hp(ns, sign);
       if (rt.match(e, predsign))
       {
         state_saver _ {cont};
         if (not body.empty())
         {
-          const object_view predbody = rt.adopt(ns, body);
+          const object_view predbody = rt.adopt_hp(ns, body);
           _make_true(rt, PLUG, predbody.begin(), cont);
         }
         else
           cont(rt);
       }
-      else
-        rt.unallocate(predsign);
 
       if (rt.uwuc(&cp))
         return;
@@ -214,19 +212,17 @@ interpreter::_make_true__predicate(runtime &rt, size_t _, object_iterator e_,
       return;
 
     ns.clear();
-    const object_view predsign = rt.adopt(ns, sign);
+    const object_view predsign = rt.adopt_hp(ns, sign);
     if (rt.match(e, predsign))
     {
       if (not body.empty())
       {
-        const object_view predbody = rt.adopt(ns, body);
+        const object_view predbody = rt.adopt_hp(ns, body);
         TAILCALL _make_true(rt, PLUG, predbody.begin(), cont);
       }
       else
         TAILCALL cont(rt);
     }
-    else
-      rt.unallocate(predsign);
     return;
   }
   else

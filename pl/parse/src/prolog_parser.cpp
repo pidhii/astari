@@ -76,11 +76,9 @@ prolog_parser::prolog_parser() : m_lib_bf {m_pl}, m_lib_tab {m_pl}
 
     dictionary vardict;
     const object list = _tokenize(m_pl, vardict, ::string(string[0]));
-    const object_view pobj = rt.adopt(list);
+    const object_view pobj = rt.adopt_hp(list);
     if (rt.match(pobj, tokens))
       cont(rt);
-    else
-      rt.unallocate(pobj);
   });
 
   m_pl.add_meta_op("debug", [this](runtime &rt, int argc, object_iterator argv,
@@ -123,7 +121,7 @@ prolog_parser::parse_expr(dictionary &symbols, dictionary &vardict,
       term("parse_expr", toklist, var("Expr")));
 
   varnamespace ns;
-  const object_view adgoal = m_pl.adopt(ns, goal);
+  const object_view adgoal = m_pl.adopt_g(ns, goal);
 
   object result;
   m_pl.make_true(adgoal, [&] (runtime &rt) {
@@ -147,7 +145,7 @@ prolog_parser::parse_expr(dictionary &symbols, const tokens &toks)
       term("parse_expr", toks.list, var("Expr")));
 
   varnamespace ns;
-  const object_view adgoal = m_pl.adopt(ns, goal);
+  const object_view adgoal = m_pl.adopt_g(ns, goal);
 
   object result;
   m_pl.make_true(adgoal, [&] (runtime &rt) {
@@ -232,7 +230,7 @@ prolog_parser::_parse_first_stmt(dictionary &vardict, object_view toklist)
       term("parse_one_stmt", toklist, var("Term"), var("RemTokens")));
 
   varnamespace ns;
-  const object_view adgoal = m_pl.adopt(ns, goal);
+  const object_view adgoal = m_pl.adopt_g(ns, goal);
 
   object term, remtokens;
   m_pl.make_true(adgoal, [&] (runtime &rt) {

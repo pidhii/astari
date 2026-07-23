@@ -19,12 +19,18 @@ struct barrier {
   size_t varbar;
   size_t *uwbar;
   barrier *prev;
-  bool cut;
+  word_t *hpbar;
+  uint8_t cut;
+  uint8_t noreclaim;
 };
 
+#define TERM_HEAP_SIZE (5 * (2 << 20))
 static constexpr size_t unwind_heap_length = 2 << 20;
 extern size_t unwind_heap[];
 extern size_t *unwind_p;
+extern barrier *choice_point;
+extern word_t term_heap[];
+extern word_t *heap_p;
 
 
 class runtime: public object_allocator {
@@ -36,18 +42,27 @@ class runtime: public object_allocator {
   [[deprecated("avoid this")]] runtime& operator = (const runtime &other) = default;
 
   object_view
-  adopt(varnamespace &ns, object_view in);
+  adopt_g(varnamespace &ns, object_view in);
 
   object_view
-  adopt(object_view in)
-  { varnamespace ns; return adopt(ns, in); }
+  adopt_g(object_view in)
+  { varnamespace ns; return adopt_g(ns, in); }
+
+  object_view
+  adopt_hp(varnamespace &ns, object_view in);
+
+  object_view
+  adopt_hp(object_view in)
+  { varnamespace ns; return adopt_hp(ns, in); }
 
   object
   reconstruct(object_iterator in);
 
   object
-  reconstruct(object_view in)
-  { return reconstruct(in.begin()); }
+  reconstruct(object_view in);
+
+  void
+  reconstruct(object_iterator in, word_t *out);
 
   std::optional<object_iterator>
   dereferencer(size_t &varid);
@@ -132,7 +147,7 @@ class runtime: public object_allocator {
 
   template <typename OutputIter>
   void
-  _reconstruct(object_iterator &in, OutputIter &out);
+  _reconstruct(object_iterator in, OutputIter out, size_t n);
 
   private:
   pidhii::pradix256dense<object_iterator> m_assignments;
@@ -140,3 +155,7 @@ class runtime: public object_allocator {
   using pvector = pidhii::pvector<T, 8, pidhii::static_uniform_allocator<T>>;
   rooted_forest<pvector> m_dsf;
 };
+
+
+void
+normalize(object_view in, word_t *out);

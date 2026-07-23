@@ -9,9 +9,12 @@
 size_t unwind_heap[unwind_heap_length];
 size_t *unwind_p = unwind_heap;
 barrier *choice_point = nullptr;
+word_t term_heap[TERM_HEAP_SIZE];
+word_t *heap_p = term_heap;
+
 
 object_view
-runtime::adopt(varnamespace &ns, object_view in)
+runtime::adopt_g(varnamespace &ns, object_view in)
 {
   object_view out = allocate_object(in.size());
   word_t *outiter = const_cast<word_t*>(out.begin());
@@ -19,16 +22,36 @@ runtime::adopt(varnamespace &ns, object_view in)
   return out;
 }
 
+object_view
+runtime::adopt_hp(varnamespace &ns, object_view in)
+{
+  assert(heap_p + in.size() <= term_heap + TERM_HEAP_SIZE);
+  word_t *p = heap_p;
+  heap_p += in.size();
+  _adopt(ns, in, p);
+  return {p, in.size()};
+}
 
 object
 runtime::reconstruct(object_iterator in)
 {
   object result;
-  auto out = std::back_inserter(result);
-  _reconstruct(in, out);
+  _reconstruct(in, std::back_inserter(result), 1);
   return result;
 }
 
+object
+runtime::reconstruct(object_view in)
+{
+  object result;
+  result.reserve(in.size());
+  _reconstruct(in.begin(), std::back_inserter(result), 1);
+  return result;
+}
+
+void
+runtime::reconstruct(object_iterator in, word_t *out)
+{ _reconstruct(in, out, 1); }
 
 
 bool
@@ -84,15 +107,9 @@ runtime::_adopt(varnamespace &ns, object_view in, word_t *out)
     {
       nonterminal var;
       basic_decoder().decode(in[i], var);
-      const auto it = ns.find(var.id);
-      size_t runtimeid;
-      if (it == ns.end())
-      { // Create new variable
-        runtimeid = varn++;
-        ns.emplace(size_t(var.id), runtimeid);
-      }
-      else
-        runtimeid = it->second;
+      const auto [it, isnew] = ns.emplace(var.id, varn);
+      const size_t runtimeid = it->second;
+      varn += isnew;
       out[i] = basic_encoder().encode(nonterminal(runtimeid));
     }
   }
@@ -103,40 +120,39 @@ runtime::_adopt(varnamespace &ns, object_view in, word_t *out)
 
 template <typename OutputIter>
 void
-runtime::_reconstruct(object_iterator &in, OutputIter &out)
+runtime::_reconstruct(object_iterator in, OutputIter out, size_t n)
 {
-  switch (word_type(*in))
+  while (n--)
   {
-    case word_type::blob:
-    case word_type::signed_int_number:
-    case word_type::unsigned_int_number:
-    case word_type::float_number:
-      *out++ = *in++;
-      return;
-
-    case word_type::structure:
+    switch (word_type(*in))
     {
-      term_header hdr;
-      basic_decoder().decode(*in, hdr);
-      *out++ = the_word(*in++);
-      for (size_t i = 0; i < hdr.arity; ++i)
-        _reconstruct(in, out);
-      return;
-    }
+      case word_type::blob:
+      case word_type::signed_int_number:
+      case word_type::unsigned_int_number:
+      case word_type::float_number:
+        *out++ = *in++;
+        break;
 
-    case word_type::nonterminal:
-    {
-      nonterminal var;
-      basic_decoder().decode(*in++, var);
-      const auto [v, i] = m_dsf.find(var.id);
-      if (v)
+      case word_type::structure:
       {
-        object_iterator it = v;
-        _reconstruct(it, out);
+        term_header hdr;
+        basic_decoder().decode(*in, hdr);
+        *out++ = (*in++ & term_mask);
+        n += hdr.arity;
+        break;
       }
-      else
-        *out++ = basic_encoder().encode(nonterminal {i});
-      return;
+
+      case word_type::nonterminal:
+      {
+        nonterminal var;
+        basic_decoder().decode(*in++, var);
+        const auto [v, i] = m_dsf.find(var.id);
+        if (v)
+          _reconstruct(v, out, 1);
+        else
+          *out++ = basic_encoder().encode(nonterminal {i});
+        break;
+      }
     }
   }
 }
@@ -180,7 +196,9 @@ runtime::push_choice_point(barrier *bar) const noexcept
 {
   bar->varbar = m_dsf.size();
   bar->uwbar = ::unwind_p;
+  bar->hpbar = ::heap_p;
   bar->cut = false;
+  bar->noreclaim = false;
   bar->prev = ::choice_point;
   ::choice_point = bar;
 }
@@ -202,6 +220,8 @@ runtime::unwind(barrier *cp)
   }
   ::unwind_p = cp->uwbar;
   ::choice_point = cp->prev;
+  if (not cp->noreclaim)
+    ::heap_p = cp->hpbar;
   m_dsf.resize(cp->varbar);
 }
 
@@ -237,5 +257,30 @@ runtime::uwuc(barrier *cp)
   {
     unwind(cp);
     return false;
+  }
+}
+
+
+void
+normalize(object_view in, word_t *out)
+{
+  static varnamespace ns;
+  ns.clear();
+
+  size_t varn = 0;
+
+  for (size_t i = 0; i < in.size(); ++i)
+  {
+    if (not is_nonterminal(in[i]))
+      out[i] = the_word(in[i]);
+    else // nonterminal
+    {
+      nonterminal var;
+      basic_decoder().decode(in[i], var);
+      const auto [it, isnew] = ns.emplace(var.id, varn);
+      const size_t newid = it->second;
+      varn += isnew;
+      out[i] = basic_encoder().encode(nonterminal(newid));
+    }
   }
 }

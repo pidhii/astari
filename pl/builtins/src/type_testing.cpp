@@ -11,18 +11,17 @@ iso_type_testing(interpreter &pl)
   pl.add_meta_op("var", [&](runtime &rt, int argc, object_iterator argv,
                             const continuation &cont) {
     assert_arity(pl, "var", argc, 1);
-    basic_decoder dc;
-    object_view x = rt.reduce(dc.decode_object(argv));
+    const object_iterator x = rt.reduce(argv);
     if (is_nonterminal(x[0]))
       TAILCALL cont(rt);
   });
 
   // atom/1
   pl.add_meta_op("atom", [&](runtime &rt, int argc, object_iterator argv,
-                              const continuation &cont) {
+                             const continuation &cont) {
     assert_arity(pl, "atom", argc, 1);
     basic_decoder dc;
-    const object x = rt.reconstruct(dc.decode_object(argv));
+    const object_iterator x = rt.reduce(argv);
     if (is_term(x[0]) and dc.decode_term_header(x[0]).arity == 0)
       TAILCALL cont(rt);
   });
@@ -31,8 +30,7 @@ iso_type_testing(interpreter &pl)
   pl.add_meta_op("integer", [&](runtime &rt, int argc, object_iterator argv,
                                 const continuation &cont) {
     assert_arity(pl, "integer", argc, 1);
-    basic_decoder dc;
-    const object x = rt.reconstruct(dc.decode_object(argv));
+    const object_iterator x = rt.reduce(argv);
     switch (word_type(x[0]))
     {
       case word_type::signed_int_number: // fallthrough
@@ -43,10 +41,9 @@ iso_type_testing(interpreter &pl)
 
   // float/1
   pl.add_meta_op("float", [&](runtime &rt, int argc, object_iterator argv,
-                                const continuation &cont) {
+                              const continuation &cont) {
     assert_arity(pl, "float", argc, 1);
-    basic_decoder dc;
-    const object x = rt.reconstruct(dc.decode_object(argv));
+    const object_iterator x = rt.reduce(argv);
     switch (word_type(x[0]))
     {
       case word_type::float_number: TAILCALL cont(rt);
@@ -56,10 +53,9 @@ iso_type_testing(interpreter &pl)
 
   // string/1
   pl.add_meta_op("string", [&](runtime &rt, int argc, object_iterator argv,
-                                const continuation &cont) {
+                               const continuation &cont) {
     assert_arity(pl, "string", argc, 1);
-    basic_decoder dc;
-    const object x = rt.reconstruct(dc.decode_object(argv));
+    const object_iterator x = rt.reduce(argv);
     if (word_type(x[0]) == word_type::blob and
         blob_tag(x[0]) == blob_tag::string)
       TAILCALL cont(rt);
