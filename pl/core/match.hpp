@@ -7,6 +7,11 @@
 #include <unordered_set>
 
 
+enum var_hint {
+  wildcard = 0b000001, /**< @brief Variable is not used, ignore any bindings. */
+};
+
+
 struct matcher {
   public:
   using memory_entry = std::pair<object_iterator, object_iterator>;

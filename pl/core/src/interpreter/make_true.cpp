@@ -10,6 +10,7 @@
 #define PLUG 0
 
 
+
 void
 interpreter::_make_true(runtime &rt, size_t, object_iterator e,
                         continuation &cont)
@@ -168,18 +169,20 @@ void
 interpreter::_make_true__predicate(runtime &rt, size_t _, object_iterator e_,
                                    continuation &cont)
 {
-  static varnamespace ns;
   static basic_decoder dc;
+
+  // inplace dictionary for fast renaming
+  static std::vector<word_t> adopt_ns;
 
   const object_view e = dc.decode_object(e_);
 
   const auto it = m_predicates.find(e[0] & term_mask);
   if (it != m_predicates.end())
   {
-    const std::vector<std::pair<object, object>> &variants = it->second;
+    const std::vector<predicate_entry> &variants = it->second;
     for (size_t i = 0; i < variants.size() - 1; ++i)
     {
-      const auto &[sign, body] = variants[i];
+      const auto &[sign, body, n] = variants[i];
 
       if (not shallow_match(e.begin(), sign.data()))
         continue;
@@ -187,14 +190,14 @@ interpreter::_make_true__predicate(runtime &rt, size_t _, object_iterator e_,
       barrier cp;
       rt.push_choice_point(&cp);
 
-      ns.clear();
-      const object_view predsign = rt.adopt_hp(ns, sign);
+      adopt_ns.assign(n, -1ull);
+      const object_view predsign = rt.adopt_hp_n(adopt_ns.data(), sign);
       if (rt.match(e, predsign))
       {
         state_saver _ {cont};
         if (not body.empty())
         {
-          const object_view predbody = rt.adopt_hp(ns, body);
+          const object_view predbody = rt.adopt_hp_n(adopt_ns.data(), body);
           _make_true(rt, PLUG, predbody.begin(), cont);
         }
         else
@@ -206,18 +209,18 @@ interpreter::_make_true__predicate(runtime &rt, size_t _, object_iterator e_,
     }
 
     // Tail-call on the last variant
-    const auto &[sign, body] = variants.back();
+    const auto &[sign, body, n] = variants.back();
 
     if (not shallow_match(e.begin(), sign.data()))
       return;
 
-    ns.clear();
-    const object_view predsign = rt.adopt_hp(ns, sign);
+    adopt_ns.assign(n, -1ull);
+    const object_view predsign = rt.adopt_hp_n(adopt_ns.data(), sign);
     if (rt.match(e, predsign))
     {
       if (not body.empty())
       {
-        const object_view predbody = rt.adopt_hp(ns, body);
+        const object_view predbody = rt.adopt_hp_n(adopt_ns.data(), body);
         TAILCALL _make_true(rt, PLUG, predbody.begin(), cont);
       }
       else

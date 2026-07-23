@@ -32,6 +32,16 @@ runtime::adopt_hp(varnamespace &ns, object_view in)
   return {p, in.size()};
 }
 
+object_view
+runtime::adopt_hp_n(word_t ns[], object_view in)
+{
+  assert(heap_p + in.size() <= term_heap + TERM_HEAP_SIZE);
+  word_t *p = heap_p;
+  heap_p += in.size();
+  _adopt_n(ns, in, p);
+  return {p, in.size()};
+}
+
 object
 runtime::reconstruct(object_iterator in)
 {
@@ -76,8 +86,8 @@ void
 runtime::assign(size_t varid, object_iterator value)
 {
   cell *c = m_dsf.find_cell(varid).first;
-  c->tag = cell::tag::val;
-  c->value = value;
+  assert(is_var(*c));
+  set_val(*c, value);
 }
 
 
@@ -85,9 +95,8 @@ void
 runtime::assign_uw(size_t varid, object_iterator value, barrier bar)
 {
   const auto [c, i] = m_dsf.find_cell(varid);
-  assert(c->tag == cell::tag::var);
-  c->tag = cell::tag::val;
-  c->value = value;
+  assert(is_var(*c));
+  set_val(*c, value);
   if (i < bar.varbar)
     *unwind_p++ = i;
 }
@@ -112,6 +121,40 @@ runtime::_adopt(varnamespace &ns, object_view in, word_t *out)
       varn += isnew;
       out[i] = basic_encoder().encode(nonterminal(runtimeid));
     }
+  }
+
+  m_dsf.make_n_sets(varn - var0);
+}
+
+void
+runtime::_adopt_n(word_t ns[], object_view in, word_t *out)
+{
+  basic_decoder dc;
+  basic_encoder ec;
+
+  const size_t var0 = m_dsf.size();
+  size_t varn = var0;
+
+  for (size_t i = 0; i < in.size(); ++i)
+  {
+    const size_t w = in[i];
+    if (is_nonterminal(w))
+    {
+      nonterminal var;
+      dc.decode(w, var);
+      const word_t magic = word_magic(w);
+      const size_t nsid = ns[var.id];
+      if (nsid != -1ull)
+        out[i] = add_magic(ec.encode(nonterminal(nsid)), magic);
+      else
+      {
+        const size_t rtid = varn++;
+        ns[var.id] = rtid;
+        out[i] = add_magic(ec.encode(nonterminal(rtid)), magic);
+      }
+    }
+    else
+      out[i] = w;
   }
 
   m_dsf.make_n_sets(varn - var0);
@@ -212,11 +255,7 @@ runtime::unwind(barrier *cp)
   {
     const size_t i = *uwp;
     if (i < cp->varbar)
-    {
-      cell &c = m_dsf[i];
-      c.tag = cell::tag::var;
-      c.next = i;
-    }
+      set_next(m_dsf[i], i);
   }
   ::unwind_p = cp->uwbar;
   ::choice_point = cp->prev;
@@ -261,14 +300,9 @@ runtime::uwuc(barrier *cp)
 }
 
 
-void
-normalize(object_view in, word_t *out)
+size_t
+normalize_r(object_view in, word_t *out, varnamespace &ns, size_t varn)
 {
-  static varnamespace ns;
-  ns.clear();
-
-  size_t varn = 0;
-
   for (size_t i = 0; i < in.size(); ++i)
   {
     if (not is_nonterminal(in[i]))
@@ -283,4 +317,14 @@ normalize(object_view in, word_t *out)
       out[i] = basic_encoder().encode(nonterminal(newid));
     }
   }
+  return varn;
+}
+
+
+size_t
+normalize(object_view in, word_t *out)
+{
+  static varnamespace ns;
+  ns.clear();
+  return normalize_r(in, out, ns, 0);
 }

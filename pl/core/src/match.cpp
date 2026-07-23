@@ -306,6 +306,12 @@ match_uw(runtime &rt, object_iterator lhs, object_iterator rhs, size_t n,
         // fall through
       case 0b1100: // var, blob
       case 0b1110: // var, number
+        if (*lhs & as_magic(wildcard))
+        { // skip
+          lhs++;
+          rhs++;
+          continue;
+        }
         if (n == 0)
           TAILCALL _match_var_nonvar_uw(rt, lhs, rhs, 0, mem, bar);
         else if (_match_var_nonvar_uw(rt, lhs++, rhs++, 0, mem, bar))
@@ -317,6 +323,12 @@ match_uw(runtime &rt, object_iterator lhs, object_iterator rhs, size_t n,
         std::swap(lhs, rhs);
         // fall through
       case 0b1101: // var, term
+        if (*lhs & as_magic(wildcard))
+        {
+          lhs++;
+          dc.decode_object(rhs); // call for side-effects
+          continue;
+        }
         if (n == 0)
           TAILCALL _match_var_nonvar_uw(rt, lhs, rhs, 0, mem, bar);
         else if (_match_var_nonvar_uw(rt, lhs, rhs, 0, mem, bar))
@@ -329,7 +341,7 @@ match_uw(runtime &rt, object_iterator lhs, object_iterator rhs, size_t n,
           return false;
 
       case 0b1111: // var, var
-        if (*lhs == *rhs)
+        if ((*lhs | *rhs) & as_magic(wildcard))
         {
           lhs++;
           rhs++;

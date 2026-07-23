@@ -6,25 +6,51 @@
 #include <vector>
 
 
-struct cell {
-  enum class tag { var, val } tag;
-  union {
-    size_t next;
-    object_iterator value;
-  };
-};
+using cell = size_t;
+
+[[nodiscard, gnu::pure]] static inline
+bool
+is_var(cell c)
+{ return (c & 1ull) == 0; }
+
+[[nodiscard, gnu::pure]] static inline
+bool
+is_val(cell c)
+{ return (c & 1ull) == 1; }
+
+[[nodiscard, gnu::pure]] static inline
+cell
+make_next(size_t i)
+{ return i << 32; }
+
+[[nodiscard, gnu::pure]] static inline
+cell
+make_val(object_iterator val)
+{ return reinterpret_cast<size_t>(val) | 1ull; }
+
+static inline void
+set_next(cell &c, size_t i)
+{ c = i << 32; }
+
+static inline void
+set_val(cell &c, object_iterator val)
+{ c = reinterpret_cast<size_t>(val) | 1ull; }
+
+[[nodiscard, gnu::pure]] static inline
+object_iterator
+val(cell c)
+{ return reinterpret_cast<object_iterator>(c & ~1ull); }
+
+[[nodiscard, gnu::pure]] static inline
+size_t
+next(cell c)
+{ return c >> 32; }
 
 
 template <template <typename> typename Container = std::vector>
 class rooted_forest {
   public:
   rooted_forest() = default;
-
-  rooted_forest(size_t size)
-  {
-    while (size--)
-      make_set();
-  }
 
   size_t
   size() const noexcept
@@ -42,9 +68,7 @@ class rooted_forest {
   make_set()
   {
     const size_t i = m_els.size();
-    cell &c = m_els.emplace_back(i);
-    c.tag = cell::tag::var;
-    c.next = i;
+    m_els.emplace_back(i);
     return i;
   }
 
@@ -52,47 +76,41 @@ class rooted_forest {
   make_root(object_iterator val)
   {
     const size_t i = m_els.size();
-    cell &c = m_els.emplace_back();
-    c.tag = cell::tag::val;
-    c.value = val;
+    m_els.emplace_back(make_val(val));
     return i;
   }
 
   void
   make_n_sets(size_t n)
-  {
-    m_els.append(n, [](size_t i) -> cell {
-      return cell {.tag = cell::tag::var, .next = i};
-    });
-  }
+  { m_els.append(n, [](size_t i) -> cell { return make_next(i); }); }
 
   size_t
   join(size_t i, size_t j)
   {
-    auto [ci, ri] = find_cell(i);
-    auto [cj, rj] = find_cell(j);
-    if (ci->tag == cell::tag::var and cj->tag == cell::tag::var)
+    const auto [ci, ri] = find_cell(i);
+    const auto [cj, rj] = find_cell(j);
+    if (is_var(*ci) and is_var(*cj))
     {
       // Prioritize new to old
       if (ri < rj)
       {
-        cj->next = ri;
+        set_next(*cj, ri);
         return rj;
       }
       else
       {
-        ci->next = rj;
+        set_next(*ci, rj);
         return ri;
       }
     }
-    else if (ci->tag == cell::tag::var)
+    else if (is_var(*ci))
     {
-      ci->next = rj;
+      set_next(*ci, rj);
       return ri;
     }
-    else if (cj->tag == cell::tag::var)
+    else if (is_var(*cj))
     {
-      cj->next = ri;
+      set_next(*cj, ri);
       return rj;
     }
 
@@ -106,11 +124,11 @@ class rooted_forest {
     cell c = m_els[i];
     while (true)
     {
-      if (c.tag == cell::tag::val)
-        return {c.value, i};
-      if (c.next == i)
+      if (is_val(c))
+        return {val(c), i};
+      if (next(c) == i)
         return {nullptr, i};
-      i = c.next;
+      i = next(c);
       c = m_els[i];
     }
   }
@@ -120,12 +138,12 @@ class rooted_forest {
   {
     do {
       cell &c = m_els[i];
-      if (c.tag == cell::tag::val or c.next == i)
+      if (is_val(c) or next(c) == i)
         return {&c, i};
-      i = c.next;
+      i = next(c);
     } while (true);
   }
 
   private:
-  Container<cell> m_els;
+  Container<size_t> m_els;
 }; // class disjoint_forest_set

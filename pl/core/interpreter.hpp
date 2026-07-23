@@ -57,6 +57,11 @@ class interpreter: public runtime {
     op_fail,
   };
 
+  struct predicate_entry {
+    object sign, body;
+    size_t nvars;
+  };
+
   public:
   interpreter();
 
@@ -70,12 +75,13 @@ class interpreter: public runtime {
       dc.decode(w, hdr);
       std::cerr << std::format("  have {}/{}:", m_symdict[hdr.id], hdr.arity)
                 << std::endl;
-      for (const auto &[s, b] : variants)
+      for (const auto &pred : variants)
       {
-        if (b.empty())
-          std::clog << "  - " << dump(s) << "." << std::endl;
+        if (pred.body.empty())
+          std::clog << "  - " << dump(pred.sign) << "." << std::endl;
         else
-          std::clog << "  - " << dump(s) << " :- " << dump(b) << std::endl;
+          std::clog << "  - " << dump(pred.sign) << " :- " << dump(pred.body)
+                    << std::endl;
       }
     }
     for (const auto &[id, _] : m_metaops)
@@ -248,7 +254,7 @@ class interpreter: public runtime {
                         continuation &cont);
 
   private:
-  std::unordered_map<word_t, std::vector<std::pair<object, object>>> m_predicates;
+  std::unordered_map<word_t, std::vector<predicate_entry>> m_predicates;
   std::unordered_map<size_t, meta_op_handle> m_metaops;
   dictionary m_symdict;
   std::set<std::string> m_impordirs;

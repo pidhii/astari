@@ -46,14 +46,17 @@ class runtime: public object_allocator {
 
   object_view
   adopt_g(object_view in)
-  { varnamespace ns; return adopt_g(ns, in); }
+  { static varnamespace ns; ns.clear(); return adopt_g(ns, in); }
 
   object_view
   adopt_hp(varnamespace &ns, object_view in);
 
   object_view
   adopt_hp(object_view in)
-  { varnamespace ns; return adopt_hp(ns, in); }
+  { static varnamespace ns; ns.clear(); return adopt_hp(ns, in); }
+
+  object_view
+  adopt_hp_n(word_t ns[], object_view in);
 
   object
   reconstruct(object_iterator in);
@@ -145,6 +148,9 @@ class runtime: public object_allocator {
   void
   _adopt(varnamespace &ns, object_view in, word_t *out);
 
+  void
+  _adopt_n(word_t ns[], object_view in, word_t *out);
+
   template <typename OutputIter>
   void
   _reconstruct(object_iterator in, OutputIter out, size_t n);
@@ -157,5 +163,29 @@ class runtime: public object_allocator {
 };
 
 
-void
+/**
+ * @brief Project an object onto its equivalence class
+ * @details Rename variables to base 0 and zero any cached fields. Projections
+ * of two *equivalent* objects (that are not recursive) are *equal* under this
+ * projection.
+ * @return Number of nonterminals (equal to the largest id of inserted
+ * nonterminal minus one).
+ */
+size_t
 normalize(object_view in, word_t *out);
+
+/**
+ * @brief Reentrant version of @ref normalize
+ * @details To normalize multiple objects, thread a common @p ns through the
+ * calls and use the return value of a previous call as @p base for the next
+ * call, i.e.:
+ * @code{.cpp}
+ * varnamespace ns;
+ * size_t base = 0;
+ * base = normalize_r(ain, aout, ns, base);
+ * base = normalize_r(bin, bout, ns, base);
+ * ...
+ * @endcode
+ */
+size_t
+normalize_r(object_view in, word_t *out, varnamespace &ns, size_t base = 0);

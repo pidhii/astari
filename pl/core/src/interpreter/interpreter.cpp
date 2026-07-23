@@ -1,4 +1,5 @@
 #include "interpreter.hpp"
+#include "match.hpp"
 
 #include "pl/coding/basic_decoder.hpp"
 #include "pl/obj/object.hpp"
@@ -6,6 +7,34 @@
 
 #include <filesystem>
 #include <stdexcept>
+
+
+
+using occurances = std::unordered_map<size_t, size_t>;
+
+static void
+_count_occurances(object_view obj, occurances &occurs)
+{
+  for (word_t w : obj)
+  {
+    if (is_nonterminal(w))
+      occurs[w] += 1;
+  }
+}
+
+static void
+_mark_wildcards(object &obj, const occurances &occurs)
+{
+  for (word_t &w : obj)
+  {
+    if (is_nonterminal(w))
+    {
+      assert(occurs.at(w) > 0);
+      if (occurs.at(w) == 1)
+        w = add_magic(w, wildcard);
+    }
+  }
+}
 
 
 interpreter::interpreter()
@@ -60,11 +89,27 @@ interpreter::add_predicate(object_view signobj, object_view bodyobj)
         "predicate name already used for meta operator ({})", m_symdict[id])};
   }
 
-  dc.decode_object(signobj.begin()); // call for side-effects
-  if (not bodyobj.empty())
-    dc.decode_object(bodyobj.begin()); // call for side-effects
+  object sign {signobj};
+  object body {bodyobj};
 
-  m_predicates[signobj[0] & term_mask].emplace_back(signobj, bodyobj);
+  // Normalize and save variable counts for fast adopt
+  varnamespace ns;
+  size_t base = 0;
+  base = normalize_r(sign, sign.data(), ns, base);
+  base = normalize_r(body, body.data(), ns, base);
+
+  // Inject optimization hints
+  occurances occurs;
+  _count_occurances(sign, occurs);
+  _count_occurances(body, occurs);
+  _mark_wildcards(sign, occurs);
+  _mark_wildcards(body, occurs);
+
+  dc.decode_object(sign.data()); // call for side-effects
+  if (not body.empty())
+    dc.decode_object(body.data()); // call for side-effects
+
+  m_predicates[signobj[0] & term_mask].emplace_back(sign, body, base);
 }
 
 

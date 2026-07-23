@@ -45,19 +45,34 @@ using word_t = uint64_t;
 */
 
 
-static constexpr word_t term_mask = ~word_t(0b11111100);
+static constexpr word_t magic_mask = word_t(0b11111100);
+static constexpr word_t term_mask = ~magic_mask;
+
 struct term_header_layout { word_t tag:2, reserved:6, arity:8, id:48; };
 static_assert(sizeof(term_header_layout) == sizeof(word_t));
 
 struct nonterminal_layout { word_t tag:2, reserved:6, id:56; };
 static_assert(sizeof(nonterminal_layout) == sizeof(word_t));
 
-[[nodiscard, gnu::pure]] inline word_t
+[[nodiscard, gnu::pure]] constexpr inline word_t
 the_word(word_t w)
 {
   const word_t o[2] = {w, w & term_mask};
   return o[(w & 0b11ull) == 0b01ull];
 }
+
+[[nodiscard, gnu::pure]] constexpr inline word_t
+word_magic(word_t w)
+{ return (w & magic_mask) >> 2; }
+
+[[nodiscard, gnu::pure]] constexpr inline word_t
+add_magic(word_t w, word_t magic)
+{ return w | ((magic << 2) & magic_mask); }
+
+[[nodiscard, gnu::pure]] constexpr inline word_t
+as_magic(word_t magic)
+{ return ((magic << 2) & magic_mask); }
+
 
 
 struct term_header { word_t id; word_t arity; };
