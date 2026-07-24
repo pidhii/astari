@@ -6,4 +6,20 @@
 Tiny Prolog interpreter with first-class continuations.
 
 Builtins are in WIP, see <a href=https://github.com/pidhii/astari/tree/master/pl>./pl/README.md</a> for the status.
+
+
+Performance:
+<table>
+  <tr>
+    <th> program </th>
+    <th> astari / SWI-Prolog <sup>(*)</sup> </th>
+  </tr>
+  <tr>
+    <th> <a href="https://github.com/SWI-Prolog/bench/blob/master/programs/queens_8.pl">queens 11</a> (find all solutions) </th>
+    <td> 5 </td>
+  </tr>
+</table>
+
+<sup>*</sup> CPU time elapsed ($ stari-pl ...) / CPU time elapsed ($ swipl ...)
 </pre>
+

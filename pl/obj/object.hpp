@@ -136,6 +136,9 @@ is_term(word_t word)
 is_blob(word_t word)
 { return (word & 0b11) == 0b00; }
 
+[[nodiscard, gnu::pure]] inline bool
+is_number(word_t word)
+{ return (word & 0b11) == 0b10; }
 
 using object = std::basic_string<word_t>;
 using object_view = std::basic_string_view<word_t>;

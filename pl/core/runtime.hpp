@@ -56,7 +56,15 @@ class runtime: public object_allocator {
   { static varnamespace ns; ns.clear(); return adopt_hp(ns, in); }
 
   object_view
-  adopt_hp_n(word_t ns[], object_view in);
+  adopt_hp_n(size_t base, object_view in);
+
+  size_t
+  n_vars() const noexcept
+  { return m_dsf.size(); }
+
+  void
+  make_n_vars(size_t n) noexcept
+  { m_dsf.make_n_sets(n); }
 
   object
   reconstruct(object_iterator in);
@@ -149,7 +157,7 @@ class runtime: public object_allocator {
   _adopt(varnamespace &ns, object_view in, word_t *out);
 
   void
-  _adopt_n(word_t ns[], object_view in, word_t *out);
+  _adopt_n(size_t n, object_view in, word_t *out);
 
   template <typename OutputIter>
   void

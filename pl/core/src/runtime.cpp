@@ -33,12 +33,12 @@ runtime::adopt_hp(varnamespace &ns, object_view in)
 }
 
 object_view
-runtime::adopt_hp_n(word_t ns[], object_view in)
+runtime::adopt_hp_n(size_t base, object_view in)
 {
   assert(heap_p + in.size() <= term_heap + TERM_HEAP_SIZE);
   word_t *p = heap_p;
   heap_p += in.size();
-  _adopt_n(ns, in, p);
+  _adopt_n(base, in, p);
   return {p, in.size()};
 }
 
@@ -127,13 +127,10 @@ runtime::_adopt(varnamespace &ns, object_view in, word_t *out)
 }
 
 void
-runtime::_adopt_n(word_t ns[], object_view in, word_t *out)
+runtime::_adopt_n(size_t base, object_view in, word_t *out)
 {
   basic_decoder dc;
   basic_encoder ec;
-
-  const size_t var0 = m_dsf.size();
-  size_t varn = var0;
 
   for (size_t i = 0; i < in.size(); ++i)
   {
@@ -143,21 +140,12 @@ runtime::_adopt_n(word_t ns[], object_view in, word_t *out)
       nonterminal var;
       dc.decode(w, var);
       const word_t magic = word_magic(w);
-      const size_t nsid = ns[var.id];
-      if (nsid != -1ull)
-        out[i] = add_magic(ec.encode(nonterminal(nsid)), magic);
-      else
-      {
-        const size_t rtid = varn++;
-        ns[var.id] = rtid;
-        out[i] = add_magic(ec.encode(nonterminal(rtid)), magic);
-      }
+      const size_t rtid = base + var.id;
+      out[i] = add_magic(ec.encode(nonterminal(rtid)), magic);
     }
     else
       out[i] = w;
   }
-
-  m_dsf.make_n_sets(varn - var0);
 }
 
 

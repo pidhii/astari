@@ -171,9 +171,6 @@ interpreter::_make_true__predicate(runtime &rt, size_t _, object_iterator e_,
 {
   static basic_decoder dc;
 
-  // inplace dictionary for fast renaming
-  static std::vector<word_t> adopt_ns;
-
   const object_view e = dc.decode_object(e_);
 
   const auto it = m_predicates.find(e[0] & term_mask);
@@ -190,14 +187,15 @@ interpreter::_make_true__predicate(runtime &rt, size_t _, object_iterator e_,
       barrier cp;
       rt.push_choice_point(&cp);
 
-      adopt_ns.assign(n, -1ull);
-      const object_view predsign = rt.adopt_hp_n(adopt_ns.data(), sign);
+      const size_t base = rt.n_vars();
+      const object_view predsign = rt.adopt_hp_n(base, sign);
+      rt.make_n_vars(n);
       if (rt.match(e, predsign))
       {
         state_saver _ {cont};
         if (not body.empty())
         {
-          const object_view predbody = rt.adopt_hp_n(adopt_ns.data(), body);
+          const object_view predbody = rt.adopt_hp_n(base, body);
           _make_true(rt, PLUG, predbody.begin(), cont);
         }
         else
@@ -214,13 +212,14 @@ interpreter::_make_true__predicate(runtime &rt, size_t _, object_iterator e_,
     if (not shallow_match(e.begin(), sign.data()))
       return;
 
-    adopt_ns.assign(n, -1ull);
-    const object_view predsign = rt.adopt_hp_n(adopt_ns.data(), sign);
+    const size_t base = rt.n_vars();
+    const object_view predsign = rt.adopt_hp_n(base, sign);
+    rt.make_n_vars(n);
     if (rt.match(e, predsign))
     {
       if (not body.empty())
       {
-        const object_view predbody = rt.adopt_hp_n(adopt_ns.data(), body);
+        const object_view predbody = rt.adopt_hp_n(base, body);
         TAILCALL _make_true(rt, PLUG, predbody.begin(), cont);
       }
       else

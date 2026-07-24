@@ -29,6 +29,20 @@ using meta_op_handle =
 # define TAILCALL [[gnu::musttail]] return
 #endif
 
+
+enum meta_symbol {
+  op_and,
+  op_or,
+  op_if,
+  op_fail,
+  op_plus,
+  op_minus,
+  op_mul,
+  op_div,
+  op_divdiv,
+};
+
+
 class exception: public std::exception {
   public:
   exception(std::string_view msg, object_view term)
@@ -50,13 +64,6 @@ class exception: public std::exception {
 
 
 class interpreter: public runtime {
-  enum meta_symbol {
-    op_and,
-    op_or,
-    op_if,
-    op_fail,
-  };
-
   struct predicate_entry {
     object sign, body;
     size_t nvars;
@@ -230,7 +237,7 @@ class interpreter: public runtime {
   raise(Object what);
 
   template <typename Cont>
-  void
+  auto
   number(runtime &rt, object_iterator x, Cont &&c);
 
   private:
@@ -278,7 +285,7 @@ interpreter::raise(Object what)
 
 
 template <typename Cont>
-void
+auto
 interpreter::number(runtime &rt, object_iterator x, Cont &&c)
 {
   basic_decoder dc;
@@ -298,29 +305,25 @@ interpreter::number(runtime &rt, object_iterator x, Cont &&c)
     {
       int val;
       dc.decode(x[0], val);
-      c(val);
-      return;
+      return c(val);
     }
 
     case word_type::unsigned_int_number:
     {
       unsigned val;
       dc.decode(x[0], val);
-      c(val);
-      return;
+      return c(val);
     }
 
     case word_type::float_number:
     {
       float val;
       dc.decode(x[0], val);
-      c(val);
-      return;
+      return c(val);
     }
 
     default:
       raise(term("type_error", term("number"), dc.decode_object(x)));
-      return;
   }
 }
 

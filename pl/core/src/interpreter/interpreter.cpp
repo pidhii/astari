@@ -47,6 +47,11 @@ interpreter::interpreter()
   require(";", op_or);
   require("if", op_if);
   require("fail", op_fail);
+  require("+", op_plus);
+  require("-", op_minus);
+  require("*", op_mul);
+  require("/", op_div);
+  require("//", op_divdiv);
 }
 
 

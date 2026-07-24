@@ -4,193 +4,234 @@
 #include "pl/obj/object.hpp"
 
 
-
-// unsigned + signed = signed
-// unsigned + float = float
-// signed + float = float
-template <typename Op, typename OType>
-object_view
-eval(interpreter &pl, runtime &rt, int argc, object_iterator argv, OType acc, Op op = Op { })
-{
-  basic_decoder dc;
-  basic_encoder ec;
-
-  assert(argc >= 0);
-  if (argc == 0)
-  {
-    word_t *p = rt.allocate(1);
-    *p = ec.encode(acc);
-    return {p, 1};
-  }
-
-  object_iterator x = argv;
-  if (is_nonterminal(argv[0]))
-  {
-    nonterminal var;
-    dc.decode(argv[0], var);
-    if (auto xval = rt.dereference(var.id))
-      x = xval.value();
-  }
-
-  switch (word_type(x[0]))
-  {
-    case word_type::signed_int_number:
-    {
-      int val;
-      dc.decode(x[0], val);
-      if constexpr (std::is_same_v<OType, unsigned>)
-        return eval<Op>(pl, rt, argc - 1, argv + 1, op(int(acc), int(val)), op);
-      else if constexpr (std::is_same_v<OType, float>)
-        return eval<Op>(pl, rt, argc - 1, argv + 1, op(float(acc), float(val)), op);
-      else
-        return eval<Op>(pl, rt, argc - 1, argv + 1, op(acc, val), op);
-    }
-
-    case word_type::unsigned_int_number:
-    {
-      unsigned val;
-      dc.decode(x[0], val);
-      if constexpr (std::is_same_v<OType, int>)
-        return eval<Op>(pl, rt, argc - 1, argv + 1, op(int(acc), int(val)), op);
-      else if constexpr (std::is_same_v<OType, float>)
-        return eval<Op>(pl, rt, argc - 1, argv + 1, op(float(acc), float(val)), op);
-      else
-        return eval<Op>(pl, rt, argc - 1, argv + 1, op(acc, val), op);
-    }
-
-    case word_type::float_number:
-    {
-      float val;
-      dc.decode(x[0], val);
-      return eval<Op>(pl, rt, argc - 1, argv + 1, op(float(acc), float(val)), op);
-    }
-
-    default:
-      pl.raise(term("type_error", term("number"), dc.decode_object(x)));
-  }
-}
-
-template <typename Op>
-object_view
-eval_(interpreter &pl, runtime &rt, int argc, object_iterator argv, Op op = Op {})
-{
-  basic_decoder dc;
-
-  if (argc <= 0)
-    pl.raise(term("arity_error", term("arithmetics")));
-
-  object_iterator x = argv;
-  if (is_nonterminal(argv[0]))
-  {
-    nonterminal var;
-    dc.decode(argv[0], var);
-    if (auto xval = rt.dereference(var.id))
-      x = xval.value();
-    else
-      pl.raise(term("instantiation_error"));
-  }
-
-  switch (word_type(x[0]))
-  {
-    case word_type::signed_int_number:
-    {
-      int val;
-      dc.decode(x[0], val);
-      return eval<Op>(pl, rt, argc - 1, argv + 1, val, op);
-    }
-
-    case word_type::unsigned_int_number:
-    {
-      unsigned val;
-      dc.decode(x[0], val);
-      return eval<Op>(pl, rt, argc - 1, argv + 1, val, op);
-    }
-
-    case word_type::float_number:
-    {
-      float val;
-      dc.decode(x[0], val);
-      return eval<Op>(pl, rt, argc - 1, argv + 1, val, op);
-    }
-
-    default:
-      pl.raise(term("type_error", term("number"), dc.decode_object(x)));
-  }
-}
-
-
-struct op_add {
-  template <typename T>
-  T operator () (T lhs, T rhs) { return lhs + rhs; }
+struct ev_add {
+  int operator () (int lhs, int rhs) { return lhs + rhs; }
+  template <typename T, typename U>
+  auto operator () (T lhs, U rhs) { return lhs + rhs; }
 };
 
-struct op_sub {
-  template <typename T>
-  T operator () (T lhs, T rhs) { return lhs - rhs; }
+struct ev_sub {
+  template <typename T, typename U>
+  auto operator () (T lhs, U rhs) { return lhs - rhs; }
 };
 
-struct op_mul {
+struct ev_mul {
   template <typename T, typename U>
   auto operator () (T lhs, U rhs) { return lhs * rhs; }
 };
 
-struct op_fdiv {
+struct ev_fdiv {
   template <typename T, typename U>
   float operator () (T lhs, U rhs) { return float(lhs) / float(rhs); }
 };
 
-struct op_idiv {
-  interpreter &pl;
-
+struct ev_idiv {
   template <typename T, typename U>
   auto operator () (T lhs, U rhs)
   {
     if (std::is_same_v<std::remove_cvref_t<T>, float>)
-      pl.raise(term("type_error", term("integer"), lhs));
+      throw std::runtime_error {"type error, integer"};
     else if (std::is_same_v<std::remove_cvref_t<U>, float>)
-      pl.raise(term("type_error", term("integer"), rhs));
+      throw std::runtime_error {"type error, integer"};
     else
       return lhs / rhs;
   }
 };
 
 
+template <typename Op>
+word_t
+_eval(word_t lhs, word_t rhs, Op op = Op { })
+{
+  basic_decoder dc;
+  basic_encoder ec;
+
+  switch (word_type(lhs))
+  {
+    case word_type::signed_int_number:
+    {
+      int lhsval;
+      dc.decode(lhs, lhsval);
+      switch (word_type(rhs))
+      {
+        case word_type::signed_int_number:
+        {
+          int rhsval;
+          dc.decode(rhs, rhsval);
+          return ec.encode(op(lhsval, rhsval));
+        }
+        case word_type::unsigned_int_number:
+        {
+          unsigned rhsval;
+          dc.decode(rhs, rhsval);
+          return ec.encode(op(lhsval, rhsval));
+        }
+        case word_type::float_number:
+        {
+          float rhsval;
+          dc.decode(rhs, rhsval);
+          return ec.encode(op(lhsval, rhsval));
+        }
+        default:
+          throw std::runtime_error {"evaluation error"};
+      }
+    }
+
+    case word_type::unsigned_int_number:
+    {
+      unsigned lhsval;
+      dc.decode(lhs, lhsval);
+      switch (word_type(rhs))
+      {
+        case word_type::signed_int_number:
+        {
+          int rhsval;
+          dc.decode(rhs, rhsval);
+          return ec.encode(op(lhsval, rhsval));
+        }
+        case word_type::unsigned_int_number:
+        {
+          unsigned rhsval;
+          dc.decode(rhs, rhsval);
+          return ec.encode(op(lhsval, rhsval));
+        }
+        case word_type::float_number:
+        {
+          float rhsval;
+          dc.decode(rhs, rhsval);
+          return ec.encode(op(lhsval, rhsval));
+        }
+        default:
+          throw std::runtime_error {"evaluation error"};
+      }
+    }
+
+    case word_type::float_number:
+    {
+      float lhsval;
+      dc.decode(lhs, lhsval);
+      switch (word_type(rhs))
+      {
+        case word_type::signed_int_number:
+        {
+          int rhsval;
+          dc.decode(rhs, rhsval);
+          return ec.encode(op(lhsval, rhsval));
+        }
+        case word_type::unsigned_int_number:
+        {
+          unsigned rhsval;
+          dc.decode(rhs, rhsval);
+          return ec.encode(op(lhsval, rhsval));
+        }
+        case word_type::float_number:
+        {
+          float rhsval;
+          dc.decode(rhs, rhsval);
+          return ec.encode(op(lhsval, rhsval));
+        }
+        default:
+          throw std::runtime_error {"evaluation error"};
+      }
+    }
+
+    default:
+      throw std::runtime_error {"evaluation error"};
+  }
+}
+
+static void
+_evaluate(runtime &rt, object_iterator e, size_t n, word_t *stack)
+{
+  basic_decoder dc;
+  term_header hdr;
+
+  while (n--)
+  {
+    if (is_number(*e))
+    {
+      *stack++ = *e;
+      e++;
+      continue;
+    }
+
+    if (is_nonterminal(*e))
+    {
+      nonterminal var;
+      dc.decode(*e, var);
+      if (auto val = rt.dereference(var.id))
+      {
+        _evaluate(rt, *val, 1, stack);
+        stack++;
+        e++;
+        continue;
+      }
+      else
+        throw std::runtime_error {"evaulation error"};
+    }
+
+    dc.decode(*e, hdr);
+    switch (hdr.id)
+    {
+      case op_plus:
+      {
+        _evaluate(rt, e + 1, 2, stack);
+        *stack = _eval(stack[0], stack[1], ev_add { });
+        stack++;
+        dc.decode_object(e); // call for side-effects
+        continue;
+      }
+      case op_minus:
+      {
+        _evaluate(rt, e + 1, 2, stack);
+        *stack = _eval(stack[0], stack[1], ev_sub { });
+        stack++;
+        dc.decode_object(e); // call for side-effects
+        continue;
+      }
+      case op_mul:
+      {
+        _evaluate(rt, e + 1, 2, stack);
+        *stack = _eval(stack[0], stack[1], ev_mul { });
+        stack++;
+        dc.decode_object(e); // call for side-effects
+        continue;
+      }
+      case op_div:
+      {
+        _evaluate(rt, e + 1, 2, stack);
+        *stack = _eval(stack[0], stack[1], ev_fdiv { });
+        stack++;
+        dc.decode_object(e); // call for side-effects
+        continue;
+      }
+      case op_divdiv:
+      {
+        _evaluate(rt, e + 1, 2, stack);
+        *stack = _eval(stack[0], stack[1], ev_idiv { });
+        stack++;
+        dc.decode_object(e); // call for side-effects
+        continue;
+      }
+      default:
+        throw std::runtime_error {"evaluation error"};
+    }
+  }
+}
+
 void
 iso_arithmetics(interpreter &pl)
 {
-  pl.add_meta_op("sum", [&](runtime &rt, int argc, object_iterator argv,
-                            const continuation &cont) {
+  pl.add_meta_op("is", [&](runtime &rt, int argc, object_iterator argv,
+                           continuation &cont) {
+    assert_arity(pl, "is", argc, 2);
     basic_decoder dc;
-    const object_view x = eval<op_add>(pl, rt, argc - 1, argv, 0u);
-    if (rt.match(x, dc.decode_object(argv + argc - 1)))
-      TAILCALL cont(rt);
-  });
-  pl.add_meta_op("sub", [&](runtime &rt, int argc, object_iterator argv,
-                            const continuation &cont) {
-    basic_decoder dc;
-    const object_view x = eval_<op_sub>(pl, rt, argc - 1, argv);
-    if (rt.match(x, dc.decode_object(argv + argc - 1)))
-      TAILCALL cont(rt);
-  });
-  pl.add_meta_op("prod", [&](runtime &rt, int argc, object_iterator argv,
-                             const continuation &cont) {
-    basic_decoder dc;
-    const object_view x = eval<op_mul>(pl, rt, argc - 1, argv, 1u);
-    if (rt.match(x, dc.decode_object(argv + argc - 1)))
-      TAILCALL cont(rt);
-  });
-  pl.add_meta_op("fdiv", [&](runtime &rt, int argc, object_iterator argv,
-                            const continuation &cont) {
-    basic_decoder dc;
-    const object_view x = eval_<op_fdiv>(pl, rt, argc - 1, argv);
-    if (rt.match(x, dc.decode_object(argv + argc - 1)))
-      TAILCALL cont(rt);
-  });
-  pl.add_meta_op("idiv", [&](runtime &rt, int argc, object_iterator argv,
-                            const continuation &cont) {
-    basic_decoder dc;
-    const object_view x = eval_(pl, rt, argc - 1, argv, op_idiv {pl});
-    if (rt.match(x, dc.decode_object(argv + argc - 1)))
+    const object_view lhs = dc.decode_object(argv);
+    const object_iterator rhs = argv;
+
+    _evaluate(rt, rhs, 1, ::heap_p);
+    const object_view result = {::heap_p++, 1};
+    if (rt.match(lhs, result))
       TAILCALL cont(rt);
   });
 
@@ -199,22 +240,22 @@ iso_arithmetics(interpreter &pl)
 #pragma GCC diagnostic ignored "-Wsign-compare"
 #define DEFINE_CMP(name, op)                                                   \
   pl.add_meta_op(name, [&](runtime &rt, int argc, object_iterator argv,        \
-                           const continuation &cont) {                         \
+                           continuation &cont) {                               \
     assert_arity(pl, name, argc, 2);                                           \
-    bool ans;                                                                  \
-    pl.number(rt, argv + 0, [&](auto &&lhs) {                                  \
-      pl.number(rt, argv + 1, [&](auto &&rhs) { ans = lhs op rhs; });          \
-    });                                                                        \
+    _evaluate(rt, argv, 2, ::heap_p);                                          \
+    const bool ans = pl.number(rt, ::heap_p + 0, [&](auto &&lhs) {             \
+              return pl.number(rt, ::heap_p + 1, [&](auto &&rhs) {             \
+              return lhs op rhs; });});                                        \
     if (ans)                                                                   \
       TAILCALL cont(rt);                                                       \
   });
-  DEFINE_CMP("numeq", ==)
-  DEFINE_CMP("numne", !=)
-  DEFINE_CMP("numlt", <)
-  DEFINE_CMP("numgt", >)
-  DEFINE_CMP("numle", <=)
-  DEFINE_CMP("numge", >=)
+  DEFINE_CMP("=:=", ==)
+  DEFINE_CMP("=\\=", !=)
+  DEFINE_CMP("<", <)
+  DEFINE_CMP(">", >)
+  DEFINE_CMP("=<", <=)
+  DEFINE_CMP(">=", >=)
 #pragma GCC diagnostic pop
 
-  pl.load_objfile(PLO_PATH_iso_arithmetics);
+  // pl.load_objfile(PLO_PATH_iso_arithmetics);
 }
