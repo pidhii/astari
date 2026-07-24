@@ -5,6 +5,8 @@
 #include "pl/core/interpreter.hpp"
 #include "pl/parse/prolog_parser.hpp"
 
+#include <ctime>
+#include <iomanip>
 #include <iostream>
 
 #include <getopt.h>
@@ -35,7 +37,11 @@ repl(interpreter &pl)
       try {
         parser.pop_token(tokens);
         const object expr = parser.parse_expr(pl.symbols(), tokens);
+        const clock_t start = clock();
         pl.eval(expr, tokens.vars);
+        const clock_t end = clock();
+        std::cerr << std::fixed << std::setprecision(2) << "CPU time used: "
+                  << 1000.0 * (end - start) / CLOCKS_PER_SEC << "ms\n";
       }
       catch (const std::exception &exn)
       { std::cerr << "error: " << exn.what() << std::endl; }
