@@ -130,11 +130,45 @@ class interpreter: public runtime {
     return buf;
   }
 
-  void
-  add_predicate(object_view sign, object_view body);
 
-  void
-  add_predicate(object_view sign);
+  /**
+   * @name Database manipulations
+   * @{
+   */
+  using database_reference = std::pair<word_t, size_t>;
+  /**
+   * @brief Add a predicate
+   * @details Addition of the clause @p sign :- @p body to the database BEFORE
+   * all other clauses for the predicate associated to @p sign.
+   * @return Identifier that can be used to remove the predicate with
+   * @ref retract.
+   */
+  database_reference
+  asserta(object_view sign, object_view body = {});
+
+  /**
+   * @brief Add a predicate
+   * @details Addition of the clause @p sign :- @p body to the database AFTER
+   * all other clauses for the predicate associated to @p sign. All other
+   * database references become invalidated untill the added predicate is
+   * removed from the database with @ref retract.
+   * @return Identifier that can be used to remove the predicate with
+   * @ref retract.
+   */
+  database_reference
+  assertz(object_view sign, object_view body = {});
+
+  /**
+   * @brief Remove a predicate
+   * @details Removes a clause that had previously been added with @ref asserta
+   * or @ref assertz.
+   * @return A pair containing the removed clause:
+   * - `first` - signature
+   * - `second` - body or an empty object_view.
+   */
+  std::pair<object, object>
+  retract(database_reference predref);
+  /** @} */
 
   void
   add_meta_op(std::string_view name, const meta_op_handle &handle);
@@ -250,6 +284,9 @@ class interpreter: public runtime {
   number(runtime &rt, object_iterator x, Cont &&c);
 
   private:
+  predicate_entry
+  _prepare_predicate(object_view signobj, object_view bodyobj) const;
+
   void
   _make_true(runtime &rt, size_t _, object_iterator e, barrier *clause,
              continuation &cont);

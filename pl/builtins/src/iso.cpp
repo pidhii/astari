@@ -51,4 +51,38 @@ iso::iso(interpreter &pl)
 
   // All solutions
   iso_all_solutions(pl);
+
+  // Clause Creation and Destruction
+#define DEFINE_ASSERT(name, impl)                                              \
+  pl.add_meta_op(name, [&](runtime &rt, int argc, object_iterator argv,        \
+                           const continuation &cont) {                         \
+    assert_arity(pl, name, argc, 1);                                           \
+    basic_decoder dc;                                                          \
+    const object clause = rt.reconstruct(dc.decode_object(argv));              \
+    object_view sign, body;                                                    \
+    if (is_term(clause[0], pl.symbols()[":-"], 2))                             \
+    {                                                                          \
+      object_iterator it = clause.data() + 1;                                  \
+      sign = dc.decode_object(it);                                             \
+      body = dc.decode_object(it);                                             \
+    }                                                                          \
+    else                                                                       \
+    {                                                                          \
+      sign = clause;                                                           \
+      body = {};                                                               \
+    }                                                                          \
+    const interpreter::database_reference ref = impl;                          \
+    try                                                                        \
+    {                                                                          \
+      cont(rt);                                                                \
+    }                                                                          \
+    catch (...)                                                                \
+    {                                                                          \
+      pl.retract(ref);                                                         \
+      throw;                                                                   \
+    }                                                                          \
+    pl.retract(ref);                                                           \
+  });
+  DEFINE_ASSERT("asserta", pl.asserta(sign, body));
+  DEFINE_ASSERT("assertz", pl.assertz(sign, body));
 }

@@ -79,11 +79,11 @@ o <b>Arithmetic Comparison</b>
 o <b>Clause Retrieval and Information</b>
   - [ ] clause/2 
   - [ ] current_predicate/1 
-o <s><b>Clause Creation and Destruction</b></s>        <i># dirty + hits performance too hard</i>
-  - [ ] <s>asserta/1</s>
-  - [ ] <s>assertz/1</s> 
-  - [ ] <s>retract/1</s>
-  - [ ] <s>abolish/1</s>
+o <b>Clause Creation and Destruction</b>
+  - [x] asserta/1
+  - [x] assertz/1 
+  - [ ] retract/1
+  - [ ] abolish/1
 o <b>All Solutions</b>
   - [x] findall/3
   - [ ] bagof/3 

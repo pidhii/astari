@@ -142,13 +142,13 @@ interpreter::interpret(object_view stmt, const dictionary &vardict)
     auto it = stmt.begin() + 1;
     const object_view sign = dc.decode_object(it);
     const object_view body = dc.decode_object(it);
-    add_predicate(sign, body);
+    assertz(sign, body);
     return;
   }
 
   else if (is_term(stmt[0])) // Statement
   {
-    add_predicate(stmt);
+    assertz(stmt);
     return;
   }
 

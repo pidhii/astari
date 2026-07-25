@@ -92,8 +92,8 @@ interpreter::has(size_t id) const noexcept
 { return has_predicate(id) or has_meta_op(id); }
 
 
-void
-interpreter::add_predicate(object_view signobj, object_view bodyobj)
+interpreter::predicate_entry
+interpreter::_prepare_predicate(object_view signobj, object_view bodyobj) const
 {
   basic_decoder dc;
 
@@ -127,15 +127,45 @@ interpreter::add_predicate(object_view signobj, object_view bodyobj)
   if (not body.empty())
     dc.decode_object(body.data()); // call for side-effects
 
-  m_predicates[signobj[0] & term_mask].emplace_back(sign, body, base);
+  return {sign, body, base};
 }
 
 
-void
-interpreter::add_predicate(object_view signobj)
+interpreter::database_reference
+interpreter::asserta(object_view signobj, object_view bodyobj)
 {
-  // std::clog << "[add_predicate] add statement: " << dump(signobj) << std::endl;
-  add_predicate(signobj, {});
+  predicate_entry pred = _prepare_predicate(signobj, bodyobj);
+
+  const size_t k = signobj[0] & term_mask;
+  std::vector<predicate_entry> &variants = m_predicates[k];
+  variants.emplace(variants.begin(), std::move(pred));
+
+  return {k, 0};
+}
+
+
+interpreter::database_reference
+interpreter::assertz(object_view signobj, object_view bodyobj)
+{
+  predicate_entry pred = _prepare_predicate(signobj, bodyobj);
+
+  const size_t k = signobj[0] & term_mask;
+  std::vector<predicate_entry> &variants = m_predicates[k];
+  variants.emplace_back(std::move(pred));
+
+  return {k, variants.size() - 1};
+}
+
+
+std::pair<object, object>
+interpreter::retract(database_reference predref)
+{
+  assert(m_predicates.contains(predref.first));
+  std::vector<predicate_entry> &variants = m_predicates[predref.first];
+  assert(predref.second < variants.size());
+  predicate_entry ent = std::move(variants[predref.second]);
+  variants.erase(variants.begin() + predref.second);
+  return {ent.sign, ent.body};
 }
 
 

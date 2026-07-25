@@ -6,25 +6,22 @@
 static void
 minimal_predicates(interpreter &pl)
 {
-  pl.add_predicate(pl.make_term(term("true")));
-  pl.add_predicate(pl.make_term(term("false")), pl.make_term(term("fail")));
-  pl.add_predicate(pl.make_term(term("=", var("X"), var("X"))));
+  pl.assertz(pl.make_term(term("true")));
+  pl.assertz(pl.make_term(term("false")), pl.make_term(term("fail")));
+  pl.assertz(pl.make_term(term("=", var("X"), var("X"))));
 
 
   dictionary vardict;
-  const auto var = [&](const auto &name) {
-    return nonterminal(vardict[name]);
-  };
+  const auto var = [&](const auto &name) { return nonterminal(vardict[name]); };
   // \+ Goal :- Goal -> fail; true.
-  pl.add_predicate(
-      pl.make_term(term("\\+", var("Goal"))),
-      pl.make_term(term("if", var("Goal"), term("fail"), term("true"))));
+  pl.assertz(pl.make_term(term("\\+", var("Goal"))),
+             pl.make_term(term("if", var("Goal"), term("fail"), term("true"))));
 
   vardict.clear();
   // X \= Y -> X = Y -> fail; true.
-  pl.add_predicate(pl.make_term(term("\\=", var("X"), var("Y"))),
-                   pl.make_term(term("if", term("=", var("X"), var("Y")),
-                                     term("fail"), term("true"))));
+  pl.assertz(pl.make_term(term("\\=", var("X"), var("Y"))),
+             pl.make_term(term("if", term("=", var("X"), var("Y")),
+                               term("fail"), term("true"))));
 
   // once/1
   pl.add_meta_op("once", [&](runtime &rt, int argc, object_iterator argv,
@@ -38,8 +35,8 @@ minimal_predicates(interpreter &pl)
     rt.pop_choice_point(&cp); // let someone else to unwind it if needed
   });
 
-  iso_type_testing(pl); // Doesn't use parser
-  iso_term_comparison(pl); // Doesn't use parser
+  iso_type_testing(pl);                    // Doesn't use parser
+  iso_term_comparison(pl);                 // Doesn't use parser
   iso_term_creation_and_decomposition(pl); // Doesn't use parser
-  iso_throwcatch(pl); // Doesn't use parser
+  iso_throwcatch(pl);                      // Doesn't use parser
 }
