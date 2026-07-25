@@ -7,6 +7,7 @@
 %% - call/1
 
 true.
+false :- fail.
 
 call(Goal) :- Goal.
 

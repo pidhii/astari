@@ -1,5 +1,5 @@
 
-Builtins (ref https://www.deransart.fr/prolog/bips.html): 
+ISO Builtins (ref https://www.deransart.fr/prolog/bips.html): 
 <pre>
 o <b>Control Constructs</b>
   - [x] true/0
@@ -143,4 +143,9 @@ o <b>Implementation defined hooks</b>
   - [x] halt/0,1
   - [ ] current_prolog_flag/2
   - [ ] set_prolog_flag/2
+</pre>
+
+Non-ISO Builtins:
+<pre>
+- [x] false/0
 </pre>

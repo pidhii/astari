@@ -7,6 +7,7 @@ static void
 minimal_predicates(interpreter &pl)
 {
   pl.add_predicate(pl.make_term(term("true")));
+  pl.add_predicate(pl.make_term(term("false")), pl.make_term(term("fail")));
   pl.add_predicate(pl.make_term(term("=", var("X"), var("X"))));
 
 
