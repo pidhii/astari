@@ -185,11 +185,18 @@ class runtime: public object_allocator {
   unwind(barrier *cp);
 
   /**
-   * @brief Cut all choice points since after the given one
+   * @brief Cut all choice points since after the given one (inclusive)
    * @param tgt The oldest choice point to be cut.
    */
   void
   cut(barrier *tgt);
+
+  /**
+   * @brief Cut all choice points since after the given one (exclusive)
+   * @param tgt The latest choice point to keep uncut.
+   */
+  void
+  cut_exc(barrier *tgt);
 
   /**
    * @brief Pop the choice point

@@ -5,12 +5,12 @@ o <b>Control Constructs</b>
   - [x] true/0
   - [x] fail/0
   - [x] call/1
-  - [ ] <s>!/0, cut</s>                    <i># use once/1 or if-then[-else]</i>
+  - [x] !/0
   - [x] `,`/2
   - [x] `;`/2
   - [x] if-then `->`/2              <i># strong cut</i>
   - [x] if-then-else (`->` + `;`)   <i># strong cut</i>
-  - [x] catch/3 and throw/1
+  - [ ] catch/3 and throw/1
 o <b>Term Unification</b>
   - [x] `=`/2
   - [ ] unify_with_occurs_check/2

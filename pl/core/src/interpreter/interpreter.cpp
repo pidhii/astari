@@ -48,22 +48,23 @@ interpreter::interpreter()
     if (m_symdict[name] != op)
       throw std::logic_error {"failed to register symbol"};
   };
-  require(",", op_and);
-  require(";", op_or);
-  require("if", op_if);
+  require(",",    op_and);
+  require(";",    op_or);
+  require("if",   op_if);
   require("fail", op_fail);
-  require("+", op_plus);
-  require("-", op_minus);
-  require("*", op_mul);
-  require("/", op_div);
-  require("//", op_divdiv);
+  require("!",    op_cut);
+  require("+",    op_plus);
+  require("-",    op_minus);
+  require("*",    op_mul);
+  require("/",    op_div);
+  require("//",   op_divdiv);
 
   m_query = reinterpret_cast<query_state *>(
       allocate((sizeof(query_state) + sizeof(word_t) - 1) / sizeof(word_t)));
   m_query->unwind_p = m_unwind_heap.get();
-
-  m_query->heap_p = m_term_heap.get();
-  m_query->heap_e = m_term_heap.get() + TERM_HEAP_SIZE;
+  m_query->heap_p   = m_term_heap.get();
+  m_query->heap_e   = m_term_heap.get() + TERM_HEAP_SIZE;
+  m_query->cp       = nullptr;
 }
 
 

@@ -25,7 +25,7 @@ using meta_op_handle =
     std::function<void(runtime &, size_t, object_iterator, continuation &)>;
 
 #ifdef __clang__
-# warning "Won't ensure tail-calls with clang. Your stack is may evaporate."
+# warning "Won't ensure tail-calls with clang. Your stack may evaporate."
 # define TAILCALL return
 #elif ASTARI_DEBUG
 # define TAILCALL return
@@ -39,6 +39,7 @@ enum meta_symbol {
   op_or,
   op_if,
   op_fail,
+  op_cut,
   op_plus,
   op_minus,
   op_mul,
@@ -221,14 +222,14 @@ class interpreter: public runtime {
    */
   void
   make_true(runtime &rt, object_view expr, continuation &cont)
-  { TAILCALL _make_true(rt, 0, expr.begin(), cont); }
+  { TAILCALL _make_true(rt, 0, expr.begin(), nullptr, cont); }
 
   /**
    * @warning Do not use this as an entry point of a query.
    */
   void
   make_true(runtime &rt, object_view expr, continuation cont)
-  { _make_true(rt, 0, expr.begin(), cont); }
+  { _make_true(rt, 0, expr.begin(), nullptr, cont); }
 
   template <typename Object>
   object
@@ -250,23 +251,24 @@ class interpreter: public runtime {
 
   private:
   void
-  _make_true(runtime &rt, size_t _, object_iterator e, continuation &cont);
+  _make_true(runtime &rt, size_t _, object_iterator e, barrier *clause,
+             continuation &cont);
 
   void
   _make_true__and(runtime &rt, size_t i, object_iterator eit,
-                  continuation &cont);
+                  barrier *clause, continuation &cont);
 
   void
   _make_true__or(runtime &rt, size_t i, object_iterator eit,
-                 continuation &cont);
+                 barrier *clause, continuation &cont);
 
   void
   _make_true__if(runtime &rt, size_t _, object_iterator eit,
-                 continuation &cont);
+                 barrier *clause, continuation &cont);
 
   void
   _make_true__predicate(runtime &rt, size_t _, object_iterator e,
-                        continuation &cont);
+                        barrier *clause, continuation &cont);
 
   private:
   std::unordered_map<word_t, std::vector<predicate_entry>> m_predicates;

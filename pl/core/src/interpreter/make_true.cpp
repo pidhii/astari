@@ -12,7 +12,7 @@
 
 
 void
-interpreter::_make_true(runtime &rt, size_t, object_iterator e,
+interpreter::_make_true(runtime &rt, size_t, object_iterator e, barrier *clause,
                         continuation &cont)
 {
   static basic_decoder dc;
@@ -26,20 +26,27 @@ interpreter::_make_true(runtime &rt, size_t, object_iterator e,
       switch (hdr.id)
       {
         case op_and:
-          TAILCALL _make_true__and(rt, hdr.arity, e + 1, cont);
+          TAILCALL _make_true__and(rt, hdr.arity, e + 1, clause, cont);
 
         case op_or:
-          TAILCALL _make_true__or(rt, hdr.arity, e + 1, cont);
+          TAILCALL _make_true__or(rt, hdr.arity, e + 1, clause, cont);
 
         case op_if:
           assert(hdr.arity == 3);
-          TAILCALL _make_true__if(rt, PLUG, e + 1, cont);
+          TAILCALL _make_true__if(rt, PLUG, e + 1, clause, cont);
+
+        case op_cut:
+          assert(hdr.arity == 0);
+          assert(clause);
+          rt.cut_exc(clause);
+          TAILCALL cont(rt);
 
         case op_fail:
+          assert(hdr.arity == 0);
           return;
 
         default: // predicate
-          TAILCALL _make_true__predicate(rt, PLUG, e, cont);
+          TAILCALL _make_true__predicate(rt, PLUG, e, clause, cont);
       }
     }
 
@@ -48,7 +55,7 @@ interpreter::_make_true(runtime &rt, size_t, object_iterator e,
       nonterminal var;
       dc.decode(e[0], var);
       if (auto val = rt.dereference(var.id))
-        TAILCALL _make_true(rt, PLUG, val.value(), cont);
+        TAILCALL _make_true(rt, PLUG, val.value(), clause, cont);
       else
         raise(term("instantiation_error"));
     }
@@ -61,19 +68,19 @@ interpreter::_make_true(runtime &rt, size_t, object_iterator e,
 
 void
 interpreter::_make_true__and(runtime &rt, size_t i, object_iterator eit,
-                             continuation &cont)
+                             barrier *clause, continuation &cont)
 {
   basic_decoder dc;
   if (i == 1)
-    TAILCALL _make_true(rt, PLUG, eit, cont);
+    TAILCALL _make_true(rt, PLUG, eit, clause, cont);
   if (i > 0)
   {
     const object_iterator e = eit;
     dc.decode_object(eit); // call for side-effects
-    cont = [this, i, eit, cont](runtime &rt) mutable {
-      TAILCALL _make_true__and(rt, i - 1, eit, cont);
+    cont = [this, i, eit, cont, clause](runtime &rt) mutable {
+      TAILCALL _make_true__and(rt, i - 1, eit, clause, cont);
     };
-    TAILCALL _make_true(rt, PLUG, e, cont);
+    TAILCALL _make_true(rt, PLUG, e, clause, cont);
   }
   else // i == 0
     TAILCALL cont(rt);
@@ -82,7 +89,7 @@ interpreter::_make_true__and(runtime &rt, size_t i, object_iterator eit,
 
 void
 interpreter::_make_true__or(runtime &rt, size_t i, object_iterator eit,
-                            continuation &cont)
+                            barrier *clause, continuation &cont)
 {
   basic_decoder dc;
 
@@ -92,13 +99,13 @@ interpreter::_make_true__or(runtime &rt, size_t i, object_iterator eit,
     state_saver _ {cont};
     barrier cp;
     rt.push_choice_point(&cp);
-    _make_true(rt, PLUG, eit, cont);
+    _make_true(rt, PLUG, eit, clause, cont);
     if (rt.uwuc(&cp))
       return;
 
     dc.decode_object(eit); // call for side-effects
   }
-  TAILCALL _make_true(rt, PLUG, eit, cont);
+  TAILCALL _make_true(rt, PLUG, eit, clause, cont);
 }
 
 // Soft cut version
@@ -133,7 +140,7 @@ interpreter::_make_true__or(runtime &rt, size_t i, object_iterator eit,
 // Strong cut version
 void
 interpreter::_make_true__if(runtime &rt, size_t _, object_iterator eit,
-                            continuation &cont)
+                            barrier *clause, continuation &cont)
 {
   basic_decoder dc;
 
@@ -149,25 +156,25 @@ interpreter::_make_true__if(runtime &rt, size_t _, object_iterator eit,
       rt.cut(&cp);
       cond = true;
     };
-    _make_true(rt, PLUG, econd.begin(), condcont);
+    _make_true(rt, PLUG, econd.begin(), &cp, condcont);
   }
 
   if (cond)
   { // Don't unwind and proceed with the then clause.
     rt.pop_choice_point(&cp);
-    TAILCALL _make_true(rt, PLUG, ethen.begin(), cont);
+    TAILCALL _make_true(rt, PLUG, ethen.begin(), clause, cont);
   }
   else
   { // Unwind unifications from the cond clause and go into the else clause.
     rt.unwind(&cp);
-    TAILCALL _make_true(rt, PLUG, eelse.begin(), cont);
+    TAILCALL _make_true(rt, PLUG, eelse.begin(), clause, cont);
   }
 }
 
 
 void
 interpreter::_make_true__predicate(runtime &rt, size_t _, object_iterator e_,
-                                   continuation &cont)
+                                   barrier *__, continuation &cont)
 {
   static basic_decoder dc;
 
@@ -196,7 +203,7 @@ interpreter::_make_true__predicate(runtime &rt, size_t _, object_iterator e_,
         if (not body.empty())
         {
           const object_view predbody = rt.adopt_hp_n(base, body);
-          _make_true(rt, PLUG, predbody.begin(), cont);
+          _make_true(rt, PLUG, predbody.begin(), cp.prev, cont);
         }
         else
           cont(rt);
@@ -220,7 +227,7 @@ interpreter::_make_true__predicate(runtime &rt, size_t _, object_iterator e_,
       if (not body.empty())
       {
         const object_view predbody = rt.adopt_hp_n(base, body);
-        TAILCALL _make_true(rt, PLUG, predbody.begin(), cont);
+        TAILCALL _make_true(rt, PLUG, predbody.begin(), m_query->cp, cont);
       }
       else
         TAILCALL cont(rt);

@@ -260,6 +260,17 @@ runtime::cut(barrier *tgt)
 }
 
 void
+runtime::cut_exc(barrier *tgt)
+{
+  barrier *cp = m_query->cp;
+  while (cp != tgt)
+  {
+    cp->cut = true;
+    cp = cp->prev;
+  }
+}
+
+void
 runtime::pop_choice_point(barrier *cp)
 {
   assert(cp == m_query->cp);

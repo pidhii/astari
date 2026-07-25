@@ -2,8 +2,8 @@
 #include "parse_error.hpp"
 
 #include "pl/coding/basic_encoder.hpp"
-#include "pl/core/interpreter.hpp"
 #include "pl/dictionary.hpp"
+#include "pl/misc/object_allocator.hpp"
 
 #include <format>
 
@@ -13,7 +13,7 @@ _is_op_char(int c)
 {
   static const std::array chars = {
     '+', '-', '@', '=', ':', '*', '/', '\\',
-    '<', '>', ',', ';'
+    '<', '>', ',', ';', '!',
   };
   return std::find(chars.begin(), chars.end(), c) != chars.end();
 }
@@ -305,15 +305,16 @@ lexer::_read_elt(dictionary &symbols, dictionary &vardict, std::istream &in,
   if (_tryget(in, "[")) return ATOM("[");
   if (_tryget(in, "|")) return ATOM("|");
   if (_tryget(in, "]")) return ATOM("]");
+  if (_tryget(in, ",")) return ATOM(",");
+  if (_tryget(in, ";")) return ATOM(";");
+  if (_tryget(in, "!")) return ATOM("!");
   if (_tryget(in, ".")) return ATOM(".");
 
   // Operators
   if (_trygetword(in, "is")) return ATOM("is");
-  if (_trygetop(in, ",")) return ATOM(",");
   if (_trygetop(in, ":-")) return ATOM(":-");
   if (_trygetop(in, "?")) return ATOM("?");
-  if (_trygetop(in, ";")) return ATOM(";");
-  if (_tryget(in, "->")) return ATOM("->");
+  if (_trygetop(in, "->")) return ATOM("->");
   if (_trygetop(in, "+")) return ATOM("+");
   if (_trygetop(in, "-")) return ATOM("-");
   if (_trygetop(in, "*")) return ATOM("*");
