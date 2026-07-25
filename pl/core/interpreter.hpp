@@ -274,6 +274,8 @@ class interpreter: public runtime {
   dictionary m_symdict;
   std::set<std::string> m_impordirs;
   std::set<std::string> m_imports;
+  std::unique_ptr<size_t[]> m_unwind_heap;
+  std::unique_ptr<word_t[]> m_term_heap;
 }; // class interpreter
 
 

@@ -6,12 +6,6 @@
 #include "pl/obj/object.hpp"
 
 
-size_t unwind_heap[unwind_heap_length];
-size_t *unwind_p = unwind_heap;
-barrier *choice_point = nullptr;
-word_t term_heap[TERM_HEAP_SIZE];
-word_t *heap_p = term_heap;
-
 
 object_view
 runtime::adopt_g(varnamespace &ns, object_view in)
@@ -25,9 +19,9 @@ runtime::adopt_g(varnamespace &ns, object_view in)
 object_view
 runtime::adopt_hp(varnamespace &ns, object_view in)
 {
-  assert(heap_p + in.size() <= term_heap + TERM_HEAP_SIZE);
-  word_t *p = heap_p;
-  heap_p += in.size();
+  assert(m_query->heap_p + in.size() <= m_query->heap_e);
+  word_t *p = m_query->heap_p;
+  m_query->heap_p += in.size();
   _adopt(ns, in, p);
   return {p, in.size()};
 }
@@ -35,9 +29,9 @@ runtime::adopt_hp(varnamespace &ns, object_view in)
 object_view
 runtime::adopt_hp_n(size_t base, object_view in)
 {
-  assert(heap_p + in.size() <= term_heap + TERM_HEAP_SIZE);
-  word_t *p = heap_p;
-  heap_p += in.size();
+  assert(m_query->heap_p + in.size() <= m_query->heap_e);
+  word_t *p = m_query->heap_p;
+  m_query->heap_p += in.size();
   _adopt_n(base, in, p);
   return {p, in.size()};
 }
@@ -69,7 +63,7 @@ runtime::match(object_view lhs, object_view rhs)
 {
   static matcher::memory mem;
   mem.clear();
-  return ::match_uw(*this, lhs.begin(), rhs.begin(), 1, mem, *::choice_point);
+  return ::match_uw(*this, lhs.begin(), rhs.begin(), 1, mem, *m_query->cp);
 }
 
 
@@ -98,7 +92,7 @@ runtime::assign_uw(size_t varid, object_iterator value, barrier bar)
   assert(is_var(*c));
   set_val(*c, value);
   if (i < bar.varbar)
-    *unwind_p++ = i;
+    *m_query->unwind_p++ = i;
 }
 
 
@@ -226,36 +220,36 @@ void
 runtime::push_choice_point(barrier *bar) const noexcept
 {
   bar->varbar = m_dsf.size();
-  bar->uwbar = ::unwind_p;
-  bar->hpbar = ::heap_p;
+  bar->uwbar = m_query->unwind_p;
+  bar->hpbar = m_query->heap_p;
   bar->cut = false;
   bar->noreclaim = false;
-  bar->prev = ::choice_point;
-  ::choice_point = bar;
+  bar->prev = m_query->cp;
+  m_query->cp = bar;
 }
 
 void
 runtime::unwind(barrier *cp)
 {
-  assert(cp == ::choice_point);
-  assert(::unwind_p >= cp->uwbar);
-  for (size_t *uwp = cp->uwbar; uwp < ::unwind_p; ++uwp)
+  assert(cp == m_query->cp);
+  assert(m_query->unwind_p >= cp->uwbar);
+  for (size_t *uwp = cp->uwbar; uwp < m_query->unwind_p; ++uwp)
   {
     const size_t i = *uwp;
     if (i < cp->varbar)
       set_next(m_dsf[i], i);
   }
-  ::unwind_p = cp->uwbar;
-  ::choice_point = cp->prev;
+  m_query->unwind_p = cp->uwbar;
+  m_query->cp = cp->prev;
   if (not cp->noreclaim)
-    ::heap_p = cp->hpbar;
+    m_query->heap_p = cp->hpbar;
   m_dsf.resize(cp->varbar);
 }
 
 void
 runtime::cut(barrier *tgt)
 {
-  barrier *cp = ::choice_point;
+  barrier *cp = m_query->cp;
   while (true)
   {
     cp->cut = true;
@@ -268,8 +262,8 @@ runtime::cut(barrier *tgt)
 void
 runtime::pop_choice_point(barrier *cp)
 {
-  assert(cp == ::choice_point);
-  ::choice_point = cp->prev;
+  assert(cp == m_query->cp);
+  m_query->cp = cp->prev;
 }
 
 bool

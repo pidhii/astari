@@ -16,9 +16,9 @@ class lib_breadthfirst {
   };
 
   static void
-  _lock_heap(barrier *root_cp)
+  _lock_heap(runtime &rt, barrier *root_cp)
   {
-    barrier *cp = ::choice_point;
+    barrier *cp = rt.query()->cp;
     while (cp != root_cp)
     {
       if (cp->noreclaim)
@@ -61,7 +61,7 @@ class lib_breadthfirst {
       assert(argc == 0);
       _tree &t = m_trees.top();
       t.sprouts.emplace_back(rt, cont);
-      _lock_heap(&t.root_cp);
+      _lock_heap(rt, &t.root_cp);
     });
   }
 };

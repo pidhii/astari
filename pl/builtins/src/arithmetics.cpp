@@ -229,8 +229,8 @@ iso_arithmetics(interpreter &pl)
     const object_view lhs = dc.decode_object(argv);
     const object_iterator rhs = argv;
 
-    _evaluate(rt, rhs, 1, ::heap_p);
-    const object_view result = {::heap_p++, 1};
+    _evaluate(rt, rhs, 1, rt.query()->heap_p);
+    const object_view result = {rt.query()->heap_p++, 1};
     if (rt.match(lhs, result))
       TAILCALL cont(rt);
   });
@@ -242,9 +242,9 @@ iso_arithmetics(interpreter &pl)
   pl.add_meta_op(name, [&](runtime &rt, int argc, object_iterator argv,        \
                            continuation &cont) {                               \
     assert_arity(pl, name, argc, 2);                                           \
-    _evaluate(rt, argv, 2, ::heap_p);                                          \
-    const bool ans = pl.number(rt, ::heap_p + 0, [&](auto &&lhs) {             \
-              return pl.number(rt, ::heap_p + 1, [&](auto &&rhs) {             \
+    _evaluate(rt, argv, 2, rt.query()->heap_p);                                \
+    const bool ans = pl.number(rt, rt.query()->heap_p + 0, [&](auto &&lhs) {   \
+              return pl.number(rt, rt.query()->heap_p + 1, [&](auto &&rhs) {   \
               return lhs op rhs; });});                                        \
     if (ans)                                                                   \
       TAILCALL cont(rt);                                                       \

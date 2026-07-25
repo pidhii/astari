@@ -9,6 +9,9 @@
 #include <stdexcept>
 
 
+#define TERM_HEAP_SIZE (5 * (2 << 20))
+#define UNWIND_HEAP_SIZE (2 << 20)
+
 
 using occurances = std::unordered_map<size_t, size_t>;
 
@@ -38,6 +41,8 @@ _mark_wildcards(object &obj, const occurances &occurs)
 
 
 interpreter::interpreter()
+: m_unwind_heap {new size_t[UNWIND_HEAP_SIZE]},
+  m_term_heap {new word_t[TERM_HEAP_SIZE]}
 {
   auto require = [this] (std::string_view name, meta_symbol op) {
     if (m_symdict[name] != op)
@@ -52,6 +57,13 @@ interpreter::interpreter()
   require("*", op_mul);
   require("/", op_div);
   require("//", op_divdiv);
+
+  m_query = reinterpret_cast<query_state *>(
+      allocate((sizeof(query_state) + sizeof(word_t) - 1) / sizeof(word_t)));
+  m_query->unwind_p = m_unwind_heap.get();
+
+  m_query->heap_p = m_term_heap.get();
+  m_query->heap_e = m_term_heap.get() + TERM_HEAP_SIZE;
 }
 
 

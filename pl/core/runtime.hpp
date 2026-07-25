@@ -25,6 +25,14 @@
 using varnamespace = std::unordered_map<size_t, size_t>;
 
 
+/**
+ * @ingroup core
+ * @brief Choice point record
+ * @details Choice points form a (singly-) linked list that is managed
+ * by a @ref runtime through methods like @ref runtime::push_choice_point and
+ * etc. The initial choice point is to be set by @ref interpreter. See
+ * documentation of related methods in @ref runtime for more info.
+ */
 struct barrier {
   size_t varbar;
   size_t *uwbar;
@@ -34,45 +42,30 @@ struct barrier {
   uint8_t noreclaim;
 };
 
-#define TERM_HEAP_SIZE (5 * (2 << 20))
-static constexpr size_t unwind_heap_length = 2 << 20;
+
 /**
  * @ingroup core
- * @defgroup backtracking_heap Backtracking heap
- * @brief Retractable heap to record information for backtracking
- * @{
+ * @brief Query state
+ * @details Interpreter state/registers shared by *sprouts* (@ref runtime
+ * instances) of a query.
  */
-extern size_t unwind_heap[];
-extern size_t *unwind_p;
-/** @} */
-/**
- * @ingroup core
- * @brief Latest choice point 
- * @details Choice points form a (singly-) linked list that is mainly managed
- * by a @ref runtime through methods like @ref runtime::push_choice_point and
- * etc. The initial choice point is to be set by @ref interpreter. See
- * documentation of related methods in @ref runtime for more info.
- */
-extern barrier *choice_point;
-/**
- * @ingroup core
- * @defgroup data_heap Data heap
- * @brief Retractable heap for data allocations during the query
- * @{
- */
-extern word_t term_heap[];
-extern word_t *heap_p;
-/** @} */
-/** @} */
+struct query_state {
+  size_t *unwind_p; /**< @brief Retractable heap to record information for backtracking */
+  word_t *heap_p; /**< @brief Retractable heap for data allocations during the query */
+  word_t *heap_e; /**< @brief End of the data heap */
+  barrier *cp; /**< @brief Latest choice point */
+};
+
 
 /**
  * @ingroup core
  * @brief Prolog runtime interface
  *
  * @details
- * This class, together with associated global variables, implements the
- * evaluation environment along with operation primitives to implement Prolog
- * @ref interpeter.
+ * This class implements the evaluation environment along with operation
+ * primitives to implement Prolog @ref interpeter. Contents-wise, runtime
+ * represents a *sprout* or *branch* of a query. Multiple such *sprouts* can
+ * coexist simultaniously and ran asynchronously.
  *
  * **Valid State**  
  * Valid instances of runtime must copy-constructed from either
@@ -90,12 +83,12 @@ class runtime: public object_allocator {
    * interpreter-managed memory pools and "link" the object into the runtime.
    * @{
    */
-   /**
-    * @brief Relocate object onto a static (global) memory section
-    * @details Uses memory pool inherited from @ref object_allocator as
-    * relocation target. This memory is retained and unchanged for the lifetime
-    * of the parent @ref interpreter object.
-    */
+  /**
+   * @brief Relocate object onto a static (global) memory section
+   * @details Uses memory pool inherited from @ref object_allocator as
+   * relocation target. This memory is retained and unchanged for the lifetime
+   * of the parent @ref interpreter object.
+   */
   object_view
   adopt_g(varnamespace &ns, object_view in);
 
@@ -160,7 +153,7 @@ class runtime: public object_allocator {
     const size_t imut = m_dsf.join(lhsid, rhsid);
     assert(imut != -1ull);
     if (imut < bar.varbar)
-      *unwind_p++ = imut;
+      *m_query->unwind_p++ = imut;
   }
 
   void
@@ -231,6 +224,10 @@ class runtime: public object_allocator {
   bound(size_t lhsid, size_t rhsid) noexcept
   { return m_dsf.find(lhsid).second == m_dsf.find(rhsid).second; }
 
+  query_state *
+  query() const noexcept
+  { return m_query; }
+
   private:
   void
   _adopt(varnamespace &ns, object_view in, word_t *out);
@@ -246,6 +243,9 @@ class runtime: public object_allocator {
   template <typename T>
   using pvector = pidhii::pvector<T, 8, pidhii::static_uniform_allocator<T>>;
   rooted_forest<pvector> m_dsf;
+
+  protected:
+  query_state *m_query;
 };
 
 
