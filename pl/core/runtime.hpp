@@ -77,17 +77,16 @@ struct query_state {
 class runtime: public object_allocator {
   public:
   /**
-   * @name adopt
-   * @brief Relocate and link objects into the execution medium
-   * @details Relocated from the whatever local storage onto an
-   * interpreter-managed memory pools and "link" the object into the runtime.
+   * @name Object relocation and linking
+   * @details Relocate objects from local storage onto interpreter-managed
+   * memory pools and "link" them into the runtime.
    * @{
    */
   /**
-   * @brief Relocate object onto a static (global) memory section
-   * @details Uses memory pool inherited from @ref object_allocator as
-   * relocation target. This memory is retained and unchanged for the lifetime
-   * of the parent @ref interpreter object.
+   * @brief Relocate and link an object via a static (global) memory section
+   * @details Uses memory pool inherited from @ref object_allocator. This memory
+   * is retained and unchanged for the lifetime of the parent @ref interpreter
+   * instance.
    */
   object_view
   adopt_g(varnamespace &ns, object_view in);

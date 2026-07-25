@@ -4,28 +4,28 @@
 #include "pl/obj/object.hpp"
 
 
-struct ev_add {
+static struct {
   int operator () (int lhs, int rhs) { return lhs + rhs; }
   template <typename T, typename U>
   auto operator () (T lhs, U rhs) { return lhs + rhs; }
-};
+} ev_add;
 
-struct ev_sub {
+static struct {
   template <typename T, typename U>
   auto operator () (T lhs, U rhs) { return lhs - rhs; }
-};
+} ev_sub;
 
-struct ev_mul {
+static struct {
   template <typename T, typename U>
   auto operator () (T lhs, U rhs) { return lhs * rhs; }
-};
+} ev_mul;
 
-struct ev_fdiv {
+static struct {
   template <typename T, typename U>
   float operator () (T lhs, U rhs) { return float(lhs) / float(rhs); }
-};
+} ev_fdiv;
 
-struct ev_idiv {
+static struct {
   template <typename T, typename U>
   auto operator () (T lhs, U rhs)
   {
@@ -36,7 +36,7 @@ struct ev_idiv {
     else
       return lhs / rhs;
   }
-};
+} ev_idiv;
 
 
 template <typename Op>
@@ -176,7 +176,7 @@ _evaluate(runtime &rt, object_iterator e, size_t n, word_t *stack)
       case op_plus:
       {
         _evaluate(rt, e + 1, 2, stack);
-        *stack = _eval(stack[0], stack[1], ev_add { });
+        *stack = _eval(stack[0], stack[1], ev_add);
         stack++;
         dc.decode_object(e); // call for side-effects
         continue;
@@ -184,7 +184,7 @@ _evaluate(runtime &rt, object_iterator e, size_t n, word_t *stack)
       case op_minus:
       {
         _evaluate(rt, e + 1, 2, stack);
-        *stack = _eval(stack[0], stack[1], ev_sub { });
+        *stack = _eval(stack[0], stack[1], ev_sub);
         stack++;
         dc.decode_object(e); // call for side-effects
         continue;
@@ -192,7 +192,7 @@ _evaluate(runtime &rt, object_iterator e, size_t n, word_t *stack)
       case op_mul:
       {
         _evaluate(rt, e + 1, 2, stack);
-        *stack = _eval(stack[0], stack[1], ev_mul { });
+        *stack = _eval(stack[0], stack[1], ev_mul);
         stack++;
         dc.decode_object(e); // call for side-effects
         continue;
@@ -200,7 +200,7 @@ _evaluate(runtime &rt, object_iterator e, size_t n, word_t *stack)
       case op_div:
       {
         _evaluate(rt, e + 1, 2, stack);
-        *stack = _eval(stack[0], stack[1], ev_fdiv { });
+        *stack = _eval(stack[0], stack[1], ev_fdiv);
         stack++;
         dc.decode_object(e); // call for side-effects
         continue;
@@ -208,7 +208,7 @@ _evaluate(runtime &rt, object_iterator e, size_t n, word_t *stack)
       case op_divdiv:
       {
         _evaluate(rt, e + 1, 2, stack);
-        *stack = _eval(stack[0], stack[1], ev_idiv { });
+        *stack = _eval(stack[0], stack[1], ev_idiv);
         stack++;
         dc.decode_object(e); // call for side-effects
         continue;
