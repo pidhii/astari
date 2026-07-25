@@ -48,4 +48,7 @@ iso::iso(interpreter &pl)
 
   // Exceptions
   iso_throwcatch(pl);
+
+  // All solutions
+  iso_all_solutions(pl);
 }

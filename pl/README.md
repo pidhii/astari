@@ -85,7 +85,7 @@ o <s><b>Clause Creation and Destruction</b></s>        <i># dirty + hits perform
   - [ ] <s>retract/1</s>
   - [ ] <s>abolish/1</s>
 o <b>All Solutions</b>
-  - [ ] findall/3
+  - [x] findall/3
   - [ ] bagof/3 
   - [ ] setof/3 
 o <b>Input and Output</b>

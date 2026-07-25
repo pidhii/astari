@@ -78,6 +78,7 @@ void iso_term_comparison(interpreter &pl);
 void iso_arithmetics(interpreter &pl);
 void iso_term_creation_and_decomposition(interpreter &pl);
 void iso_throwcatch(interpreter &pl);
+void iso_all_solutions(interpreter &pl);
 
 struct iso {
   iso_io io;
