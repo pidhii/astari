@@ -45,4 +45,7 @@ iso::iso(interpreter &pl)
 
   // Term Creation and Decomposition
   iso_term_creation_and_decomposition(pl);
+
+  // Exceptions
+  iso_throwcatch(pl);
 }

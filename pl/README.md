@@ -10,7 +10,7 @@ o <b>Control Constructs</b>
   - [x] `;`/2
   - [x] if-then `->`/2              <i># strong cut</i>
   - [x] if-then-else (`->` + `;`)   <i># strong cut</i>
-  - [ ] catch/3 and throw/1
+  - [x] catch/3 and throw/1
 o <b>Term Unification</b>
   - [x] `=`/2
   - [ ] unify_with_occurs_check/2
