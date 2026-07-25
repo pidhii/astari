@@ -198,54 +198,68 @@ balance_(xfx(Il, Io, Ir), O) :-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%                           Term Building
 %%
+explicit_grouping(inbrackets(_)).
+
+mergable(X, FX) :-
+  \+ (var(FX); atom(FX); explicit_grouping(X)).
+
+flatten(X, FX, Mergable) :-
+  flatten(X, FX),
+  (
+    mergable(X, FX) -> Mergable = true;
+    Mergable = false
+  ).
+
+
 flatten(X, X) :- atomic(X).
 
 flatten(var(X), X).
 
+
 flatten(func(F, A), Result) :-
-  flatten(A, FlatA),
+  flatten(A, FlatA, M),
   (
-    nonvar(FlatA), FlatA \= ',', FlatA =.. [',' | Args] -> Result =.. [F | Args];
+    M, FlatA =.. [',' | Args] -> Result =.. [F | Args];
     Result =.. [F, FlatA]
   ).
 
 flatten(inbrackets(E), Result) :-
-  flatten(E, FlatE),
+  flatten(E, FlatE, M),
   (
-    nonvar(FlatE), FlatE \= ',', FlatE =.. [','|Args] -> Result =.. [','|Args];
+    M, FlatE =.. [','|Args] -> Result =.. [','|Args];
     Result = FlatE
   ).
 
 flatten(list(E), Result) :-
-  flatten(E, FE),
+  flatten(E, FE, M),
   (
-    nonvar(FE), FE \= ',', FE =.. [','|Result] -> true;
+    M, FE =.. [','|Result] -> true;
     Result = [FE]
   ).
 
 flatten(implist(A, B), Result) :-
-  flatten(A, FA),
+  flatten(A, FA, MA),
   flatten(B, FB),
   (
-    nonvar(FA), FA \= ',', FA =.. [','|FArgs] -> append(FArgs, FB, Result);
+    MA, FA =.. [','|FArgs] -> append(FArgs, FB, Result);
     Result = [FA|FB]
   ).
 
 flatten(xfx(Lhs, Op, Rhs), Result) :-
-  flatten(Lhs, L),
-  flatten(Rhs, R),
+  flatten(Lhs, L, ML),
+  flatten(Rhs, R, MR),
   (
-    Op = ',', nonvar(R), R \= ',', R =.. [','|T] -> Result =.. [',', L |T]    ;
-    Op = ';', nonvar(L), L =.. [if, C, T, fail]  -> Result =   if(C, T, R)    ;
-    Op = ';', nonvar(R), R \= ';', R =.. [';'|T] -> Result =.. [';', L |T]    ;
-    Op = '->'                                    -> Result =   if(L, R, fail) ;
+    Op = ',', MR, R =.. [','|T]           -> Result =.. [',', L |T]    ;
+    Op = ';', ML, L =.. [if, C, T, fail]  -> Result =   if(C, T, R)    ;
+    Op = ';', MR, R \= ';', R =.. [';'|T] -> Result =.. [';', L |T]    ;
+    Op = '->'                             -> Result =   if(L, R, fail) ;
     Result =.. [Op, L, R]
   ).
 
 flatten(fx(Op, Arg), Result) :-
-  flatten(Arg, FArg),
+  flatten(Arg, FArg, M),
   (
-    nonvar(FArg), FArg \= ',', FArg =.. [',' | Args] -> Result =.. [Op | Args];
+    M, FArg =.. [',' | Args] -> Result =.. [Op | Args];
     Result =.. [Op, FArg]
   ).
 
