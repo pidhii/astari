@@ -1,3 +1,7 @@
+/**
+ * @file runtime.hpp
+ * @brief Interpreter runtime
+ */
 #pragma once
 
 #include "pl/misc/object_allocator.hpp"
@@ -6,12 +10,18 @@
 #include "ualloc/ualloc.hpp"
 #include "utl/rooted_forest.hpp"
 
-#include "radixtrees/pradix256dense.hpp"
-
 #include <optional>
 #include <unordered_map>
 
 
+/**
+ * @ingroup core
+ * @brief Variables namespace
+ * @details Mapping from *local* IDs to *global* IDs:
+ * - *local* IDs refer to nonterminals inside a privately owned object;
+ * - *global* IDs refer to runtime variables (subject to bindings and
+ *   assignments).
+ */
 using varnamespace = std::unordered_map<size_t, size_t>;
 
 
@@ -26,21 +36,66 @@ struct barrier {
 
 #define TERM_HEAP_SIZE (5 * (2 << 20))
 static constexpr size_t unwind_heap_length = 2 << 20;
+/**
+ * @ingroup core
+ * @defgroup backtracking_heap Backtracking heap
+ * @brief Retractable heap to record information for backtracking
+ * @{
+ */
 extern size_t unwind_heap[];
 extern size_t *unwind_p;
+/** @} */
+/**
+ * @ingroup core
+ * @brief Latest choice point 
+ * @details Choice points form a (singly-) linked list that is mainly managed
+ * by a @ref runtime through methods like @ref runtime::push_choice_point and
+ * etc. The initial choice point is to be set by @ref interpreter. See
+ * documentation of related methods in @ref runtime for more info.
+ */
 extern barrier *choice_point;
+/**
+ * @ingroup core
+ * @defgroup data_heap Data heap
+ * @brief Retractable heap for data allocations during the query
+ * @{
+ */
 extern word_t term_heap[];
 extern word_t *heap_p;
+/** @} */
+/** @} */
 
-
+/**
+ * @ingroup core
+ * @brief Prolog runtime interface
+ *
+ * @details
+ * This class, together with associated global variables, implements the
+ * evaluation environment along with operation primitives to implement Prolog
+ * @ref interpeter.
+ *
+ * **Valid State**  
+ * Valid instances of runtime must copy-constructed from either
+ * @ref interpreter instances or other valid runtime instances.
+ * Default-constructed instance of runtime must not be used untill initialized.
+ * The runtime instance will become initialized as soon as it is assigned with
+ * (either rvalue or lvalue reference of) other initialized runtime.
+ */
 class runtime: public object_allocator {
   public:
-  runtime() = default;
-  [[deprecated("avoid this")]] runtime(runtime &other) = default;
-  [[deprecated("avoid this")]] runtime(const runtime &other) = default;
-  [[deprecated("avoid this")]] runtime& operator = (runtime &other) = default;
-  [[deprecated("avoid this")]] runtime& operator = (const runtime &other) = default;
-
+  /**
+   * @name adopt
+   * @brief Relocate and link objects into the execution medium
+   * @details Relocated from the whatever local storage onto an
+   * interpreter-managed memory pools and "link" the object into the runtime.
+   * @{
+   */
+   /**
+    * @brief Relocate object onto a static (global) memory section
+    * @details Uses memory pool inherited from @ref object_allocator as
+    * relocation target. This memory is retained and unchanged for the lifetime
+    * of the parent @ref interpreter object.
+    */
   object_view
   adopt_g(varnamespace &ns, object_view in);
 
@@ -57,6 +112,7 @@ class runtime: public object_allocator {
 
   object_view
   adopt_hp_n(size_t base, object_view in);
+  /** @} */
 
   size_t
   n_vars() const noexcept
@@ -110,9 +166,29 @@ class runtime: public object_allocator {
   void
   assign_uw(size_t varid, object_iterator value, barrier bar);
 
+  /**
+   * @brief Create a choice point
+   * @details Create a choice point and push it onto the global stack. Bindings
+   * made after establishement of the choice point can be undone using
+   * @ref unwind. Foreign parties will have access to the stack of choice
+   * points, and can thus use it as means of communication, e.g.: request a
+   * *cut* or lock the heap memory.
+   * @note Handling requests for *cut* is a responsibility of the owner of the
+   * given choice point.
+   * parties will have access to this choice point and may use it as means of
+   */
   void
-  push_choice_point(barrier *bar) const noexcept;
+  push_choice_point(barrier *cp) const noexcept;
 
+  /**
+   * @brief Unwind variable bindings, reclaim memory and pop the choice point
+   * @details The main backtracking routine. Consider using a much cheaper
+   * @ref pop_choice_point instead unless another goal is to be executed
+   * explicitly right after and unwinding is required. It is preferable to have
+   * few large unwindings versus many small ones.
+   * @note Memory reclamation might be prevented by the foreign party, e.g. a
+   * continuation suspended and currently awaiting for reentrace.
+   */
   void
   unwind(barrier *cp);
 
@@ -148,6 +224,9 @@ class runtime: public object_allocator {
   [[nodiscard]] bool
   uwuc(barrier *cp);
 
+  /**
+   * @brief Test if two variables are bound/unified
+   */
   [[nodiscard]] bool
   bound(size_t lhsid, size_t rhsid) noexcept
   { return m_dsf.find(lhsid).second == m_dsf.find(rhsid).second; }
@@ -157,14 +236,13 @@ class runtime: public object_allocator {
   _adopt(varnamespace &ns, object_view in, word_t *out);
 
   void
-  _adopt_n(size_t n, object_view in, word_t *out);
+  _adopt_n(size_t base, object_view in, word_t *out);
 
   template <typename OutputIter>
   void
   _reconstruct(object_iterator in, OutputIter out, size_t n);
 
   private:
-  pidhii::pradix256dense<object_iterator> m_assignments;
   template <typename T>
   using pvector = pidhii::pvector<T, 8, pidhii::static_uniform_allocator<T>>;
   rooted_forest<pvector> m_dsf;
@@ -172,17 +250,18 @@ class runtime: public object_allocator {
 
 
 /**
+ * @ingroup core
  * @brief Project an object onto its equivalence class
  * @details Rename variables to base 0 and zero any cached fields. Projections
- * of two *equivalent* objects (that are not recursive) are *equal* under this
- * projection.
+ * of two *equivalent* objects (that are not recursive) are *equal*.
  * @return Number of nonterminals (equal to the largest id of inserted
- * nonterminal minus one).
+ * nonterminal plus one).
  */
 size_t
 normalize(object_view in, word_t *out);
 
 /**
+ * @ingroup core
  * @brief Reentrant version of @ref normalize
  * @details To normalize multiple objects, thread a common @p ns through the
  * calls and use the return value of a previous call as @p base for the next

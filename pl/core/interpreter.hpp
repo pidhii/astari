@@ -1,3 +1,7 @@
+/**
+ * @file interpreter.hpp
+ * @brief Interpreter implementation
+ */
 #pragma once
 
 #include "runtime.hpp"
@@ -63,6 +67,10 @@ class exception: public std::exception {
 };
 
 
+/**
+ * @ingroup core
+ * @brief Prolog interpreter
+ */
 class interpreter: public runtime {
   struct predicate_entry {
     object sign, body;
