@@ -104,7 +104,7 @@ prolog_parser::prolog_parser() : m_lib_bf {m_pl}, m_lib_tab {m_pl}
   for (object &obj : objfile.objects)
   {
     transfer_symbols(objfile.symbols, m_pl.symbols(), obj);
-    m_pl.interpret(obj);
+    m_pl.interpret(*this, obj);
   }
 }
 

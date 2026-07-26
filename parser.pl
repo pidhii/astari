@@ -3,13 +3,8 @@ member(X, [X|_]).
 member(X, [_|T]) :-
   member(X, T).
 
-
 append([], L, L).
 append([H|T], L, [H|TL]) :- append(T, L, TL).
-
-rappend([H|T], L, [H|TL]) :- rappend(T, L, TL).
-rappend([], L, L).
-
 
 notempty([_|_]).
 
@@ -99,7 +94,7 @@ qtokens([], []).
 qtokens([TH|TT], [QH|QT]) :-
   (
     var(TH)                                    -> QH = var(TH);
-    op(TH, _, _)                               -> QH = opsym(TH);
+    op(_, _, TH)                               -> QH = opsym(TH);
     member(TH, ['(', ')', '[', '|', ']', '.']) -> QH = TH;
     atom(TH)                                   -> (
       TT = ['('|_] -> QH = fun(TH);
@@ -118,12 +113,13 @@ qtokens([TH|TT], [QH|QT]) :-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%                          Operator Balancing
 %%
-right_assoc(xfx(_, OL, _), xfx(_, OR, _)) :- right_assoc_(OL, OR).
-right_assoc(fx(OL, _), xfx(_, OR, _)) :- right_assoc_(OL, OR).
-right_assoc(xfx(_, OL, _), fx(OR, _)).
-left_assoc(xfx(_, OL, _), xfx(_, OR, _)) :- left_assoc_(OL, OR).
-left_assoc(fx(OL, _), xfx(_, OR, _)) :- left_assoc_(OL, OR).
-left_assoc(xfx(_, OL, _), fx(_, OR, _)) :- throw(stupid_questions).
+right_assoc(xfx(_, Ol, _), xfx(_, Or, _)) :- right_assoc_(Ol/infix, Or/infix), !.
+right_assoc(fx(Ol, _), xfx(_, Or, _)) :- right_assoc_(Ol/prefix, Or/infix), !.
+right_assoc(xfx(_, Ol, _), fx(Or, _)).
+right_assoc(fx(Ol, _), fx(Or, _)) :- right_assoc_(Ol/prefix, Or/prefix), !.
+left_assoc(xfx(_, Ol, _), xfx(_, Or, _)) :- left_assoc_(Ol/infix, Or/infix), !.
+left_assoc(fx(Ol, _), xfx(_, Or, _)) :- left_assoc_(Ol/prefix, Or/infix), !.
+left_assoc(xfx(_, Ol, _), fx(_, Or, _)) :- throw(stupid_questions).
 
 right_assoc(X, Y) :- operator(X), operator(Y) -> fail; true.
 left_assoc(X, Y) :- operator(X), operator(Y) -> fail; true.
@@ -131,22 +127,22 @@ left_assoc(X, Y) :- operator(X), operator(Y) -> fail; true.
 operator(xfx(_, _, _)).
 operator(fx(_, _)).
 
-right_assoc_(Ol, Or) :-
-  op(Ol, Pl, Al),
-  op(Or, Pr, Ar),
+right_assoc_(Ol/Tl, Or/Tr) :-
+  op(Pl, Sl, Ol), opspec(Sl, Tl, Al), !,
+  op(Pr, Sr, Or), opspec(Sr, Tr, Ar), !,
   (
-    Pl @< Pr -> true;
-    Pl @> Pr -> fail;
+    Pl @> Pr -> true;
+    Pl @< Pr -> fail;
     (Al \= Ar; Al = nonassoc) -> throw(syntax_error(operator_priority_clash(Ol, Or)));
     Al = right
   ).
 
-left_assoc_(Ol, Or) :-
-  op(Ol, Pl, Al),
-  op(Or, Pr, Ar),
+left_assoc_(Ol/Tl, Or/Tr) :-
+  op(Pl, Sl, Ol), opspec(Sl, Tl, Al), !,
+  op(Pr, Sr, Or), opspec(Sr, Tr, Ar), !,
   (
-    Pl @> Pr -> true;
-    Pl @< Pr -> fail;
+    Pl @< Pr -> true;
+    Pl @> Pr -> fail;
     (Al \= Ar; Al = nonassoc) -> throw(syntax_error(operator_priority_clash(Ol, Or)));
     Al = left
   ).
@@ -267,41 +263,54 @@ flatten(fx(Op, Arg), Result) :-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%                           Operator Precedence
 %%
-op(':-', 0, nonassoc).
-op(';', 10, right).
-op('->', 50, nonassoc).
-op(',', 100, right).
+opspec(fx, prefix, nonassoc).
+opspec(fy, prefix, right).
+opspec(xf, postfix, nonassoc).
+opspec(yf, postfix, left).
+opspec(xfx, infix, nonassoc).
+opspec(yfx, infix, left).
+opspec(xfy, infix, right).
 
-op('\+', 900, nonassoc).
-
-op('=', 1000, nonassoc).
-op('\=', 1000, nonassoc).
-
-op('is', 1000, nonassoc).
-
-op('=..', 1000, nonassoc).
-
-op('==', 1500, nonassoc).
-op('\==', 1500, nonassoc).
-op('@>', 1500, nonassoc).
-op('@<', 1500, nonassoc).
-op('@>=', 1500, nonassoc).
-op('@=<', 1500, nonassoc).
-
-op('=:=', 1500, nonassoc).
-op('=\=', 1500, nonassoc).
-op('>', 1500, nonassoc).
-op('<', 1500, nonassoc).
-op('>=', 1500, nonassoc).
-op('=<', 1500, nonassoc).
-
-op('+', 2000, left).
-op('-', 2000, left).
-
-op('*', 2000, left).
-op('/', 2000, left).
-op('//', 2000, left).
-
+op(1200, xfx, ':-').
+op(1200, xfx, '-->').
+op(1200,  fx, ':-').
+op(1200,  fx, '?-').
+op(1100, xfy, ';').
+op(1050, xfy, '->').
+op(1000, xfy, ',').
+op( 900,  fy, '\\+').
+op( 700, xfx, '=').
+op( 700, xfx, '\\=').
+op( 700, xfx, '==').
+op( 700, xfx, '\\==').
+op( 700, xfx, '@>').
+op( 700, xfx, '@<').
+op( 700, xfx, '@>=').
+op( 700, xfx, '@=<').
+op( 700, xfx, '=..').
+op( 700, xfx, 'is').
+op( 700, xfx, '=:=').
+op( 700, xfx, '=\\=').
+op( 700, xfx, '>').
+op( 700, xfx, '<').
+op( 700, xfx, '>=').
+op( 700, xfx, '=<').
+op( 500, yfx, '+').
+op( 500, yfx, '-').
+op( 500, yfx, '/\\').
+op( 500, yfx, '\\/').
+op( 400, yfx, '*').
+op( 400, yfx, '/').
+op( 400, yfx, '//').
+op( 400, yfx, 'rem').
+op( 400, yfx, 'mod').
+op( 400, yfx, '<<').
+op( 400, yfx, '>>').
+op( 200, xfx, '**').
+op( 200, xfy, '^').
+op( 200,  fy, '\\').
+op( 200,  fy, '+').
+op( 200,  fy, '-').
 
 
 parse_expr(TokensOrString, Term) :-

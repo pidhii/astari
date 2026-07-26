@@ -67,6 +67,13 @@ _read_number(std::istream &in)
   if (in.peek() == '.')
   {
     result.push_back(in.get());
+    if (not _is_num_char(in.peek()))
+    {
+      in.unget();
+      result.pop_back();
+      return result;
+    }
+
     while (_is_num_char(in.peek()))
       result.push_back(in.get());
   }
@@ -76,7 +83,7 @@ _read_number(std::istream &in)
 
 
 static std::string
-_read_string(std::istream &in)
+_read_string(std::istream &in, char quote)
 {
   // Opening quote is expected to be already consumed by the caller.
   std::string result;
@@ -87,7 +94,7 @@ _read_string(std::istream &in)
 
     const int c = in.get();
 
-    if (c == '"')
+    if (c == quote)
       break;
 
     if (c == '\\')
@@ -239,12 +246,8 @@ lexer::_read_elt(dictionary &symbols, dictionary &vardict, std::istream &in,
   if (in.peek() == '\'')
   {
     in.get();
-    std::string result;
-    while (in and in.peek() != '\'')
-      result += in.get();
-    in.get();
     quote = true;
-    return ATOM(result);
+    return ATOM(_read_string(in, '\''));
   }
 
   // Nonterminal
@@ -258,7 +261,7 @@ lexer::_read_elt(dictionary &symbols, dictionary &vardict, std::istream &in,
   if (in.peek() == '"')
   {
     in.get();
-    return strings.make_string(_read_string(in));
+    return strings.make_string(_read_string(in, '"'));
   }
 
   // Numerical literal

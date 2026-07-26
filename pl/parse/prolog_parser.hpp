@@ -52,6 +52,10 @@ class prolog_parser {
     tokens.list = make_list(m_pl, nelts - 1, object_view(elts).begin());
   }
 
+  ::interpreter &
+  interpreter() noexcept
+  { return m_pl; }
+
   dictionary &
   symbols()
   { return m_pl.symbols(); }
@@ -61,7 +65,7 @@ class prolog_parser {
   _parse_first_stmt(dictionary &vardict, object_view toklist);
 
   private:
-  interpreter m_pl;
+  ::interpreter m_pl;
 
   lib_breadthfirst m_lib_bf;
   lib_tabulate m_lib_tab;

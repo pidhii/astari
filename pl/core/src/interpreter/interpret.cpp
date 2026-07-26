@@ -40,16 +40,15 @@ interpreter::load_objfile(std::string_view path)
 {
   object_file objfile;
 
-  { // fill in `objfile`
-    prolog_parser p;
-    std::ifstream file {path.data()};
-    objfile.read(file, *this);
-  }
+  // fill in `objfile`
+  prolog_parser p;
+  std::ifstream file {path.data()};
+  objfile.read(file, *this);
 
   for (object &obj : objfile.objects)
   {
     transfer_symbols(objfile.symbols, m_symdict, obj);
-    interpret(obj);
+    interpret(p, obj);
   }
 }
 
@@ -65,7 +64,7 @@ interpreter::load(std::istream &in)
   while (toks.list.size() > 1)
   {
     const object obj = p.parse_one_stmt(m_symdict, toks);
-    interpret(obj);
+    interpret(p, obj);
   }
 }
 
@@ -138,7 +137,8 @@ interpreter::predicate_indicator(object_iterator indicator)
 
 
 void
-interpreter::interpret(object_view stmt, const dictionary &vardict)
+interpreter::interpret(prolog_parser &p, object_view stmt,
+                       const dictionary &vardict)
 {
   assert(not stmt.empty());
 
@@ -168,6 +168,27 @@ interpreter::interpret(object_view stmt, const dictionary &vardict)
     {
       const word_t indicator = predicate_indicator(stmt.begin() + 2);
       dynamic({&indicator, 1});
+      return;
+    }
+
+    if (the_word(stmt[1]) == ATOM("op", 3))
+    {
+      object_iterator it = stmt.begin() + 2;
+      const object_view prec = dc.decode_object(it);
+      const object_view spec = dc.decode_object(it);
+      const object_view name = dc.decode_object(it);
+      assert(word_type(prec[0]) == word_type::signed_int_number);
+      assert(the_word(spec[0]) == ATOM("xfx", 0) or
+             the_word(spec[0]) == ATOM("xfy", 0) or
+             the_word(spec[0]) == ATOM("yfx", 0) or
+             the_word(spec[0]) == ATOM("fx", 0) or
+             the_word(spec[0]) == ATOM("fy", 0) or
+             the_word(spec[0]) == ATOM("xf", 0) or
+             the_word(spec[0]) == ATOM("yf", 0));
+      assert(is_term_n(name[0], 0));
+      object opdecl {dc.decode_object(stmt.begin() + 1)};
+      transfer_symbols(m_symdict, p.interpreter().symbols(), opdecl);
+      p.interpreter().assertz(opdecl);
       return;
     }
   }

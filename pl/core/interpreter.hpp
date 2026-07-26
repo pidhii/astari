@@ -70,6 +70,9 @@ class exception: public std::exception {
 };
 
 
+class prolog_parser;
+
+
 /**
  * @ingroup core
  * @brief Prolog interpreter
@@ -222,7 +225,7 @@ class interpreter: public runtime {
   eval(std::string_view expr);
 
   void
-  interpret(object_view stmt, const dictionary &vardict = {});
+  interpret(prolog_parser &p, object_view stmt, const dictionary &vardict = {});
 
   std::string
   dump(object_view obj) const

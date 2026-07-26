@@ -6,7 +6,7 @@ o <b>Directives</b>
   - [ ] multifile/1                 <i># default behaviour
   - [ ] discontiguous/1             <i># default behaviour
   - [ ] set_prolog_flag/1
-  - [ ] op/3
+  - [x] op/3                        <i># scope is constrained to a file/stream
   - [ ] char_conversion/2
   - [ ] initialization/1
   - [ ] include/1
@@ -35,7 +35,7 @@ o <b>Type Testing</b>
   - [x] nonvar/1 
   - [x] number/1 
   - [x] string/1
-o <b>Term Comparison</b>                      <i># <span style="color:yellow">order of terms besides numbers and strings is undetermined</span> (can differ between interpreter instances)</i>
+o <b>Term Comparison</b>                    <i># <span style="color:yellow">order of terms besides numbers and strings is undetermined</span> (can differ between interpreter instances)</i>
   - [x] `@=<`/2
   - [x] `==`/2
   - [x] `\==`/2
