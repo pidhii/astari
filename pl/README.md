@@ -3,10 +3,10 @@ ISO Builtins (ref https://www.deransart.fr/prolog/bips.html):
 <pre>
 o <b>Directives</b>
   - [x] dynamic/1
-  - [ ] multifile/1                 <i># default behaviour
-  - [ ] discontiguous/1             <i># default behaviour
+  - [ ] multifile/1                 <i># default behaviour</i>
+  - [ ] discontiguous/1             <i># default behaviour</i>
   - [ ] set_prolog_flag/1
-  - [x] op/3                        <i># scope is constrained to a file/stream
+  - [x] op/3                        <i># scope is constrained to a file/stream</i>
   - [ ] char_conversion/2
   - [ ] initialization/1
   - [ ] include/1
