@@ -4,10 +4,13 @@
  */
 #pragma once
 
+#include "predicate_entry.hpp"
+
 #include "pl/misc/object_allocator.hpp"
 #include "pl/obj/object.hpp"
 #include "pvector/pvector.hpp"
 #include "ualloc/ualloc.hpp"
+#include "utl/persistent_database.hpp"
 #include "utl/rooted_forest.hpp"
 
 #include <optional>
@@ -234,6 +237,61 @@ class runtime: public object_allocator {
   query() const noexcept
   { return m_query; }
 
+  /**
+   * @name Dynamic database manipulations
+   * @{
+   */
+  /** @cond DETAILS */
+  using dynamic_database_type =
+      persistent_database<word_t, predicate_entry,
+                          pidhii::static_uniform_allocator>;
+  struct recovery { word_t key; dynamic_database_type::recovery entrecov; };
+  /** @endcond  */
+  /**
+   * @brief Add a predicate to dynamic database
+   * @details Addition of the clause @p sign :- @p body to the database BEFORE
+   * all other clauses for the predicate associated to @p sign.
+   * @return Recovery object for a table associated with @p sign.
+   * @see @ref runtime::retract
+   * @warning It is a responsibility of a caller to verify that the predicate is
+   * dynamic (e.g., using @ref interpreter::is_dynamic).
+   */
+  recovery
+  asserta_dyn(object_view sign, object_view body = {});
+
+  /**
+   * @brief Add a predicate to dynamic database
+   * @details Addition of the clause @p sign :- @p body to the database AFTER
+   * all other clauses for the predicate associated to @p sign. All other
+   * database references become invalidated untill the added predicate is
+   * removed from the database with @ref retract.
+   * @return Recovery object for a table associated with @p sign.
+   * @see @ref runtime::retract
+   * @warning It is a responsibility of a caller to verify that the predicate is
+   * dynamic (e.g., using @ref interpreter::is_dynamic).
+   */
+  recovery
+  assertz_dyn(object_view sign, object_view body = {});
+
+  /**
+   * @brief Recover a table for dynamic predicate.
+   * @details Rollback the state of a table that was previously altered (e.g.,
+   * @ref asserta_dyn or @ref assertz_dyn). Single recovery object must only be
+   * used once. This function complements @ref unwind in that it implements a
+   * fast (but necessarily explicit) backtracking for a *single-sprout*
+   * execution mode whilest respecting the shared states in a *multiple-sprouts*
+   * regime.
+   * @code{.cpp}
+   * auto save = rt.asserta_dyn(clause_sign, clause_body);
+   * // ... proceeed with query ...
+   * rt.retract(save); // "unwind"
+   * @endcode
+   */
+  void
+  retract(recovery &&recovery);
+  /** @} */
+
+
   private:
   void
   _adopt(varnamespace &ns, object_view in, word_t *out);
@@ -252,6 +310,7 @@ class runtime: public object_allocator {
 
   protected:
   query_state *m_query;
+  dynamic_database_type m_dyndb;
 };
 
 

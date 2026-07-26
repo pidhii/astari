@@ -108,6 +108,35 @@ interpreter::eval(std::string_view text)
 }
 
 
+word_t
+interpreter::predicate_indicator(object_iterator indicator)
+{
+  basic_encoder ec;
+  basic_decoder dc;
+  #define ATOM(name, arity) ec.encode(term_header(m_symdict[name], arity))
+
+  const auto raise_type_error = [&]() {
+    raise(term("type_error", term("predicate_indicator"),
+               dc.decode_object(indicator)));
+  };
+
+  if (the_word(indicator[0]) != ATOM("/", 2))
+    raise_type_error();
+  object_iterator it = indicator + 1;
+  const object_view name = dc.decode_object(it);
+  const object_view arity = dc.decode_object(it);
+  if (not is_term_n(name[0], 0) or
+      word_type(arity[0]) != word_type::signed_int_number)
+    raise_type_error();
+
+  term_header hdr;
+  int ar;
+  dc.decode(name[0], hdr);
+  dc.decode(arity[0], ar);
+  return ec.encode(term_header(hdr.id, ar));
+}
+
+
 void
 interpreter::interpret(object_view stmt, const dictionary &vardict)
 {
@@ -116,7 +145,6 @@ interpreter::interpret(object_view stmt, const dictionary &vardict)
   basic_encoder ec;
   basic_decoder dc;
   #define ATOM(name, arity) ec.encode(term_header(m_symdict[name], arity))
-  #define ARITY(term) dc.decode_term_header(term).arity
 
   if (the_word(stmt[0]) == ATOM(":-", 1)) // Directive
   {
@@ -133,6 +161,13 @@ interpreter::interpret(object_view stmt, const dictionary &vardict)
       assert(is_blob(stmt[2]));
       assert(blob_tag(stmt[2]) == blob_tag::string);
       import_directory(string(stmt[2]));
+      return;
+    }
+
+    if (the_word(stmt[1]) == ATOM("dynamic", 1))
+    {
+      const word_t indicator = predicate_indicator(stmt.begin() + 2);
+      dynamic({&indicator, 1});
       return;
     }
   }

@@ -53,7 +53,7 @@ iso::iso(interpreter &pl)
   iso_all_solutions(pl);
 
   // Clause Creation and Destruction
-#define DEFINE_ASSERT(name, impl)                                              \
+#define DEFINE_ASSERT(name, insert, recover)                                   \
   pl.add_meta_op(name, [&](runtime &rt, int argc, object_iterator argv,        \
                            const continuation &cont) {                         \
     assert_arity(pl, name, argc, 1);                                           \
@@ -71,18 +71,23 @@ iso::iso(interpreter &pl)
       sign = clause;                                                           \
       body = {};                                                               \
     }                                                                          \
-    const interpreter::database_reference ref = impl;                          \
+    if (not pl.is_dynamic(sign))                                               \
+      pl.raise(term("permission_error", term("modify"),                        \
+                    term("static_procedure"), clause));                        \
+    insert;                                                                    \
     try                                                                        \
     {                                                                          \
       cont(rt);                                                                \
     }                                                                          \
     catch (...)                                                                \
     {                                                                          \
-      pl.retract(ref);                                                         \
+      recover;                                                                 \
       throw;                                                                   \
     }                                                                          \
-    pl.retract(ref);                                                           \
+    recover;                                                                   \
   });
-  DEFINE_ASSERT("asserta", pl.asserta(sign, body));
-  DEFINE_ASSERT("assertz", pl.assertz(sign, body));
+  DEFINE_ASSERT("asserta", auto save = rt.asserta_dyn(sign, body),
+                rt.retract(std::move(save)));
+  DEFINE_ASSERT("assertz", auto save = rt.assertz_dyn(sign, body),
+                rt.retract(std::move(save)));
 }

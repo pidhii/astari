@@ -17,6 +17,7 @@
 #include <iostream>
 #include <set>
 #include <sstream>
+#include <unordered_set>
 
 
 using continuation = std::function<void(runtime&)>;
@@ -73,11 +74,6 @@ class exception: public std::exception {
  * @brief Prolog interpreter
  */
 class interpreter: public runtime {
-  struct predicate_entry {
-    object sign, body;
-    size_t nvars;
-  };
-
   public:
   interpreter();
 
@@ -132,42 +128,33 @@ class interpreter: public runtime {
 
 
   /**
-   * @name Database manipulations
+   * @name Database interface
    * @{
    */
-  using database_reference = std::pair<word_t, size_t>;
+  bool
+  is_dynamic(object_view sign) const noexcept;
+
+  bool
+  is_static(object_view sign) const noexcept;
+
+  void
+  dynamic(object_view sign);
+
   /**
    * @brief Add a predicate
    * @details Addition of the clause @p sign :- @p body to the database BEFORE
    * all other clauses for the predicate associated to @p sign.
-   * @return Identifier that can be used to remove the predicate with
-   * @ref retract.
    */
-  database_reference
+  void
   asserta(object_view sign, object_view body = {});
 
   /**
    * @brief Add a predicate
    * @details Addition of the clause @p sign :- @p body to the database AFTER
-   * all other clauses for the predicate associated to @p sign. All other
-   * database references become invalidated untill the added predicate is
-   * removed from the database with @ref retract.
-   * @return Identifier that can be used to remove the predicate with
-   * @ref retract.
+   * all other clauses for the predicate associated to @p sign.
    */
-  database_reference
+  void
   assertz(object_view sign, object_view body = {});
-
-  /**
-   * @brief Remove a predicate
-   * @details Removes a clause that had previously been added with @ref asserta
-   * or @ref assertz.
-   * @return A pair containing the removed clause:
-   * - `first` - signature
-   * - `second` - body or an empty object_view.
-   */
-  std::pair<object, object>
-  retract(database_reference predref);
   /** @} */
 
   void
@@ -283,10 +270,10 @@ class interpreter: public runtime {
   auto
   number(runtime &rt, object_iterator x, Cont &&c);
 
-  private:
-  predicate_entry
-  _prepare_predicate(object_view signobj, object_view bodyobj) const;
+  word_t
+  predicate_indicator(object_iterator x);
 
+  private:
   void
   _make_true(runtime &rt, size_t _, object_iterator e, barrier *clause,
              continuation &cont);
@@ -311,6 +298,7 @@ class interpreter: public runtime {
   std::unordered_map<word_t, std::vector<predicate_entry>> m_predicates;
   std::unordered_map<size_t, meta_op_handle> m_metaops;
   dictionary m_symdict;
+  std::unordered_set<size_t> m_dynamic_names;
   std::set<std::string> m_impordirs;
   std::set<std::string> m_imports;
   std::unique_ptr<size_t[]> m_unwind_heap;

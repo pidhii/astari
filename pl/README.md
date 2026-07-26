@@ -1,6 +1,16 @@
 
 ISO Builtins (ref https://www.deransart.fr/prolog/bips.html): 
 <pre>
+o <b>Directives</b>
+  - [x] dynamic/1
+  - [ ] multifile/1                 <i># default behaviour
+  - [ ] discontiguous/1             <i># default behaviour
+  - [ ] set_prolog_flag/1
+  - [ ] op/3
+  - [ ] char_conversion/2
+  - [ ] initialization/1
+  - [ ] include/1
+  - [x] ensure_loaded/1
 o <b>Control Constructs</b>
   - [x] true/0
   - [x] fail/0
@@ -122,9 +132,7 @@ o <b>Writing terms</b>
   - [x] writeq/1,2
   - [x] write_canonical/1,2
 o <b>Misc</b>
-  - [ ] op/3
   - [ ] current_opt/3
-  - [ ] char_conversion/2
   - [ ] current_char_conversion/2
 o <b>Logic and Control</b>
   - [x] `\+`/1
@@ -147,5 +155,8 @@ o <b>Implementation defined hooks</b>
 
 Non-ISO Builtins:
 <pre>
-- [x] false/0
+o <b>Directives</b>
+  - [x] import_directory/1
+o <b>Predicates</b>
+  - [x] false/0
 </pre>

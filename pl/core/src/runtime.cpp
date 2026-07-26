@@ -293,6 +293,27 @@ runtime::uwuc(barrier *cp)
 }
 
 
+runtime::recovery
+runtime::asserta_dyn(object_view signobj, object_view bodyobj)
+{
+  const predicate_entry pred = prepare_predicate(signobj, bodyobj);
+  const size_t k = signobj[0] & term_mask;
+  return {k, m_dyndb.push_front(k, pred)};
+}
+
+
+runtime::recovery
+runtime::assertz_dyn(object_view signobj, object_view bodyobj)
+{
+  const predicate_entry pred = prepare_predicate(signobj, bodyobj);
+  const size_t k = signobj[0] & term_mask;
+  return {k, m_dyndb.push_back(k, pred)};
+}
+
+void
+runtime::retract(recovery &&recovery)
+{ m_dyndb.rollback(recovery.key, std::move(recovery.entrecov)); }
+
 size_t
 normalize_r(object_view in, word_t *out, varnamespace &ns, size_t varn)
 {

@@ -1,5 +1,4 @@
 #include "interpreter.hpp"
-#include "match.hpp"
 
 #include "pl/coding/basic_decoder.hpp"
 #include "pl/obj/object.hpp"
@@ -11,33 +10,6 @@
 
 #define TERM_HEAP_SIZE (5 * (2 << 20))
 #define UNWIND_HEAP_SIZE (2 << 20)
-
-
-using occurances = std::unordered_map<size_t, size_t>;
-
-static void
-_count_occurances(object_view obj, occurances &occurs)
-{
-  for (word_t w : obj)
-  {
-    if (is_nonterminal(w))
-      occurs[w] += 1;
-  }
-}
-
-static void
-_mark_wildcards(object &obj, const occurances &occurs)
-{
-  for (word_t &w : obj)
-  {
-    if (is_nonterminal(w))
-    {
-      assert(occurs.at(w) > 0);
-      if (occurs.at(w) == 1)
-        w = add_magic(w, wildcard);
-    }
-  }
-}
 
 
 interpreter::interpreter()
@@ -76,6 +48,7 @@ interpreter::has_meta_op(size_t id) const noexcept
 bool
 interpreter::has_predicate(size_t id) const noexcept
 {
+  // Check static predicates
   for (const auto &[w, _] : m_predicates)
   {
     term_header hdr;
@@ -83,6 +56,15 @@ interpreter::has_predicate(size_t id) const noexcept
     if (hdr.id == id)
       return true;
   }
+  // Check dynamic predicates
+  for (const auto &[w, _] : m_dyndb)
+  {
+    term_header hdr;
+    basic_decoder().decode(w, hdr);
+    if (hdr.id == id)
+      return true;
+  }
+
   return false;
 }
 
@@ -92,80 +74,74 @@ interpreter::has(size_t id) const noexcept
 { return has_predicate(id) or has_meta_op(id); }
 
 
-interpreter::predicate_entry
-interpreter::_prepare_predicate(object_view signobj, object_view bodyobj) const
+bool
+interpreter::is_dynamic(object_view predsign) const noexcept
+{
+  assert(not predsign.empty());
+  const size_t k = predsign[0] & term_mask;
+  return m_dynamic_names.contains(k);
+}
+
+bool
+interpreter::is_static(object_view predsign) const noexcept
+{ return not is_dynamic(predsign); }
+
+
+void
+interpreter::dynamic(object_view sign)
+{
+  basic_decoder dc;
+  assert(not sign.empty());
+  const size_t k = sign[0] & term_mask;
+  const size_t id = dc.decode_term_header(k).id;
+  if (has_meta_op(id) or m_predicates.contains(k))
+    throw std::runtime_error {"change of predicate qualifier (dynamic)"};
+  m_dynamic_names.emplace(k);
+}
+
+void
+interpreter::asserta(object_view signobj, object_view bodyobj)
 {
   basic_decoder dc;
 
   assert(not signobj.empty());
-  if (not is_term(signobj[0]))
-    throw std::runtime_error {"invalid predicate signature: " + dump(signobj)};
-  const size_t id = basic_decoder().decode_term_header(signobj[0]).id;
-  if (has_meta_op(id))
-  {
-    throw std::runtime_error {std::format(
-        "predicate name already used for meta operator ({})", m_symdict[id])};
-  }
-
-  object sign {signobj};
-  object body {bodyobj};
-
-  // Normalize and save variable counts for fast adopt
-  varnamespace ns;
-  size_t base = 0;
-  base = normalize_r(sign, sign.data(), ns, base);
-  base = normalize_r(body, body.data(), ns, base);
-
-  // Inject optimization hints
-  occurances occurs;
-  _count_occurances(sign, occurs);
-  _count_occurances(body, occurs);
-  _mark_wildcards(sign, occurs);
-  _mark_wildcards(body, occurs);
-
-  dc.decode_object(sign.data()); // call for side-effects
-  if (not body.empty())
-    dc.decode_object(body.data()); // call for side-effects
-
-  return {sign, body, base};
-}
-
-
-interpreter::database_reference
-interpreter::asserta(object_view signobj, object_view bodyobj)
-{
-  predicate_entry pred = _prepare_predicate(signobj, bodyobj);
-
   const size_t k = signobj[0] & term_mask;
-  std::vector<predicate_entry> &variants = m_predicates[k];
-  variants.emplace(variants.begin(), std::move(pred));
+  if (has_meta_op(dc.decode_term_header(k).id))
+    throw std::runtime_error {"can't shadow meta-op with a predicate"};
 
-  return {k, 0};
+  if (is_static(signobj))
+  {
+    predicate_entry pred = prepare_predicate(signobj, bodyobj);
+    std::vector<predicate_entry> &variants = m_predicates[k];
+    variants.emplace(variants.begin(), std::move(pred));
+  }
+  else if (is_dynamic(signobj))
+    asserta_dyn(signobj, bodyobj);
+  else
+    assert(not "unreachable code");
 }
 
 
-interpreter::database_reference
+void
 interpreter::assertz(object_view signobj, object_view bodyobj)
 {
-  predicate_entry pred = _prepare_predicate(signobj, bodyobj);
+  basic_decoder dc;
 
+  assert(not signobj.empty());
   const size_t k = signobj[0] & term_mask;
-  std::vector<predicate_entry> &variants = m_predicates[k];
-  variants.emplace_back(std::move(pred));
+  if (has_meta_op(dc.decode_term_header(k).id))
+    throw std::runtime_error {"can't shadow meta-op with a predicate"};
 
-  return {k, variants.size() - 1};
-}
-
-
-std::pair<object, object>
-interpreter::retract(database_reference predref)
-{
-  assert(m_predicates.contains(predref.first));
-  std::vector<predicate_entry> &variants = m_predicates[predref.first];
-  assert(predref.second < variants.size());
-  predicate_entry ent = std::move(variants[predref.second]);
-  variants.erase(variants.begin() + predref.second);
-  return {ent.sign, ent.body};
+  if (is_static(signobj))
+  {
+    predicate_entry pred = prepare_predicate(signobj, bodyobj);
+    std::vector<predicate_entry> &variants = m_predicates[k];
+    variants.emplace_back(std::move(pred));
+  }
+  else if (is_dynamic(signobj))
+    assertz_dyn(signobj, bodyobj);
+  else
+    assert(not "unreachable code");
 }
 
 

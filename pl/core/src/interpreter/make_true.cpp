@@ -172,6 +172,55 @@ interpreter::_make_true__if(runtime &rt, size_t _, object_iterator eit,
 }
 
 
+#define MAKE_PREDICATE_TRUE(rt, e, pred, cont)                                 \
+  const auto &[sign, body, n] = pred;                                          \
+  if (not shallow_match(e.begin(), sign.data()))                               \
+    continue;                                                                  \
+                                                                               \
+  barrier cp;                                                                  \
+  rt.push_choice_point(&cp);                                                   \
+                                                                               \
+  const size_t base = rt.n_vars();                                             \
+  const object_view predsign = rt.adopt_hp_n(base, sign);                      \
+  rt.make_n_vars(n);                                                           \
+  if (rt.match(e, predsign))                                                   \
+  {                                                                            \
+    state_saver _ {cont};                                                      \
+    if (not body.empty())                                                      \
+    {                                                                          \
+      const object_view predbody = rt.adopt_hp_n(base, body);                  \
+      _make_true(rt, PLUG, predbody.begin(), cp.prev, cont);                   \
+    }                                                                          \
+    else                                                                       \
+      cont(rt);                                                                \
+  }                                                                            \
+                                                                               \
+  if (rt.uwuc(&cp))                                                            \
+    return;
+
+
+#define MAKE_PREDICATE_TRUE_TC(rt, e, pred, cont)                              \
+  const auto &[sign, body, n] = pred;                                          \
+                                                                               \
+  if (not shallow_match(e.begin(), sign.data()))                               \
+    return;                                                                    \
+                                                                               \
+  const size_t base = rt.n_vars();                                             \
+  const object_view predsign = rt.adopt_hp_n(base, sign);                      \
+  rt.make_n_vars(n);                                                           \
+  if (rt.match(e, predsign))                                                   \
+  {                                                                            \
+    if (not body.empty())                                                      \
+    {                                                                          \
+      const object_view predbody = rt.adopt_hp_n(base, body);                  \
+      TAILCALL _make_true(rt, PLUG, predbody.begin(), m_query->cp, cont);      \
+    }                                                                          \
+    else                                                                       \
+      TAILCALL cont(rt);                                                       \
+  }                                                                            \
+  return;
+
+
 void
 interpreter::_make_true__predicate(runtime &rt, size_t _, object_iterator e_,
                                    barrier *__, continuation &cont)
@@ -179,82 +228,57 @@ interpreter::_make_true__predicate(runtime &rt, size_t _, object_iterator e_,
   static basic_decoder dc;
 
   const object_view e = dc.decode_object(e_);
+  const word_t key = e[0] & term_mask;
 
-  const auto it = m_predicates.find(e[0] & term_mask);
-  if (it != m_predicates.end())
+  // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+  //                        static predicates
+  //
+  if (const auto it = m_predicates.find(key); it != m_predicates.end())
   {
     const std::vector<predicate_entry> &variants = it->second;
     for (size_t i = 0; i < variants.size() - 1; ++i)
-    {
-      const auto &[sign, body, n] = variants[i];
-
-      if (not shallow_match(e.begin(), sign.data()))
-        continue;
-
-      barrier cp;
-      rt.push_choice_point(&cp);
-
-      const size_t base = rt.n_vars();
-      const object_view predsign = rt.adopt_hp_n(base, sign);
-      rt.make_n_vars(n);
-      if (rt.match(e, predsign))
-      {
-        state_saver _ {cont};
-        if (not body.empty())
-        {
-          const object_view predbody = rt.adopt_hp_n(base, body);
-          _make_true(rt, PLUG, predbody.begin(), cp.prev, cont);
-        }
-        else
-          cont(rt);
-      }
-
-      if (rt.uwuc(&cp))
-        return;
+    { // NOTE: dont remove these curly brackets
+      MAKE_PREDICATE_TRUE(rt, e, variants[i], cont);
     }
-
     // Tail-call on the last variant
-    const auto &[sign, body, n] = variants.back();
-
-    if (not shallow_match(e.begin(), sign.data()))
-      return;
-
-    const size_t base = rt.n_vars();
-    const object_view predsign = rt.adopt_hp_n(base, sign);
-    rt.make_n_vars(n);
-    if (rt.match(e, predsign))
-    {
-      if (not body.empty())
-      {
-        const object_view predbody = rt.adopt_hp_n(base, body);
-        TAILCALL _make_true(rt, PLUG, predbody.begin(), m_query->cp, cont);
-      }
-      else
-        TAILCALL cont(rt);
-    }
-    return;
+    MAKE_PREDICATE_TRUE_TC(rt, e, variants.back(), cont);
   }
-  else
+
+  // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+  //                             meta-ops
+  //
+  term_header hdr;
+  dc.decode(e[0], hdr);
+  if (const auto it = m_metaops.find(hdr.id); it != m_metaops.end())
+    TAILCALL it->second(rt, hdr.arity, e.begin() + 1, cont);
+
+  // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+  //                        dynamic predicates
+  //
+  if (auto it = m_dyndb.begin(key); it != m_dyndb.end(key))
+  {
+    auto nextit = std::next(it);
+    while (nextit != m_dyndb.end(key))
+    { // NOTE: dont remove these curly brackets
+      MAKE_PREDICATE_TRUE(rt, e, *it, cont)
+      it = nextit;
+      ++nextit;
+    }
+    // Tail-call on the last variant
+    MAKE_PREDICATE_TRUE_TC(rt, e, *it, cont);
+  }
+
+  std::cerr << std::format("no such predicate ({}/{})", m_symdict[hdr.id],
+                           hdr.arity)
+            << std::endl;
+  for (const auto &[w, _] : m_predicates)
   {
     term_header hdr;
-    dc.decode(e[0], hdr);
-    const auto it = m_metaops.find(hdr.id);
-    if (it == m_metaops.end())
-    {
-      std::cerr << std::format("no such predicate ({}/{})", m_symdict[hdr.id],
-                               hdr.arity)
-                << std::endl;
-      for (const auto &[w, _] : m_predicates)
-      {
-        term_header hdr;
-        dc.decode(w, hdr);
-        std::cerr << std::format("  have {}/{}", m_symdict[hdr.id], hdr.arity)
-                  << std::endl;
-      }
-
-      throw std::runtime_error {std::format("no such predicate ({}/{})",
-                                            m_symdict[hdr.id], hdr.arity)};
-    }
-    TAILCALL it->second(rt, hdr.arity, e.begin() + 1, cont);
+    dc.decode(w, hdr);
+    std::cerr << std::format("  have {}/{}", m_symdict[hdr.id], hdr.arity)
+              << std::endl;
   }
+  throw std::runtime_error {
+      std::format("no such predicate ({}/{})", m_symdict[hdr.id], hdr.arity)};
 }
+
