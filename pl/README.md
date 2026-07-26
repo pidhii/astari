@@ -159,4 +159,10 @@ o <b>Directives</b>
   - [x] import_directory/1
 o <b>Predicates</b>
   - [x] false/0
+  - [x] tokenize/1
+  - Tabled Execution
+    - [x] tabulate/1
+  - BFS Execution
+    - [x] breadthfirst/0
+    - [x] yield/0
 </pre>
