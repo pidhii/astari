@@ -13,7 +13,7 @@ _is_op_char(int c)
 {
   static const std::array chars = {
     '+', '-', '@', '=', ':', '*', '/', '\\',
-    '<', '>', ',', ';', '!',
+    '<', '>', '!', '.'
   };
   return std::find(chars.begin(), chars.end(), c) != chars.end();
 }
@@ -47,32 +47,6 @@ _is_num_char(int c)
 }
 
 
-static bool
-_is_number(std::istream &in)
-{
-  if (std::isdigit(in.peek()))
-    return true;
-
-  if (in.peek() == '+' or in.peek() == '-')
-  {
-    in.get();
-    const bool result = _is_number(in);
-    in.unget();
-    return result;
-  }
-
-  if (in.peek() == '.')
-  {
-    in.get();
-    const bool result = std::isdigit(in.peek());
-    in.unget();
-    return result;
-  }
-
-  return false;
-}
-
-
 static std::string
 _read_word(std::istream &in)
 {
@@ -81,7 +55,6 @@ _read_word(std::istream &in)
     result.push_back(in.get());
   return result;
 }
-
 
 static std::string
 _read_number(std::istream &in)
@@ -99,28 +72,6 @@ _read_number(std::istream &in)
   }
 
   return result;
-}
-
-
-
-static bool
-_tryget(std::istream &in, std::string_view s)
-{
-  if (s.empty())
-    return true;
-
-  if (in.eof())
-    return false;
-
-  if (in.peek() == s[0])
-  {
-    in.get();
-    if (_tryget(in, s.substr(1)))
-      return true;
-    else
-      in.unget();
-  }
-  return false;
 }
 
 
@@ -168,31 +119,6 @@ _read_string(std::istream &in)
       result.push_back(char(c));
   }
   return result;
-}
-
-
-static bool
-_trygetword(std::istream &in, std::string_view word)
-{
-  if (word.empty())
-    return not _is_word_char(in.peek());
-
-  if (in.get() == word[0] and _trygetword(in, word.substr(1)))
-    return true;
-  in.unget();
-  return false;
-}
-
-static bool
-_trygetop(std::istream &in, std::string_view word)
-{
-  if (word.empty())
-    return not _is_op_char(in.peek());
-
-  if (in.get() == word[0] and _trygetop(in, word.substr(1)))
-    return true;
-  in.unget();
-  return false;
 }
 
 
@@ -299,47 +225,15 @@ lexer::_read_elt(dictionary &symbols, dictionary &vardict, std::istream &in,
   if (not in or in.eof())
     return 0;
 
-  // Punctuations
-  if (_tryget(in, "(")) return ATOM("(");
-  if (_tryget(in, ")")) return ATOM(")");
-  if (_tryget(in, "[")) return ATOM("[");
-  if (_tryget(in, "|")) return ATOM("|");
-  if (_tryget(in, "]")) return ATOM("]");
-  if (_tryget(in, ",")) return ATOM(",");
-  if (_tryget(in, ";")) return ATOM(";");
-  if (_tryget(in, "!")) return ATOM("!");
-  if (_tryget(in, ".")) return ATOM(".");
-
-  // Operators
-  if (_trygetword(in, "is")) return ATOM("is");
-  if (_trygetop(in, ":-")) return ATOM(":-");
-  if (_trygetop(in, "?")) return ATOM("?");
-  if (_trygetop(in, "->")) return ATOM("->");
-  if (_trygetop(in, "+")) return ATOM("+");
-  if (_trygetop(in, "-")) return ATOM("-");
-  if (_trygetop(in, "*")) return ATOM("*");
-  if (_trygetop(in, "//")) return ATOM("//");
-  if (_trygetop(in, "/")) return ATOM("/");
-  if (_trygetop(in, "==")) return ATOM("==");
-  if (_trygetop(in, "\\==")) return ATOM("\\==");
-  if (_trygetop(in, "\\=")) return ATOM("\\=");
-  if (_trygetop(in, "@>=")) return ATOM("@>=");
-  if (_trygetop(in, "@=<")) return ATOM("@=<");
-  if (_trygetop(in, "@>")) return ATOM("@>");
-  if (_trygetop(in, "@<")) return ATOM("@<");
-  if (_trygetop(in, "=:=")) return ATOM("=:=");
-  if (_trygetop(in, "=\\=")) return ATOM("=\\=");
-  if (_trygetop(in, "=<")) return ATOM("=<");
-  if (_trygetop(in, ">=")) return ATOM(">=");
-  if (_trygetop(in, "<")) return ATOM("<");
-  if (_trygetop(in, ">")) return ATOM(">");
-  if (_trygetop(in, "=..")) return ATOM("=..");
-  if (_trygetop(in, "=")) return ATOM("=");
-  if (_trygetop(in, "\\+")) return ATOM("\\+");
+  // Special symbols
+  if (in.peek() == '!') return in.get(), ATOM("!");
+  if (in.peek() == '.') return in.get(), ATOM(".");
 
   // Symbol
-  if (std::islower(in.peek()))
+  if (std::islower(in.peek())) // alphanumeric symbols
     return ATOM(_read_word(in));
+  if (_is_op_char(in.peek())) // operator symbols
+    return ATOM(_read_op(in));
 
   // Quoted symbol
   if (in.peek() == '\'')
@@ -353,6 +247,13 @@ lexer::_read_elt(dictionary &symbols, dictionary &vardict, std::istream &in,
     return ATOM(result);
   }
 
+  // Nonterminal
+  if (std::isupper(in.peek()) or in.peek() == '_')
+  {
+    quote = true;
+    return VAR(_read_word(in));
+  }
+
   // String literal
   if (in.peek() == '"')
   {
@@ -361,15 +262,12 @@ lexer::_read_elt(dictionary &symbols, dictionary &vardict, std::istream &in,
   }
 
   // Numerical literal
-  if (_is_number(in))
+  if (std::isdigit(in.peek()))
     return NUM(_read_number(in));
 
-  // Nonterminal
-  if (std::isupper(in.peek()) or in.peek() == '_')
-  {
-    quote = true;
-    return VAR(_read_word(in));
-  }
+  // Punctuations
+  if (std::ispunct(in.peek()))
+    return ATOM(std::string {char(in.get())});
 
   throw std::runtime_error {std::format("invalid symbol ({})", char(in.peek()))};
 
