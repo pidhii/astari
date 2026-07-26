@@ -92,7 +92,7 @@ o <b>Clause Retrieval and Information</b>
 o <b>Clause Creation and Destruction</b>
   - [x] asserta/1
   - [x] assertz/1 
-  - [ ] retract/1
+  - [x] retract/1
   - [ ] abolish/1
 o <b>All Solutions</b>
   - [x] findall/3

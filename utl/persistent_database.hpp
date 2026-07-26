@@ -2,6 +2,7 @@
 
 #include <cassert>
 #include <memory>
+#include <stdexcept>
 #include <unordered_map>
 
 
@@ -61,8 +62,11 @@ class persistent_database {
     operator ++ (int) noexcept
     { const_iterator tmp { m_list }; m_list = m_list->next.get(); return tmp; }
 
+    operator const cons_node * () const noexcept
+    { return m_list; }
+
     private:
-    cons_node *m_list;
+    const cons_node *m_list;
   };
   static_assert(std::forward_iterator<const_iterator>);
 
@@ -129,6 +133,23 @@ class persistent_database {
     return recov;
   }
 
+  recovery
+  erase(const Key &key, const_iterator rmit)
+  {
+    assert(m_db != nullptr);
+    if (m_db.use_count() > 1)
+      m_db = std::allocate_shared<table_type>(m_alloc, *m_db);
+
+    const auto dbit = m_db->find(key);
+    if (dbit == m_db->end())
+      throw std::out_of_range {"persistent_database::erase: no such key"};
+
+    cons_list &list = dbit->second;
+    const recovery recov {list};
+    list = _erase(rmit, list);
+    return recov;
+  }
+
   void
   rollback(const Key &key, recovery &&recov)
   {
@@ -142,8 +163,8 @@ class persistent_database {
   }
 
   private:
-  bool
-  _null(const cons_list &list) const noexcept
+  static bool
+  _null(const cons_list &list) noexcept
   { return list == nullptr; }
 
   cons_list
@@ -158,6 +179,18 @@ class persistent_database {
     else
     {
       cons_list tail = _append(val, list->next);
+      return _cons(list->value, tail);
+    }
+  }
+
+  cons_list
+  _erase(const cons_node *x, const cons_list &list) const
+  {
+    if (x == list.get())
+      return list->next;
+    else
+    {
+      cons_list tail = _erase(x, list->next);
       return _cons(list->value, tail);
     }
   }

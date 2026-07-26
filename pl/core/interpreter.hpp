@@ -46,6 +46,7 @@ enum meta_symbol {
   op_mul,
   op_div,
   op_divdiv,
+  op_penis,
 };
 
 

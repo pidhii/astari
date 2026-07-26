@@ -30,6 +30,7 @@ interpreter::interpreter()
   require("*",    op_mul);
   require("/",    op_div);
   require("//",   op_divdiv);
+  require(":-",   op_penis);
 
   m_query = reinterpret_cast<query_state *>(
       allocate((sizeof(query_state) + sizeof(word_t) - 1) / sizeof(word_t)));

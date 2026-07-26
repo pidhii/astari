@@ -1,4 +1,5 @@
 #include "runtime.hpp"
+#include "interpreter.hpp"
 #include "match.hpp"
 
 #include "pl/coding/basic_decoder.hpp"
@@ -34,6 +35,26 @@ runtime::adopt_hp_n(size_t base, object_view in)
   m_query->heap_p += in.size();
   _adopt_n(base, in, p);
   return {p, in.size()};
+}
+
+object_view
+runtime::adopt_clause_hp(dyn_variant_iterator it)
+{
+  basic_encoder ec;
+  const size_t base = m_dsf.size();
+
+  word_t *p = m_query->heap_p;
+  if (it->body.empty())
+    adopt_hp_n(base, it->sign);
+  else
+  {
+    *m_query->heap_p++ = ec.encode(term_header(op_penis, 2));
+    adopt_hp_n(base, it->sign);
+    adopt_hp_n(base, it->body);
+  }
+  make_n_vars(it->nvars);
+
+  return {p, m_query->heap_p};
 }
 
 object
@@ -301,7 +322,6 @@ runtime::asserta_dyn(object_view signobj, object_view bodyobj)
   return {k, m_dyndb.push_front(k, pred)};
 }
 
-
 runtime::recovery
 runtime::assertz_dyn(object_view signobj, object_view bodyobj)
 {
@@ -310,9 +330,14 @@ runtime::assertz_dyn(object_view signobj, object_view bodyobj)
   return {k, m_dyndb.push_back(k, pred)};
 }
 
+runtime::recovery
+runtime::retract_dyn(size_t signkey, dyn_variant_iterator it)
+{ return {signkey, m_dyndb.erase(signkey, it)}; }
+
 void
-runtime::retract(recovery &&recovery)
+runtime::recover(recovery &&recovery)
 { m_dyndb.rollback(recovery.key, std::move(recovery.entrecov)); }
+
 
 size_t
 normalize_r(object_view in, word_t *out, varnamespace &ns, size_t varn)

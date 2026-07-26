@@ -79,6 +79,14 @@ struct query_state {
  */
 class runtime: public object_allocator {
   public:
+  /** @cond DETAILS */
+  using dynamic_database_type =
+      persistent_database<word_t, predicate_entry,
+                          pidhii::static_uniform_allocator>;
+  struct recovery { word_t key; dynamic_database_type::recovery entrecov; };
+  using dyn_variant_iterator = dynamic_database_type::const_iterator;
+  /** @endcond  */
+
   /**
    * @name Object relocation and linking
    * @details Relocate objects from local storage onto interpreter-managed
@@ -107,6 +115,9 @@ class runtime: public object_allocator {
 
   object_view
   adopt_hp_n(size_t base, object_view in);
+
+  object_view
+  adopt_clause_hp(dyn_variant_iterator it);
   /** @} */
 
   size_t
@@ -238,15 +249,9 @@ class runtime: public object_allocator {
   { return m_query; }
 
   /**
-   * @name Dynamic database manipulations
+   * @name Dynamic database interface
    * @{
    */
-  /** @cond DETAILS */
-  using dynamic_database_type =
-      persistent_database<word_t, predicate_entry,
-                          pidhii::static_uniform_allocator>;
-  struct recovery { word_t key; dynamic_database_type::recovery entrecov; };
-  /** @endcond  */
   /**
    * @brief Add a predicate to dynamic database
    * @details Addition of the clause @p sign :- @p body to the database BEFORE
@@ -274,9 +279,46 @@ class runtime: public object_allocator {
   assertz_dyn(object_view sign, object_view body = {});
 
   /**
+   * @brief Iterator over associated predicates
+   * @return <implementation-details>
+   * @see @ref variant_sign, @ref variant_body, @ref adopt_clause_hp
+   */
+  dyn_variant_iterator
+  variants_begin(word_t signkey)
+  { return m_dyndb.begin(signkey); }
+
+  /**
+   * @brief Sentinel for the predicates iterator
+   * @return <implementation-details>
+   */
+  dyn_variant_iterator
+  variants_end()
+  { return m_dyndb.end(0); }
+
+  /**
+   * @brief Access the signature of a predicate clause pointed-to by @p it
+   * @return Clause signature.
+   */
+  static object_view
+  variant_sign(dyn_variant_iterator it)
+  { return it->sign; }
+
+  /**
+   * @brief Access body of the predicate clause pointed-to by @p it
+   * @return Clause body, if present; otherwise an empty view if clause
+   * resembles a statement (no body).
+   */
+  static object_view
+  variant_body(dyn_variant_iterator it)
+  { return it->body; }
+
+  recovery
+  retract_dyn(word_t signkey, dyn_variant_iterator it);
+
+  /**
    * @brief Recover a table for dynamic predicate.
    * @details Rollback the state of a table that was previously altered (e.g.,
-   * @ref asserta_dyn or @ref assertz_dyn). Single recovery object must only be
+   * @ref assert[a,z]_dyn, @ref retract_dyn). Single recovery object must only be
    * used once. This function complements @ref unwind in that it implements a
    * fast (but necessarily explicit) backtracking for a *single-sprout*
    * execution mode whilest respecting the shared states in a *multiple-sprouts*
@@ -284,11 +326,11 @@ class runtime: public object_allocator {
    * @code{.cpp}
    * auto save = rt.asserta_dyn(clause_sign, clause_body);
    * // ... proceeed with query ...
-   * rt.retract(save); // "unwind"
+   * rt.recover(save); // "unwind"
    * @endcode
    */
   void
-  retract(recovery &&recovery);
+  recover(recovery &&recovery);
   /** @} */
 
 
