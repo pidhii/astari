@@ -1,6 +1,38 @@
 /**
  * @file interpreter.hpp
  * @brief Interpreter implementation
+ *
+ * @details
+ * This is the main public header of the *astari* Prolog engine. It defines
+ * @ref interpreter -- a self-contained, embeddable Prolog interpreter -- along
+ * with the small set of supporting types that make up the C++/Prolog
+ * boundary:
+ * - @ref continuation -- a Prolog *success continuation* (what to do next
+ *   after a goal succeeds);
+ * - @ref meta_op_handle -- the signature of a native (C++) predicate hook,
+ *   a.k.a. *meta-op*;
+ * - @ref meta_symbol -- IDs of symbols that the interpreter treats specially
+ *   (control constructs);
+ * - @ref exception -- the C++ exception type used to carry a Prolog error
+ *   term across `throw`/`catch`.
+ *
+ * @section interpreter_hpp_quickstart Quick-start example
+ * The smallest possible embedding looks like this:
+ * @code{.cpp}
+ * #include "pl/core/interpreter.hpp"
+ * #include "pl/builtins/minimal.hpp"
+ *
+ * int main()
+ * {
+ *   interpreter pl;
+ *   minimal_predicates(pl);           // register a small builtin set
+ *
+ *   pl.eval("X = 1 + 1");             // parse & run a query, print solutions
+ * }
+ * @endcode
+ * See @ref interpreter for a complete overview of the API and further
+ * examples (loading scripts, asserting facts from C++, defining native
+ * predicates, and collecting solutions programmatically).
  */
 #pragma once
 
@@ -19,8 +51,45 @@
 #include <unordered_set>
 
 
+/**
+ * @ingroup core
+ * @brief Prolog *success continuation*
+ * @details A continuation is invoked with the current @ref runtime *sprout*
+ * every time the goal it was attached to succeeds. Returning from a
+ * continuation without throwing means "and now try to find another
+ * solution" -- backtracking into whatever choice points remain further up
+ * the call chain. This is the standard *continuation-passing style* used
+ * throughout the interpreter to implement conjunction, disjunction,
+ * if-then-else and predicate calls without growing the native C++ call
+ * stack (tail-calls are used internally, see @ref TAILCALL).
+ */
 using continuation = std::function<void(runtime&)>;
 
+/**
+ * @ingroup core
+ * @brief Signature of a native (C++) predicate implementation, a.k.a.
+ * *meta-op*
+ * @details Registered via @ref interpreter::add_meta_op. A meta-op behaves
+ * like a Prolog predicate but its body is implemented in C++ instead of
+ * Prolog. It receives:
+ * - the current @ref runtime *sprout*;
+ * - the arity with which it was called;
+ * - an iterator to the (encoded) argument list;
+ * - the @ref continuation to invoke for every solution.
+ *
+ * @code{.cpp}
+ * pl.add_meta_op("succ_or_fail", [](runtime &rt, size_t argc,
+ *                                    object_iterator argv, continuation &cont)
+ * {
+ *   assert(argc == 1);
+ *   basic_decoder dc;
+ *   const object_view x = dc.decode_object(argv);
+ *   // ... unify, then call cont(rt) for every solution ...
+ *   TAILCALL cont(rt);
+ * });
+ * @endcode
+ * @see @ref interpreter::add_meta_op
+ */
 using meta_op_handle =
     std::function<void(runtime &, size_t, object_iterator, continuation &)>;
 
@@ -30,10 +99,35 @@ using meta_op_handle =
 #elif ASTARI_DEBUG
 # define TAILCALL return
 #else
+/**
+ * @ingroup core
+ * @brief Marks a `return`-statement as requiring a guaranteed tail-call
+ * @details The interpreter's evaluation model (@ref interpreter::make_true
+ * and friends) relies on proper tail-calls to avoid growing the native stack
+ * for arbitrarily long/deep Prolog derivations (e.g. tail-recursive
+ * predicates, long conjunctions, disjunctions). On GCC this expands to
+ * `[[gnu::musttail]] return`, which causes a *compile error* if the compiler
+ * cannot guarantee the tail-call -- this is intentional, as a silently
+ * missed tail-call would otherwise blow the native stack at runtime for
+ * deep recursion. On clang (no `musttail` support) and in debug builds it
+ * degrades to a plain `return`.
+ */
 # define TAILCALL [[gnu::musttail]] return
 #endif
 
 
+/**
+ * @ingroup core
+ * @brief IDs of symbols with special meaning to the interpreter
+ * @details These are the control constructs and arithmetic operators that
+ * @ref interpreter::_make_true (and the arithmetic evaluator) recognize
+ * directly rather than looking them up as ordinary predicates/meta-ops. The
+ * @ref interpreter constructor registers the corresponding names (`,`, `;`,
+ * `if`, `fail`, `!`, `+`, `-`, `*`, `/`, `//`, `:-`) in the symbol
+ * dictionary and asserts (via `require`, see interpreter.cpp) that they map
+ * to exactly these enumerators. This is a low-level implementation detail;
+ * user code normally never needs to reference this enum directly.
+ */
 enum meta_symbol {
   op_and,
   op_or,
@@ -49,6 +143,28 @@ enum meta_symbol {
 };
 
 
+/**
+ * @ingroup core
+ * @brief C++ exception carrying a Prolog error term
+ * @details Thrown by @ref raise (see `pl/misc/term_utils.hpp`) to bridge
+ * Prolog-level `throw/1` errors (`instantiation_error`, `type_error/2`,
+ * etc.) as well as internal interpreter faults into the native C++
+ * exception mechanism. `catch/3` (see `pl/builtins/src/throwcatch.cpp`)
+ * catches instances of this type and re-injects @ref exception::term into
+ * the Prolog computation for unification against the catcher pattern.
+ *
+ * @code{.cpp}
+ * try
+ * {
+ *   pl.eval("X is 1 + foo");
+ * }
+ * catch (const exception &exn)
+ * {
+ *   std::cerr << "Prolog error: " << exn.what() << std::endl;
+ *   // exn.term() holds the raw error term, e.g. type_error(evaluable, foo)
+ * }
+ * @endcode
+ */
 class exception: public std::exception {
   public:
   exception(std::string_view msg, object_view term)
@@ -75,11 +191,155 @@ class prolog_parser;
 /**
  * @ingroup core
  * @brief Prolog interpreter
+ *
+ * @details
+ * `interpreter` is the top-level, embeddable Prolog engine of *astari*. A
+ * single instance owns:
+ * - the **predicate database**, split into *static* predicates (fixed set
+ *   of clauses, indexed by `object_view`, immutable during runtime)
+ *   and *dynamic* predicates (mutable at runtime via `assert*`/`retract`,
+ *   see @ref runtime's *Dynamic database interface*);
+ * - the **meta-op table**, i.e. native C++ predicate implementations
+ *   registered with @ref add_meta_op (this is how the `pl/builtins/\*`
+ *   libraries such as ISO builtins, `breadthfirst`, `tabulate` etc. are
+ *   implemented -- see e.g. `pl/builtins/iso.hpp`, `pl/builtins/minimal.hpp`);
+ * - the **symbol dictionary** (@ref symbols), mapping atom/functor names to
+ *   compact integer IDs used everywhere internally (@ref dictionary);
+ * - the **memory pools**: a term heaps for allocation of backtrackable
+ *   and persistent (non-backtrackable) data and an unwind heap used to record
+ *   undo information for backtracking (see @ref runtime, @ref barrier,
+ *   @ref query_state);
+ * - bookkeeping for **library resolution** (@ref import_directory,
+ *   @ref ensure_loaded) so that Prolog source files can `:- ensure_loaded(...)`
+ *   each other similarly to other Prolog systems.
+ *
+ * `interpreter` privately inherits from @ref runtime, meaning every
+ * `interpreter` *is* a root/initial *sprout* of a query (via the
+ * `make_true(runtime&, ...)` overloads), while also owning everything a
+ * `runtime` needs to actually be dereferenced against (predicate tables,
+ * symbol dictionary, memory).
+ *
+ * **Usage example**: construct an `interpreter`, attach one or more
+ * builtin libraries (they take a `interpreter&` in their constructor and
+ * call @ref add_meta_op / @ref assertz on it), load Prolog source
+ * (@ref load_file / @ref load / `operator<<`), then run queries with
+ * @ref eval or, for programmatic access to solutions/bindings, with
+ * @ref make_true.
+ *
+ * @section interpreter_ex1 Example: setting up an interpreter with builtins
+ * @code{.cpp}
+ * #include "pl/builtins/iso.hpp"
+ * #include "pl/builtins/tabulate.hpp"
+ * #include "pl/builtins/breadthfirst.hpp"
+ * #include "pl/core/interpreter.hpp"
+ *
+ * interpreter pl;
+ * iso              _iso {pl};   // ISO builtins (write/1, is/2, =/2, ...)
+ * lib_tabulate     _tab {pl};   // tabled execution (tabulate/1)
+ * lib_breadthfirst _bfs {pl};   // cooperative BFS scheduling (yield/0)
+ *
+ * pl.import_directory("./pl/libs"); // where ensure_loaded/1 looks for files
+ * pl.load_file("myprogram.pl");
+ * @endcode
+ *
+ * @section interpreter_ex2 Example: running a query and printing solutions
+ * `eval` parses a query string, prints the query, then prints every
+ * solution found, including bindings for its free variables:
+ * @code{.cpp}
+ * pl.eval("member(X, [1,2,3])");
+ * // prints:
+ * // [eval] member(X,[1,2,3])
+ * // yes: X = 1
+ * // yes: X = 2
+ * // yes: X = 3
+ * @endcode
+ *
+ * @section interpreter_ex3 Example: collecting solutions programmatically
+ * Use @ref make_true (the `(vardict, expr, callback)` overload) to iterate
+ * over every solution of a goal from C++, with full control over what
+ * happens with each binding -- this is the primitive used to implement
+ * things like `findall/3` (see `pl/builtins/src/iso_all_solutions.cpp`):
+ * @code{.cpp}
+ * #include "pl/parse/prolog_parser.hpp"
+ *
+ * prolog_parser parser;
+ * dictionary vardict;
+ * const object goal = parser.parse_expr(pl.symbols(), vardict, "member(X, [a,b,c])");
+ *
+ * std::vector<object> results;
+ * pl.make_true(vardict, goal, [&](const interpreter::solution &sol) {
+ *   // sol is a map from variable name ("X") to its (possibly-empty) binding
+ *   if (auto it = sol.find("X"); it != sol.end() and not it->second.empty())
+ *     results.push_back(it->second);
+ * });
+ * // results == [a, b, c]  (as encoded `object`s)
+ * @endcode
+ *
+ * @section interpreter_ex4 Example: asserting facts/rules from C++
+ * Facts and rules can be constructed in C++ with the `term`/`var` helpers
+ * from `pl/misc/term_utils.hpp` and `pl/coding/tape_writer.hpp`, then added
+ * to the database with @ref assertz / @ref asserta:
+ * @code{.cpp}
+ * #include "pl/misc/term_utils.hpp"
+ *
+ * // fact: parent(tom, bob).
+ * pl.assertz(make_term(pl, term("parent", term("tom"), term("bob"))));
+ *
+ * // rule: grandparent(X, Z) :- parent(X, Y), parent(Y, Z).
+ * dictionary vd;
+ * auto var = [&](auto name) { return nonterminal(vd[name]); };
+ * pl.assertz(
+ *     make_term(pl, term("grandparent", var("X"), var("Z"))),
+ *     make_term(pl, term(",", term("parent", var("X"), var("Y")),
+ *                             term("parent", var("Y"), var("Z")))));
+ * @endcode
+ *
+ * @section interpreter_ex5 Example: defining a native predicate (meta-op)
+ * @code{.cpp}
+ * // succ_native(X, Y) :- Y is X + 1.   (implemented in C++)
+ * pl.add_meta_op("succ_native", [](runtime &rt, size_t argc,
+ *                                   object_iterator argv, continuation &cont)
+ * {
+ *   assert(argc == 2);
+ *   basic_decoder dc;
+ *   const object_view x = dc.decode_object(argv);
+ *   const object_view y = dc.decode_object(argv);
+ *   // ... compute x + 1, unify with y, then continue on success ...
+ *   if (rt.match(y, result))
+ *     TAILCALL cont(rt);
+ * });
+ * @endcode
+ *
+ * @warning `interpreter` instances are **not** thread-safe: a single
+ * instance (and the `runtime` *sprouts* derived from it) must not be driven
+ * concurrently from multiple native threads. Cooperative concurrency within
+ * a single thread (e.g. multiple *sprouts* of the same query, as used by
+ * `lib_breadthfirst`) is supported and is the intended way of expressing
+ * concurrent search.
  */
 class interpreter: private runtime {
   public:
+  /**
+   * @brief Construct a fresh interpreter
+   * @details Allocates the term heap and unwind heap (see @ref query_state),
+   * initializes an empty predicate/meta-op/symbol database, and registers
+   * the small set of symbols with special meaning to the engine (see
+   * @ref meta_symbol) -- notably `,`, `;`, `if`, `fail`, `!`, the arithmetic
+   * operators, and `:-`. No builtin predicates are registered by the
+   * constructor itself; attach the builtin libraries you need (e.g. @ref
+   * iso, `lib_tabulate`, `lib_breadthfirst`, or `minimal_predicates`) right
+   * after construction.
+   */
   interpreter();
 
+  /**
+   * @brief Dump the current predicate/meta-op database to `stderr`
+   * @details Debugging helper: prints, for every static predicate name,
+   * every clause variant currently stored (`Head.` or `Head :- Body.`), and
+   * lists the names of registered meta-ops. Dynamic predicates are not
+   * included. Intended for interactive debugging, not for
+   * machine-consumable output.
+   */
   void
   debug() const
   {
@@ -103,10 +363,26 @@ class interpreter: private runtime {
       std::cerr << std::format("  have {}/*:", m_symdict[id]) << std::endl;
   }
 
+  /**
+   * @brief Access the global (non-backtrackable) memory allocator
+   * @details Returns the @ref object_allocator that `interpreter` inherits
+   * (transitively, via @ref runtime). Useful for allocating persistent
+   * objects that must outlive backtracking, e.g. when implementing custom
+   * meta-ops that need scratch storage tied to the query rather than a
+   * single choice point.
+   */
   object_allocator &
   global_memory()
   { return *this; }
 
+  /**
+   * @brief Access the interpreter's symbol dictionary
+   * @details Maps atom/functor names (`std::string_view`) to/from the
+   * compact integer IDs (`size_t`) used everywhere internally to represent
+   * terms (see @ref dictionary, @ref term_header). Builtin libraries and
+   * user code alike use this to look up or intern names, e.g.
+   * `pl.symbols()["foo"]` interns/returns the ID for atom `foo`.
+   */
   dictionary &
   symbols() noexcept
   { return m_symdict; }
@@ -174,6 +450,11 @@ class interpreter: private runtime {
    * equivalent to a body consisting of a single `true`-statement.
    * @throw std::runtime_error - if predicate definition would conflict with
    * existing *meta-op*.
+   *
+   * @code{.cpp}
+   * // asserta a fact:  color(red).
+   * pl.asserta(make_term(pl, term("color", term("red"))));
+   * @endcode
    */
   void
   asserta(object_view sign, object_view body = {});
@@ -189,14 +470,29 @@ class interpreter: private runtime {
    * equivalent to a body consisting of a single `true`-statement.
    * @throw std::runtime_error - if predicate definition would conflict with
    * existing *meta-op*.
+   *
+   * @code{.cpp}
+   * // assertz a fact:  color(blue).
+   * pl.assertz(make_term(pl, term("color", term("blue"))));
+   * @endcode
    */
   void
   assertz(object_view sign, object_view body = {});
 
   /**
    * @brief Add a *meta-op* (hooks to define predicates in C++)
+   * @param name Name of the predicate to hook (its arity is not fixed here;
+   * the handler receives the actual arity used at each call site).
+   * @param handle Native implementation, see @ref meta_op_handle.
    * @throw std::runtime_error - if name is associated with any other predicate
    * or *meta-op*.
+   *
+   * @details This is the primary extension mechanism of the interpreter: all
+   * `pl/builtins/\*` libraries (ISO predicates, `once/1`, `\+/1`,
+   * `breadthfirst/0`, `tabulate/1`, ...) are implemented on top of it. See
+   * @ref meta_op_handle for the handler signature and an example, and
+   * @ref interpreter_ex5 "Example: defining a native predicate" in the
+   * class-level documentation for a complete walk-through.
    */
   void
   add_meta_op(std::string_view name, const meta_op_handle &handle);
@@ -212,6 +508,10 @@ class interpreter: private runtime {
    * @param path File path.
    * @throw std::runtime_error - if failed to open the file under the given
    * @p path.
+   *
+   * @code{.cpp}
+   * pl.load_file("myprogram.pl");
+   * @endcode
    */
   void
   load_file(std::string_view path);
@@ -222,6 +522,8 @@ class interpreter: private runtime {
    * @param path File path.
    * @throw std::runtime_error - if failed to open the file under the given
    * @p path.
+   * @see `pl/misc/object_file.hpp`, `pl/coding/\*` for the on-disk format of
+   * pre-compiled/serialized `.plo` object files.
    */
   void
   load_objfile(std::string_view path);
@@ -238,6 +540,11 @@ class interpreter: private runtime {
    * @brief Load script from a text string
    * @details Parse all statements in the string and @ref interpret them.
    * @param text String with Prolog statements.
+   *
+   * @code{.cpp}
+   * pl << "foo(1). foo(2). foo(3).";
+   * pl.eval("foo(X)"); // -> X = 1 ; X = 2 ; X = 3
+   * @endcode
    */
   void
   operator << (std::string_view text)
@@ -279,38 +586,174 @@ class interpreter: private runtime {
    * @param path Library name (see detailed description for exact interpretation
    * of parameter)
    * @throw std::runtime_error - if failed to resolve the path.
+   *
+   * @details This is what implements the `:- ensure_loaded(lists).`
+   * directive at the Prolog level (see @ref interpret).
+   * @code{.cpp}
+   * pl.import_directory("./pl/libs");
+   * pl.ensure_loaded("lists"); // resolves to ./pl/libs/lists.plo or .pl
+   * @endcode
    */
   void
   ensure_loaded(std::string_view path);
   /** @} */
 
+  /**
+   * @brief Parse-free query evaluation, printing every solution
+   * @details Runs @p obj as a goal (its free variables being named
+   * according to @p vardict) and prints, for each solution found, the
+   * bindings of every named variable (or "is unbound" if a variable
+   * remained unbound). Also prints the query itself before running it. This
+   * is what @ref eval(std::string_view) uses after parsing; prefer that
+   * overload unless you already have a parsed/encoded goal and its variable
+   * dictionary (e.g. obtained from @ref prolog_parser).
+   * @param obj Encoded goal term.
+   * @param vardict Dictionary mapping variable names to the nonterminal IDs
+   * used inside @p obj.
+   */
   void
   eval(object_view obj, const dictionary &vardict);
 
+  /**
+   * @brief Parse and evaluate a query, printing every solution
+   * @details Parses @p expr as a Prolog goal, then behaves like
+   * @ref eval(object_view, const dictionary&): prints the goal, runs it via
+   * @ref make_true, and prints each solution's variable bindings to
+   * `stdout`. This is the simplest way to "just run a query" when embedding
+   * the interpreter, e.g. from a REPL (see `apps/astari-pl.cpp`) or for
+   * quick scripting/testing.
+   * @param expr Prolog goal, e.g. `"member(X, [1,2,3])"`.
+   *
+   * @code{.cpp}
+   * pl.eval("X is 2 + 2");
+   * // [eval] X is 2+2
+   * // yes: X = 4
+   * @endcode
+   */
   void
   eval(std::string_view expr);
 
+  /**
+   * @brief Interpret a single parsed top-level statement
+   * @details Dispatches a single top-level term produced by @ref
+   * prolog_parser (a directive `:- Goal`, a rule `Head :- Body`, or a bare
+   * fact `Head`) and applies its effect on `*this`: directives such as
+   * `ensure_loaded/1`, `import_directory/1`, `dynamic/1` and `op/3` are
+   * executed immediately; rules and facts are added to the database via
+   * @ref assertz. Used internally by @ref load / @ref load_file /
+   * @ref load_objfile to process an entire script one statement at a time;
+   * user code normally does not need to call this directly.
+   * @param p Parser instance that produced @p stmt (needed to resolve
+   * operator declarations, i.e. `:- op(Prec, Type, Name)`).
+   * @param stmt Encoded top-level statement to interpret.
+   * @param vardict Variable dictionary for @p stmt (only relevant for
+   * diagnostics; the statement itself is expected to be already fully
+   * encoded).
+   * @throw std::runtime_error - if @p stmt is not a recognizable
+   * directive/rule/fact.
+   */
   void
   interpret(prolog_parser &p, object_view stmt, const dictionary &vardict = {});
 
+  /**
+   * @brief Render a term to a human-readable string
+   * @details Convenience wrapper around @ref dump_object using this
+   * interpreter's own @ref symbols dictionary to resolve names.
+   * @param obj Encoded term to render.
+   * @return Textual representation of @p obj, e.g. `"foo(1,bar,[a,b])"`.
+   */
   std::string
   dump(object_view obj) const
   { return dump_object(m_symdict, obj); }
 
+  /**
+   * @brief A single query solution: variable name -> bound value
+   * @details Produced by the @ref make_true "callback-based" overload of
+   * @ref make_true. A variable maps to an empty `object` if it appears in
+   * the goal but remains unbound at the point of the solution (variables
+   * named `"_"` are never included).
+   */
   using solution = std::unordered_map<std::string_view, object>;
+
+  /**
+   * @brief Find every solution of a goal, invoking a callback for each
+   * @details This is the primary programmatic entry point for querying the
+   * interpreter (as opposed to @ref eval, which prints results). It:
+   * 1. establishes a fresh choice point and adopts @p expr onto the global
+   *    heap;
+   * 2. drives the goal to completion via the internal `_make_true` engine,
+   *    invoking @p cont with a @ref solution map for every success;
+   * 3. unwinds all bindings made during the search once every solution has
+   *    been exhausted (i.e. after this call returns, the interpreter's state
+   *    is as if the query had never run, aside from any explicit,
+   *    non-backtracked side effects such as I/O or `assertz`).
+   *
+   * @param vardict Maps the variable names appearing in @p expr to the
+   * nonterminal IDs used to encode them (as produced by, e.g.,
+   * @ref prolog_parser::parse_expr).
+   * @param expr Encoded goal to solve.
+   * @param cont Invoked once per solution with a @ref solution snapshot of
+   * all named variable bindings. Throw from @p cont to abort the search
+   * early (e.g. to implement `once/1`-like semantics from client code); any
+   * exception propagates out of `make_true` after choice points are
+   * properly unwound.
+   * @param recover_vars If `true`, variables that remain bound to other
+   * (still-unbound) query variables are rewritten back to reference those
+   * variable names (via @ref recover_variables) instead of being reported
+   * as fresh internal nonterminals. Useful when the solution needs to be
+   * re-displayed/re-parsed in terms of the original variable names.
+   *
+   * @code{.cpp}
+   * dictionary vd;
+   * prolog_parser p;
+   * const object goal = p.parse_expr(pl.symbols(), vd, "append(X, Y, [1,2,3])");
+   *
+   * pl.make_true(vd, goal, [&](const interpreter::solution &sol) {
+   *   std::cout << "X = " << pl.dump(sol.at("X"))
+   *             << ", Y = " << pl.dump(sol.at("Y")) << std::endl;
+   * });
+   * @endcode
+   */
   void
   make_true(const dictionary &vardict, object_view expr,
             const std::function<void(const solution &)> &cont,
             bool recover_vars = false);
 
   /**
-   * @warning Do not use this as an entry point of a query.
+   * @brief Low-level goal evaluation entry point (copy-of-continuation
+   * overload)
+   * @details Drives @p expr to its first success against the given
+   * @p rt *sprout*, invoking @p cont (by value) on every solution, without
+   * establishing its own choice point or unwinding afterwards -- the caller
+   * is fully responsible for choice-point/heap management. This is a
+   * building block used by native meta-ops (see @ref meta_op_handle) to
+   * recursively invoke sub-goals, e.g. implementing `once/1`:
+   * @code{.cpp}
+   * pl.add_meta_op("once", [&pl](runtime &rt, size_t argc, object_iterator argv,
+   *                              continuation &cont) {
+   *   basic_decoder dc;
+   *   const object_view goal = dc.decode_object(argv);
+   *   barrier cp;
+   *   rt.push_choice_point(&cp);
+   *   pl.make_true(rt, goal, [cont, &cp](runtime &rt) { rt.cut(&cp); cont(rt); });
+   *   rt.pop_choice_point(&cp);
+   * });
+   * @endcode
+   * @warning Do not use this as an entry point of a query. Use the
+   * `(vardict, expr, callback)` overload instead, which correctly manages
+   * choice points and unwinding for a top-level query.
    */
   void
   make_true(runtime &rt, object_view expr, continuation &cont)
   { TAILCALL _make_true(rt, 0, expr.begin(), nullptr, cont); }
 
   /**
+   * @brief Low-level goal evaluation entry point (owning-continuation
+   * overload)
+   * @details Identical to the reference overload above, except @p cont is
+   * taken by value, which is convenient when the continuation needs to be
+   * captured by a lambda that outlives the calling scope (e.g. stored for
+   * later resumption, as done by `lib_breadthfirst`).
    * @warning Do not use this as an entry point of a query.
    */
   void
@@ -348,4 +791,3 @@ class interpreter: private runtime {
   std::unique_ptr<size_t[]> m_unwind_heap;
   std::unique_ptr<word_t[]> m_term_heap;
 }; // class interpreter
-
