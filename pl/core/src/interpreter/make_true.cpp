@@ -257,7 +257,7 @@ interpreter::_make_true__predicate(runtime &rt, size_t _, object_iterator e_,
   // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
   //                        dynamic predicates
   //
-  if (auto it = m_dyndb.begin(key); it != m_dyndb.end(key))
+  if (auto it = rt.variants_begin(key); it != rt.variants_end())
   {
     auto nextit = std::next(it);
     while (nextit != m_dyndb.end(key))
@@ -273,14 +273,11 @@ interpreter::_make_true__predicate(runtime &rt, size_t _, object_iterator e_,
   std::cerr << std::format("no such predicate ({}/{})", m_symdict[hdr.id],
                            hdr.arity)
             << std::endl;
-  for (const auto &[w, _] : m_predicates)
-  {
-    term_header hdr;
-    dc.decode(w, hdr);
-    std::cerr << std::format("  have {}/{}", m_symdict[hdr.id], hdr.arity)
-              << std::endl;
-  }
+  std::cerr << "static database:\n";
+  debug();
+  std::cerr << "dynamic database:\n";
+  rt.print_dynamic_database(m_symdict);
+
   throw std::runtime_error {
       std::format("no such predicate ({}/{})", m_symdict[hdr.id], hdr.arity)};
 }
-
