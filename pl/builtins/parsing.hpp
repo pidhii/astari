@@ -1,5 +1,7 @@
 #pragma once
+
 #include "pl/core/interpreter.hpp"
+#include "pl/misc/term_utils.hpp"
 #include "pl/parse/lexer.hpp"
 
 

@@ -8,6 +8,7 @@
 #include "pl/dictionary.hpp"
 #include "pl/misc/display.hpp"
 #include "pl/misc/object_file.hpp"
+#include "pl/misc/term_utils.hpp"
 #include "pl/obj/object.hpp"
 
 #include <cstdlib>
@@ -32,33 +33,6 @@ _tokenize(interpreter &pl, dictionary &vardict, std::string_view text)
   // std::clog << "tokenlist: " << pl.dump(result) << std::endl;
   return result;
 }
-
-
-static void
-recover_variables(runtime &rt, varnamespace &ns, object &obj)
-{
-  basic_encoder ec;
-  basic_decoder dc;
-  for (word_t &word : obj)
-  {
-    if (is_nonterminal(word))
-    {
-      // Find if this variable is bound with an original variable (from `ns`).
-      // If so, rename it to this original ID.
-      nonterminal var;
-      dc.decode(word, var);
-      for (const auto [nsid, rtid] : ns)
-      {
-        if (rt.bound(var.id, rtid))
-        {
-          word = ec.encode(nonterminal(nsid));
-          break;
-        }
-      }
-    }
-  }
-}
-
 
 
 prolog_parser::prolog_parser() : m_lib_bf {m_pl}, m_lib_tab {m_pl}
@@ -99,7 +73,7 @@ prolog_parser::prolog_parser() : m_lib_bf {m_pl}, m_lib_tab {m_pl}
   assert(parserfile);
 
   object_file objfile;
-  objfile.read(parserfile, m_pl);
+  objfile.read(parserfile, m_pl.global_memory());
 
   for (object &obj : objfile.objects)
   {
@@ -117,18 +91,13 @@ prolog_parser::parse_expr(dictionary &symbols, dictionary &vardict,
 
   dictionary exprvars = vardict.subscope();
   auto var = [&](auto name) { return nonterminal(exprvars[name]); };
-  const object goal = m_pl.make_term_noalloc(
-      term("parse_expr", toklist, var("Expr")));
-
-  varnamespace ns;
-  const object_view adgoal = m_pl.adopt_g(ns, goal);
+  const object goal = make_term(m_pl, term("parse_expr", toklist, var("Expr")));
 
   object result;
-  m_pl.make_true(adgoal, [&] (runtime &rt) {
-    result = rt.reconstruct(rt.dereference(ns[exprvars["Expr"]]).value());
+  m_pl.make_true(exprvars, goal, [&](const interpreter::solution &ans) {
+    result = ans.at("Expr");
     transfer_symbols(m_pl.symbols(), symbols, result);
-    recover_variables(rt, ns, result);
-  });
+  }, true);
 
   assert(not result.empty());
 
@@ -141,18 +110,14 @@ prolog_parser::parse_expr(dictionary &symbols, const tokens &toks)
 {
   dictionary exprvars = toks.vars.subscope();
   auto var = [&](auto name) { return nonterminal(exprvars[name]); };
-  const object goal = m_pl.make_term_noalloc(
-      term("parse_expr", toks.list, var("Expr")));
-
-  varnamespace ns;
-  const object_view adgoal = m_pl.adopt_g(ns, goal);
+  const object goal =
+      make_term(m_pl, term("parse_expr", toks.list, var("Expr")));
 
   object result;
-  m_pl.make_true(adgoal, [&] (runtime &rt) {
-    result = rt.reconstruct(rt.dereference(ns[exprvars["Expr"]]).value());
+  m_pl.make_true(exprvars, goal, [&] (const interpreter::solution &ans) {
+    result = ans.at("Expr");
     transfer_symbols(m_pl.symbols(), symbols, result);
-    recover_variables(rt, ns, result);
-  });
+  }, true);
 
   assert(not result.empty());
 
@@ -210,6 +175,16 @@ prolog_parser::tokenize_more(tokens &tokens, std::string_view text)
 }
 
 
+void
+prolog_parser::pop_token(tokens &tokens)
+{
+  assert(not tokens.list.empty());
+  const auto [elts, nelts] =
+      unmake_list(m_pl, object_view(tokens.list).begin());
+  tokens.list = make_list(m_pl, nelts - 1, object_view(elts).begin());
+}
+
+
 object
 prolog_parser::parse_one_stmt(dictionary &symbols, tokens &toks)
 {
@@ -226,18 +201,14 @@ prolog_parser::_parse_first_stmt(dictionary &vardict, object_view toklist)
 {
   dictionary exprvars = vardict.subscope();
   auto var = [&](auto name) { return nonterminal(exprvars[name]); };
-  const object goal = m_pl.make_term_noalloc(
-      term("parse_one_stmt", toklist, var("Term"), var("RemTokens")));
-
-  varnamespace ns;
-  const object_view adgoal = m_pl.adopt_g(ns, goal);
+  const object goal = make_term(
+      m_pl, term("parse_one_stmt", toklist, var("Term"), var("RemTokens")));
 
   object term, remtokens;
-  m_pl.make_true(adgoal, [&] (runtime &rt) {
-    term = rt.reconstruct(rt.dereference(ns[exprvars["Term"]]).value());
-    remtokens = rt.reconstruct(rt.dereference(ns[exprvars["RemTokens"]]).value());
+  m_pl.make_true(exprvars, goal, [&] (const interpreter::solution &ans) {
+    term = ans.at("Term");
+    remtokens = ans.at("RemTokens");
   });
-
 
   if (term.empty() or remtokens.empty())
   {

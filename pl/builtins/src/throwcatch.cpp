@@ -9,7 +9,7 @@ iso_throwcatch(interpreter &pl)
                               const continuation &cont) {
     assert_arity(pl, "throw", argc, 1);
     basic_decoder dc;
-    pl.raise(rt.reconstruct(dc.decode_object(argv)));
+    raise(pl, rt.reconstruct(dc.decode_object(argv)));
   });
 
   // catch/3

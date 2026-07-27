@@ -2,26 +2,28 @@
 
 #include "iso.hpp"
 
+#include "pl/misc/term_utils.hpp"
+
 
 static void
 minimal_predicates(interpreter &pl)
 {
-  pl.assertz(pl.make_term(term("true")));
-  pl.assertz(pl.make_term(term("false")), pl.make_term(term("fail")));
-  pl.assertz(pl.make_term(term("=", var("X"), var("X"))));
+  pl.assertz(make_term(pl, term("true")));
+  pl.assertz(make_term(pl, term("false")), make_term(pl, term("fail")));
+  pl.assertz(make_term(pl, term("=", var("X"), var("X"))));
 
 
   dictionary vardict;
   const auto var = [&](const auto &name) { return nonterminal(vardict[name]); };
   // \+ Goal :- Goal -> fail; true.
-  pl.assertz(pl.make_term(term("\\+", var("Goal"))),
-             pl.make_term(term("if", var("Goal"), term("fail"), term("true"))));
+  pl.assertz(make_term(pl, term("\\+", var("Goal"))),
+             make_term(pl, term("if", var("Goal"), term("fail"), term("true"))));
 
   vardict.clear();
   // X \= Y -> X = Y -> fail; true.
-  pl.assertz(pl.make_term(term("\\=", var("X"), var("Y"))),
-             pl.make_term(term("if", term("=", var("X"), var("Y")),
-                               term("fail"), term("true"))));
+  pl.assertz(make_term(pl, term("\\=", var("X"), var("Y"))),
+             make_term(pl, term("if", term("=", var("X"), var("Y")),
+                                term("fail"), term("true"))));
 
   // once/1
   pl.add_meta_op("once", [&](runtime &rt, int argc, object_iterator argv,

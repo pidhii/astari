@@ -4,6 +4,7 @@
 #include "pl/core/interpreter.hpp"
 #include "pl/dictionary.hpp"
 #include "pl/misc/display.hpp"
+#include "pl/misc/term_utils.hpp"
 #include "pl/obj/object.hpp"
 #include "pl/parse/lexer.hpp"
 
@@ -13,7 +14,7 @@
 
 [[noreturn]] inline void
 assert_arity(interpreter &pl, std::string_view who, int argc)
-{ pl.raise(term("arity_error", term(who), argc)); }
+{ raise(pl, term("arity_error", term(who), argc)); }
 
 template <typename ...Args>
 void
@@ -24,16 +25,16 @@ assert_arity(interpreter &pl, std::string_view who, int argc, int n, Args ...arg
 
 struct iso_io {
   dictionary &symbols;
-  const object_view stdout_term, stderr_term, stdin_term;
+  const object stdout_term, stderr_term, stdin_term;
   std::map<word_t, std::pair<object_view, std::unique_ptr<std::ostream>>> ostreams;
   std::map<word_t, std::pair<object_view, std::unique_ptr<std::istream>>> istreams;
   object_view current_output, current_input;
 
   iso_io(interpreter &pl)
   : symbols {pl.symbols()},
-    stdout_term {pl.make_term(term("stdout"))},
-    stderr_term {pl.make_term(term("stderr"))},
-    stdin_term {pl.make_term(term("stdin"))},
+    stdout_term {make_term(pl, term("stdout"))},
+    stderr_term {make_term(pl, term("stderr"))},
+    stdin_term {make_term(pl, term("stdin"))},
     current_output {stdout_term},
     current_input {stdin_term}
   {

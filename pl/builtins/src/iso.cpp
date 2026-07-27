@@ -1,5 +1,7 @@
 #include "iso.hpp"
 
+#include "pl/misc/term_utils.hpp"
+
 
 iso::iso(interpreter &pl)
 : io {pl}
@@ -25,7 +27,7 @@ iso::iso(interpreter &pl)
                              const continuation &cont) {
     assert_arity(pl, "halt", argc, 0, 1);
     if (argc == 1)
-      pl.number(rt, argv, std::exit);
+      number(pl, rt.reduce(argv), std::exit);
     else
       std::exit(0);
   });
@@ -71,9 +73,9 @@ iso::iso(interpreter &pl)
       sign = clause;                                                           \
       body = {};                                                               \
     }                                                                          \
-    if (not pl.is_dynamic(sign))                                               \
-      pl.raise(term("permission_error", term("modify"),                        \
-                    term("static_procedure"), clause));                        \
+    if (not pl.is_dynamic(sign[0]))                                            \
+      raise(pl, term("permission_error", term("modify"),                       \
+                     term("static_procedure"), clause));                       \
     insert;                                                                    \
     try                                                                        \
     {                                                                          \

@@ -44,13 +44,7 @@ class prolog_parser {
   tokenize_more(tokens &tokens, std::string_view text);
 
   void
-  pop_token(tokens &tokens)
-  {
-    assert(not tokens.list.empty());
-    const auto [elts, nelts] =
-        unmake_list(m_pl, object_view(tokens.list).begin());
-    tokens.list = make_list(m_pl, nelts - 1, object_view(elts).begin());
-  }
+  pop_token(tokens &tokens);
 
   ::interpreter &
   interpreter() noexcept

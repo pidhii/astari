@@ -1,6 +1,8 @@
 #include "iso.hpp"
+
 #include "pl/coding/basic_decoder.hpp"
 #include "pl/core/interpreter.hpp"
+#include "pl/misc/term_utils.hpp"
 #include "pl/obj/object.hpp"
 
 
@@ -243,8 +245,8 @@ iso_arithmetics(interpreter &pl)
                            continuation &cont) {                               \
     assert_arity(pl, name, argc, 2);                                           \
     _evaluate(rt, argv, 2, rt.query()->heap_p);                                \
-    const bool ans = pl.number(rt, rt.query()->heap_p + 0, [&](auto &&lhs) {   \
-              return pl.number(rt, rt.query()->heap_p + 1, [&](auto &&rhs) {   \
+    const bool ans = number(pl, rt.query()->heap_p + 0, [&](auto &&lhs) {      \
+              return number(pl, rt.query()->heap_p + 1, [&](auto &&rhs) {      \
               return lhs op rhs; });});                                        \
     if (ans)                                                                   \
       TAILCALL cont(rt);                                                       \

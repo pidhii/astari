@@ -4,6 +4,7 @@
 #include "pl/coding/basic_encoder.hpp"
 #include "pl/dictionary.hpp"
 #include "pl/misc/object_allocator.hpp"
+#include "pl/misc/term_utils.hpp"
 
 #include <format>
 
@@ -261,7 +262,7 @@ lexer::_read_elt(dictionary &symbols, dictionary &vardict, std::istream &in,
   if (in.peek() == '"')
   {
     in.get();
-    return strings.make_string(_read_string(in, '"'));
+    return strdup(strings, _read_string(in, '"'));
   }
 
   // Numerical literal

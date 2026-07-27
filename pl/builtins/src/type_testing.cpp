@@ -1,6 +1,8 @@
 #include "iso.hpp"
+
 #include "pl/coding/basic_decoder.hpp"
 #include "pl/dictionary.hpp"
+#include "pl/misc/term_utils.hpp"
 #include "pl/obj/object.hpp"
 
 
@@ -66,26 +68,26 @@ iso_type_testing(interpreter &pl)
 
   // nonvar/1
   //   nonvar(X) :- if(var(X), fail, true).
-  pl.assertz(pl.make_term(term("nonvar", var("X"))),
-             pl.make_term(term("if", term("var", var("X")), term("fail"),
-                               term("true"))));
+  pl.assertz(make_term(pl, term("nonvar", var("X"))),
+             make_term(pl, term("if", term("var", var("X")), term("fail"),
+                                term("true"))));
 
   // number/1
   //   number(X) :- integer(X); float(X).
-  pl.assertz(pl.make_term(term("number", var("X"))),
-             pl.make_term(term(";", term("integer", var("X")),
-                               term("float", var("X")))));
+  pl.assertz(make_term(pl, term("number", var("X"))),
+             make_term(pl, term(";", term("integer", var("X")),
+                                term("float", var("X")))));
 
   // atomic/1
   //   atomic(X) :- atom(X); number(X); string(X).
   pl.assertz(
-      pl.make_term(term("atomic", var("X"))),
-      pl.make_term(term(";", term("atom", var("X")), term("number", var("X")),
-                        term("string", var("X")))));
+      make_term(pl, term("atomic", var("X"))),
+      make_term(pl, term(";", term("atom", var("X")), term("number", var("X")),
+                         term("string", var("X")))));
 
   // compound/1
   //   compound(X) :- if(atomic(X), fail, nonvar(X)).
-  pl.assertz(pl.make_term(term("compound", var("X"))),
-             pl.make_term(term("if", term("atomic", var("X")), term("fail"),
-                               term("nonvar", var("X")))));
+  pl.assertz(make_term(pl, term("compound", var("X"))),
+             make_term(pl, term("if", term("atomic", var("X")), term("fail"),
+                                term("nonvar", var("X")))));
 }

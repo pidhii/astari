@@ -31,7 +31,7 @@ iso_term_creation_and_decomposition(interpreter &pl)
       while (not isnull(l))
       {
         if ((l[0] & term_mask) != cons)
-          pl.raise(term("type_error", term("list"), rhs));
+          raise(pl, term("type_error", term("list"), rhs));
 
         const object_view car = dc.decode_object(l + 1);
         const object_view cdr = dc.decode_object(car.end());
@@ -93,6 +93,6 @@ iso_term_creation_and_decomposition(interpreter &pl)
         rt.unallocate(2);
     }
     else
-      pl.raise(::term("instantiation_error"));
+      raise(pl, ::term("instantiation_error"));
   });
 }

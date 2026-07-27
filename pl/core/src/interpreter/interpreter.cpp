@@ -76,28 +76,25 @@ interpreter::has(size_t id) const noexcept
 
 
 bool
-interpreter::is_dynamic(object_view predsign) const noexcept
+interpreter::is_dynamic(word_t signkey) const noexcept
 {
-  assert(not predsign.empty());
-  const size_t k = predsign[0] & term_mask;
+  const size_t k = signkey & term_mask;
   return m_dynamic_names.contains(k);
 }
 
 bool
-interpreter::is_static(object_view predsign) const noexcept
-{ return not is_dynamic(predsign); }
+interpreter::is_static(word_t signkey) const noexcept
+{ return not is_dynamic(signkey); }
 
 
 void
-interpreter::dynamic(object_view sign)
+interpreter::dynamic(word_t signkey)
 {
   basic_decoder dc;
-  assert(not sign.empty());
-  const size_t k = sign[0] & term_mask;
-  const size_t id = dc.decode_term_header(k).id;
-  if (has_meta_op(id) or m_predicates.contains(k))
+  const size_t id = dc.decode_term_header(signkey).id;
+  if (has_meta_op(id) or m_predicates.contains(signkey))
     throw std::runtime_error {"change of predicate qualifier (dynamic)"};
-  m_dynamic_names.emplace(k);
+  m_dynamic_names.emplace(signkey);
 }
 
 void
@@ -110,13 +107,13 @@ interpreter::asserta(object_view signobj, object_view bodyobj)
   if (has_meta_op(dc.decode_term_header(k).id))
     throw std::runtime_error {"can't shadow meta-op with a predicate"};
 
-  if (is_static(signobj))
+  if (is_static(signobj[0]))
   {
     predicate_entry pred = prepare_predicate(signobj, bodyobj);
     std::vector<predicate_entry> &variants = m_predicates[k];
     variants.emplace(variants.begin(), std::move(pred));
   }
-  else if (is_dynamic(signobj))
+  else if (is_dynamic(signobj[0]))
     asserta_dyn(signobj, bodyobj);
   else
     assert(not "unreachable code");
@@ -133,13 +130,13 @@ interpreter::assertz(object_view signobj, object_view bodyobj)
   if (has_meta_op(dc.decode_term_header(k).id))
     throw std::runtime_error {"can't shadow meta-op with a predicate"};
 
-  if (is_static(signobj))
+  if (is_static(signobj[0]))
   {
     predicate_entry pred = prepare_predicate(signobj, bodyobj);
     std::vector<predicate_entry> &variants = m_predicates[k];
     variants.emplace_back(std::move(pred));
   }
-  else if (is_dynamic(signobj))
+  else if (is_dynamic(signobj[0]))
     assertz_dyn(signobj, bodyobj);
   else
     assert(not "unreachable code");
@@ -180,7 +177,7 @@ interpreter::ensure_loaded(std::string_view path_)
     try
     {
       const fs::path fullpath =
-          resolve_path(p, m_impordirs.begin(), m_impordirs.end());
+          resolve_path(p, m_importdirs.begin(), m_importdirs.end());
       if (not m_imports.emplace(fullpath).second)
         return; // File was already loaded
 

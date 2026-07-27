@@ -4,6 +4,7 @@
 #include "pl/misc/display.hpp"
 #include "pl/misc/object_file.hpp"
 #include "pl/misc/show_location.hpp"
+#include "pl/misc/term_utils.hpp"
 #include "pl/parse/parse_error.hpp"
 #include "pl/parse/prolog_parser.hpp"
 
@@ -43,6 +44,8 @@ interpreter::load_objfile(std::string_view path)
   // fill in `objfile`
   prolog_parser p;
   std::ifstream file {path.data()};
+  if (not file)
+    ERROR("failed to open file for reading ({})", path);
   objfile.read(file, *this);
 
   for (object &obj : objfile.objects)
@@ -73,24 +76,18 @@ void
 interpreter::eval(object_view obj, const dictionary &vardict)
 {
   std::cout << "[eval] " << dump_object(m_symdict, obj) << std::endl;
-  varnamespace ns;
-  const object_view expr = adopt_g(ns, obj);
-  make_true(expr, [this, ns, vardict](runtime &rt) {
+  make_true(vardict, obj, [this] (const solution &ans) {
     std::cout << "yes";
     bool isfirst = true;
-    for (const auto [nsid, rtid] : ns)
+    for (const auto &[name, val] : ans)
     {
-      const std::string_view varname = vardict[nsid];
-      if (varname == "_")
-        continue;
       if (isfirst) std::cout << ": ";
       else         std::cout << ", ";
       isfirst = false;
-      if (const auto varval = rt.dereference(rtid))
-        std::cout << varname << " = "
-                  << dump_object(m_symdict, rt.reconstruct(*varval));
+      if (not val.empty())
+        std::cout << name << " = " << dump_object(m_symdict, val);
       else
-        std::cout << varname << " is unbound";
+        std::cout << name << " is unbound";
     }
     std::cout << std::endl;
   });
@@ -104,35 +101,6 @@ interpreter::eval(std::string_view text)
   dictionary vardict;
   const object expr = p.parse_expr(m_symdict, vardict, text);
   eval(expr, vardict);
-}
-
-
-word_t
-interpreter::predicate_indicator(object_iterator indicator)
-{
-  basic_encoder ec;
-  basic_decoder dc;
-  #define ATOM(name, arity) ec.encode(term_header(m_symdict[name], arity))
-
-  const auto raise_type_error = [&]() {
-    raise(term("type_error", term("predicate_indicator"),
-               dc.decode_object(indicator)));
-  };
-
-  if (the_word(indicator[0]) != ATOM("/", 2))
-    raise_type_error();
-  object_iterator it = indicator + 1;
-  const object_view name = dc.decode_object(it);
-  const object_view arity = dc.decode_object(it);
-  if (not is_term_n(name[0], 0) or
-      word_type(arity[0]) != word_type::signed_int_number)
-    raise_type_error();
-
-  term_header hdr;
-  int ar;
-  dc.decode(name[0], hdr);
-  dc.decode(arity[0], ar);
-  return ec.encode(term_header(hdr.id, ar));
 }
 
 
@@ -166,8 +134,8 @@ interpreter::interpret(prolog_parser &p, object_view stmt,
 
     if (the_word(stmt[1]) == ATOM("dynamic", 1))
     {
-      const word_t indicator = predicate_indicator(stmt.begin() + 2);
-      dynamic({&indicator, 1});
+      const word_t indicator = predicate_indicator(*this, stmt.begin() + 2);
+      dynamic(indicator);
       return;
     }
 
@@ -211,3 +179,4 @@ interpreter::interpret(prolog_parser &p, object_view stmt,
   throw std::runtime_error {
       std::format("can't interpret {}", dump_object(m_symdict, stmt))};
 }
+

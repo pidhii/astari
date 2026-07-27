@@ -3,6 +3,7 @@
 #include "pl/core/runtime.hpp"
 #include "pl/misc/base64.h"
 #include "pl/misc/display.hpp"
+#include "pl/misc/term_utils.hpp"
 
 
 
@@ -72,7 +73,7 @@ object_file::read_v0(std::istream &in, object_allocator &alloc)
     word_t addr;
     std::string str;
     in >> addr >> str;
-    const word_t s = alloc.make_string(str);
+    const word_t s = strdup(alloc, str);
     strings[addr] = s;
   }
 

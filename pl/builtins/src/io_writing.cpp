@@ -68,10 +68,10 @@ iso_writing_characters(iso_io &io, interpreter &pl)
         TAILCALL cont(rt);
       }
       case word_type::nonterminal:
-        pl.raise(term("instantiation_error"));
+        raise(pl, term("instantiation_error"));
 
       default:
-        pl.raise(term("representation_error", term("character")));
+        raise(pl, term("representation_error", term("character")));
     }
   });
 

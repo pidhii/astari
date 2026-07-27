@@ -1,6 +1,9 @@
 #include "interpreter.hpp"
 #include "match.hpp"
 
+#include "pl/coding/basic_decoder.hpp"
+#include "pl/dictionary.hpp"
+#include "pl/misc/term_utils.hpp"
 #include "pl/obj/object.hpp"
 #include "utl/state_saver.hpp"
 
@@ -9,6 +12,39 @@
 
 #define PLUG 0
 
+
+void
+interpreter::make_true(const dictionary &vardict, object_view expr,
+                       const std::function<void(const solution &)> &cont,
+                       bool recover_vars)
+{
+  varnamespace ns;
+  barrier cp;
+
+  push_choice_point(&cp);
+  object_view adexpr = adopt_hp(ns, expr);
+  make_true(*this, adexpr, [&](runtime &rt) {
+    basic_decoder dc;
+    solution sol;
+    for (const auto [nsid, rtid] : ns)
+    {
+      const std::string_view varname = vardict[nsid];
+      if (varname == "_")
+        continue;
+      if (const auto varval = rt.dereference(rtid))
+      {
+        object obj = rt.reconstruct(dc.decode_object(*varval));
+        if (recover_vars)
+          recover_variables(rt, ns, obj);
+        sol[varname] = std::move(obj);
+      }
+      else
+        sol[varname] = { };
+    }
+    cont(sol);
+  });
+  unwind(&cp);
+}
 
 
 void
@@ -57,11 +93,11 @@ interpreter::_make_true(runtime &rt, size_t, object_iterator e, barrier *clause,
       if (auto val = rt.dereference(var.id))
         TAILCALL _make_true(rt, PLUG, val.value(), clause, cont);
       else
-        raise(term("instantiation_error"));
+        raise(*this, term("instantiation_error"));
     }
 
     default:
-      raise(term("type_error", term("callable"), dc.decode_object(e)));
+      raise(*this, term("type_error", term("callable"), dc.decode_object(e)));
   }
 }
 

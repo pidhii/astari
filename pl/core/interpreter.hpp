@@ -7,7 +7,6 @@
 #include "runtime.hpp"
 
 #include "pl/coding/basic_decoder.hpp"
-#include "pl/coding/tape_writer.hpp"
 #include "pl/dictionary.hpp"
 #include "pl/misc/display.hpp"
 #include "pl/obj/object.hpp"
@@ -77,7 +76,7 @@ class prolog_parser;
  * @ingroup core
  * @brief Prolog interpreter
  */
-class interpreter: public runtime {
+class interpreter: private runtime {
   public:
   interpreter();
 
@@ -104,50 +103,77 @@ class interpreter: public runtime {
       std::cerr << std::format("  have {}/*:", m_symdict[id]) << std::endl;
   }
 
+  object_allocator &
+  global_memory()
+  { return *this; }
+
   dictionary &
   symbols() noexcept
   { return m_symdict; }
-
-  template <typename ...Args>
-  object_view
-  make_term(Args &&...args)
-  {
-    object buf;
-    tape_writer tape {std::back_inserter(buf), symbols()};
-    tape.operator<<(std::forward<Args>(args)...);
-    word_t *p = allocate(buf.size());
-    std::copy(buf.begin(), buf.end(), p);
-    return {p, buf.size()};
-  }
-
-  template <typename ...Args>
-  object
-  make_term_noalloc(Args &&...args)
-  {
-    object buf;
-    tape_writer tape {std::back_inserter(buf), symbols()};
-    tape.operator<<(std::forward<Args>(args)...);
-    return buf;
-  }
-
 
   /**
    * @name Database interface
    * @{
    */
+  /**
+   * @brief Check if there exists a predicate or meta-op with a given name
+   * @details Check static, dynamic, and *meta-ops* -databases for predicates with
+   * names matching @p name.
+   * @param name ID of a name-symbol.
+   */
   bool
-  is_dynamic(object_view sign) const noexcept;
+  has(size_t name) const noexcept;
 
+  /**
+   * @brief Check if there exists a predicate with a given name
+   * @details Check static and dynamic databases for the given predicate.
+   * This procedure does not check **_meta-ops_**. Use @ref interpreter::has to
+   * account for *meta-ops* as well.
+   * @param name ID of a name-symbol.
+   */
   bool
-  is_static(object_view sign) const noexcept;
+  has_predicate(size_t name) const noexcept;
 
+  /**
+   * @brief Check if there exists a *meta-op* with a given name
+   * @param name ID of a name-symbol.
+   */
+  bool
+  has_meta_op(size_t name) const noexcept;
+
+  /**
+   * @brief Check if predicates associated to a *signature-key* are dynamic
+   * @param signkey First *word* of a predicate term.
+   */
+  bool
+  is_dynamic(word_t signkey) const noexcept;
+
+  /**
+   * @brief Check if predicates associated to a *signature-key* are static
+   * @param signkey First *word* of a predicate term.
+   */
+  bool
+  is_static(word_t signkey) const noexcept;
+
+  /**
+   * @brief Declare that predicates associated to a *signature-key* are dynamic
+   * @param signkey First *word* of a predicate term.
+   * @throw std::runtime_error - if declaration would alter existing qualifier.
+   */
   void
-  dynamic(object_view sign);
+  dynamic(word_t signkey);
 
   /**
    * @brief Add a predicate
    * @details Addition of the clause @p sign :- @p body to the database BEFORE
-   * all other clauses for the predicate associated to @p sign.
+   * all other clauses for the predicate associated to @p sign. The procedure
+   * automatically determines whether the predicate is static or dynamic and
+   * puts it in the appropriate table.
+   * @param sign Signature/head of a predicate clause.
+   * @param body[opt] Body of a predicate clause, or empty view which is
+   * equivalent to a body consisting of a single `true`-statement.
+   * @throw std::runtime_error - if predicate definition would conflict with
+   * existing *meta-op*.
    */
   void
   asserta(object_view sign, object_view body = {});
@@ -155,27 +181,26 @@ class interpreter: public runtime {
   /**
    * @brief Add a predicate
    * @details Addition of the clause @p sign :- @p body to the database AFTER
-   * all other clauses for the predicate associated to @p sign.
+   * all other clauses for the predicate associated to @p sign. The procedure
+   * automatically determines whether the predicate is static or dynamic and
+   * puts it in the appropriate table.
+   * @param sign Signature/head of a predicate clause.
+   * @param body[opt] Body of a predicate clause, or empty view which is
+   * equivalent to a body consisting of a single `true`-statement.
+   * @throw std::runtime_error - if predicate definition would conflict with
+   * existing *meta-op*.
    */
   void
   assertz(object_view sign, object_view body = {});
-  /** @} */
 
+  /**
+   * @brief Add a *meta-op* (hooks to define predicates in C++)
+   * @throw std::runtime_error - if name is associated with any other predicate
+   * or *meta-op*.
+   */
   void
   add_meta_op(std::string_view name, const meta_op_handle &handle);
-
-  bool
-  has_meta_op(size_t id) const noexcept;
-
-  bool
-  has_predicate(size_t id) const noexcept;
-
-  bool
-  has(size_t id) const noexcept;
-
-  void
-  operator << (std::string_view str)
-  { std::istringstream ss {str.data(), std::ios_base::binary}; load(ss); }
+  /** @} */
 
   /**
    * @name Script loading primitives
@@ -185,6 +210,8 @@ class interpreter: public runtime {
    * @brief Load script from a file
    * @details Parse all statements in the file and @ref interpret them.
    * @param path File path.
+   * @throw std::runtime_error - if failed to open the file under the given
+   * @p path.
    */
   void
   load_file(std::string_view path);
@@ -193,6 +220,8 @@ class interpreter: public runtime {
    * @brief Load object file
    * @details Get all statements from the file and @ref interpret them.
    * @param path File path.
+   * @throw std::runtime_error - if failed to open the file under the given
+   * @p path.
    */
   void
   load_objfile(std::string_view path);
@@ -204,18 +233,55 @@ class interpreter: public runtime {
    */
   void
   load(std::istream &in);
+
+  /**
+   * @brief Load script from a text string
+   * @details Parse all statements in the string and @ref interpret them.
+   * @param text String with Prolog statements.
+   */
+  void
+  operator << (std::string_view text)
+  { std::istringstream ss {text.data(), std::ios_base::binary}; load(ss); }
   /** @} */
 
   /**
    * @name Importing libraries
    * @{
    */
+  /**
+   * @brief Add a prefix for library resolutions
+   * @details Adds a prefix @p path to the prefix resolution list at the
+   * position with highest priority.
+   * @param path A path in filesystem (can be either absolute or relative).
+   * @see @ref interpreter::ensure_loaded
+   */
+  void
+  import_directory(std::string_view path) noexcept
+  { m_importdirs.emplace(m_importdirs.begin(), path); }
+
+  /**
+   * @brief Require a script or objects loaded into interpreter
+   * @details
+   * 1. Resolve the @p path using *import directories* provided via
+   *    interpreter::import_directory, matching with files ending with
+   *    @p path + `".plo"` and @p path + `".pl"` (in this priority), unless
+   *    @p path is already ending with one of these extensions. The first
+   *    successful match is a *resolved file path*;
+   * 2. Test if the *full path* of the *resolved file path* was already loaded
+   *    with `ensure_loaded`:
+   *    - *yes* -> (3);
+   *    - *no* -> (4).
+   * 3. Pass and return.
+   * 5. Memorise the *full path* to prevent it from loading again;
+   * 6. Load the file using either @ref interpreter::load_file or
+   *    @ref interpreter::load_objfile, depending on the extension of the
+   *    resolved path.
+   * @param path Library name (see detailed description for exact interpretation
+   * of parameter)
+   * @throw std::runtime_error - if failed to resolve the path.
+   */
   void
   ensure_loaded(std::string_view path);
-
-  void
-  import_directory(std::string_view path)
-  { m_impordirs.emplace(path); }
   /** @} */
 
   void
@@ -232,15 +298,10 @@ class interpreter: public runtime {
   { return dump_object(m_symdict, obj); }
 
   using solution = std::unordered_map<std::string_view, object>;
-
   void
-  make_true(object_view expr, const continuation &cont)
-  {
-    barrier cp;
-    push_choice_point(&cp);
-    make_true(*this, expr, cont);
-    unwind(&cp);
-  }
+  make_true(const dictionary &vardict, object_view expr,
+            const std::function<void(const solution &)> &cont,
+            bool recover_vars = false);
 
   /**
    * @warning Do not use this as an entry point of a query.
@@ -255,27 +316,6 @@ class interpreter: public runtime {
   void
   make_true(runtime &rt, object_view expr, continuation cont)
   { _make_true(rt, 0, expr.begin(), nullptr, cont); }
-
-  template <typename Object>
-  object
-  make(Object what)
-  {
-    object term;
-    tape_writer tape {std::back_inserter(term), m_symdict};
-    tape << what;
-    return term;
-  }
-
-  template <typename Object>
-  [[noreturn]] void
-  raise(Object what);
-
-  template <typename Cont>
-  auto
-  number(runtime &rt, object_iterator x, Cont &&c);
-
-  word_t
-  predicate_indicator(object_iterator x);
 
   private:
   void
@@ -303,150 +343,9 @@ class interpreter: public runtime {
   std::unordered_map<size_t, meta_op_handle> m_metaops;
   dictionary m_symdict;
   std::unordered_set<size_t> m_dynamic_names;
-  std::set<std::string> m_impordirs;
+  std::vector<std::string> m_importdirs;
   std::set<std::string> m_imports;
   std::unique_ptr<size_t[]> m_unwind_heap;
   std::unique_ptr<word_t[]> m_term_heap;
 }; // class interpreter
 
-
-template <typename Object>
-[[noreturn]] void
-interpreter::raise(Object what)
-{
-  object term;
-  tape_writer tape {std::back_inserter(term), m_symdict};
-  tape << what;
-
-  std::ostringstream msg;
-  dump_object(m_symdict, term, msg);
-
-  throw exception {msg.str(), term};
-}
-
-
-template <typename Cont>
-auto
-interpreter::number(runtime &rt, object_iterator x, Cont &&c)
-{
-  basic_decoder dc;
-  if (is_nonterminal(x[0]))
-  {
-    nonterminal var;
-    dc.decode(x[0], var);
-    if (auto xval = rt.dereference(var.id))
-      x = xval.value();
-    else
-      raise(term("instantiation_error"));
-  }
-
-  switch (word_type(x[0]))
-  {
-    case word_type::signed_int_number:
-    {
-      int val;
-      dc.decode(x[0], val);
-      return c(val);
-    }
-
-    case word_type::unsigned_int_number:
-    {
-      unsigned val;
-      dc.decode(x[0], val);
-      return c(val);
-    }
-
-    case word_type::float_number:
-    {
-      float val;
-      dc.decode(x[0], val);
-      return c(val);
-    }
-
-    default:
-      raise(term("type_error", term("number"), dc.decode_object(x)));
-  }
-}
-
-static object
-make_list(interpreter &pl, runtime &rt, size_t n, object_iterator it)
-{
-  basic_encoder ec;
-  basic_decoder dc;
-  const word_t nil0 = ec.encode(term_header(pl.symbols()["nil"], 0));
-  const word_t cons2 = ec.encode(term_header(pl.symbols()["cons"], 2));
-
-  object buf;
-  while (n--)
-  {
-    buf += cons2;
-    buf += rt.reduce(dc.decode_object(it));
-  }
-  buf += nil0;
-
-  return buf;
-}
-
-
-static std::pair<object, size_t>
-unmake_list(interpreter &pl, runtime &rt, object_iterator it)
-{
-  basic_encoder ec;
-  basic_decoder dc;
-  const word_t nil0 = ec.encode(term_header(pl.symbols()["nil"], 0));
-  [[maybe_unused]] const word_t cons2 =
-      ec.encode(term_header(pl.symbols()["cons"], 2));
-
-  size_t n = 0;
-  object buf;
-  for (it = rt.reduce(it); (*it & term_mask) != nil0; it = rt.reduce(it))
-  {
-    assert((*it & term_mask) == cons2); it++;
-    buf += rt.reduce(dc.decode_object(it));
-    n++;
-  }
-
-  return {buf, n};
-}
-
-
-static object
-make_list(interpreter &pl, size_t n, object_iterator it)
-{
-  basic_encoder ec;
-  basic_decoder dc;
-  const word_t nil0 = ec.encode(term_header(pl.symbols()["nil"], 0));
-  const word_t cons2 = ec.encode(term_header(pl.symbols()["cons"], 2));
-
-  object buf;
-  while (n--)
-  {
-    buf += cons2;
-    buf += dc.decode_object(it);
-  }
-  buf += nil0;
-
-  return buf;
-}
-
-
-static std::pair<object, size_t>
-unmake_list(interpreter &pl, object_iterator it)
-{
-  basic_encoder ec;
-  basic_decoder dc;
-  const word_t nil0 = ec.encode(term_header(pl.symbols()["nil"], 0));
-  [[maybe_unused]] const word_t cons2 =
-      ec.encode(term_header(pl.symbols()["cons"], 2));
-
-  size_t n = 0;
-  object buf;
-  while ((*it & term_mask) != nil0)
-  {
-    assert((*it & term_mask) == cons2); it++;
-    buf += dc.decode_object(it);
-    n++;
-  }
-
-  return {buf, n};
-}
