@@ -239,6 +239,7 @@ interpreter::make_true(const dictionary &vardict, object_view expr,
   }
   catch (...)
   {
+    m_query->cp = &cp; // hard reset the choice point list
     unwind(&cp);
     throw;
   }
