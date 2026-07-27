@@ -269,6 +269,8 @@ interpreter::_make_true__predicate(runtime &rt, size_t _, object_iterator e_,
     // Tail-call on the last variant
     MAKE_PREDICATE_TRUE_TC(rt, e, *it, cont);
   }
+  else if (is_dynamic(key))
+    return; // absense of dynamic predicate definitions is not an error
 
   std::cerr << std::format("no such predicate ({}/{})", m_symdict[hdr.id],
                            hdr.arity)
