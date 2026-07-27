@@ -6,7 +6,7 @@
 void
 iso_all_solutions(interpreter &pl)
 {
-  pl.add_meta_op("findall", [&](runtime &rt, int argc, object_iterator argv,
+  pl.add_meta_op("findall", [&](runtime &rt, size_t argc, object_iterator argv,
                                 const continuation &cont) {
     assert_arity(pl, "findall", argc, 3);
     basic_decoder dc;

@@ -40,7 +40,8 @@ prolog_parser::prolog_parser() : m_lib_bf {m_pl}, m_lib_tab {m_pl}
   minimal_predicates(m_pl);
 
   // tokens/2
-  m_pl.add_meta_op("tokens", [this](runtime &rt, int argc, object_iterator argv,
+  m_pl.add_meta_op("tokens", [this](runtime &rt, size_t argc,
+                                    object_iterator argv,
                                     const continuation &cont) {
     assert(argc == 2);
     basic_decoder dc;
@@ -55,7 +56,8 @@ prolog_parser::prolog_parser() : m_lib_bf {m_pl}, m_lib_tab {m_pl}
       cont(rt);
   });
 
-  m_pl.add_meta_op("debug", [this](runtime &rt, int argc, object_iterator argv,
+  m_pl.add_meta_op("debug", [this](runtime &rt, size_t argc,
+                                   object_iterator argv,
                                    const continuation &cont) {
     assert(argc == 1);
     basic_decoder dc;

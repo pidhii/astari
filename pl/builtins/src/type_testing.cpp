@@ -10,7 +10,7 @@ void
 iso_type_testing(interpreter &pl)
 {
   // var/1
-  pl.add_meta_op("var", [&](runtime &rt, int argc, object_iterator argv,
+  pl.add_meta_op("var", [&](runtime &rt, size_t argc, object_iterator argv,
                             const continuation &cont) {
     assert_arity(pl, "var", argc, 1);
     const object_iterator x = rt.reduce(argv);
@@ -19,7 +19,7 @@ iso_type_testing(interpreter &pl)
   });
 
   // atom/1
-  pl.add_meta_op("atom", [&](runtime &rt, int argc, object_iterator argv,
+  pl.add_meta_op("atom", [&](runtime &rt, size_t argc, object_iterator argv,
                              const continuation &cont) {
     assert_arity(pl, "atom", argc, 1);
     basic_decoder dc;
@@ -29,7 +29,7 @@ iso_type_testing(interpreter &pl)
   });
 
   // integer/1
-  pl.add_meta_op("integer", [&](runtime &rt, int argc, object_iterator argv,
+  pl.add_meta_op("integer", [&](runtime &rt, size_t argc, object_iterator argv,
                                 const continuation &cont) {
     assert_arity(pl, "integer", argc, 1);
     const object_iterator x = rt.reduce(argv);
@@ -42,7 +42,7 @@ iso_type_testing(interpreter &pl)
   });
 
   // float/1
-  pl.add_meta_op("float", [&](runtime &rt, int argc, object_iterator argv,
+  pl.add_meta_op("float", [&](runtime &rt, size_t argc, object_iterator argv,
                               const continuation &cont) {
     assert_arity(pl, "float", argc, 1);
     const object_iterator x = rt.reduce(argv);
@@ -54,7 +54,7 @@ iso_type_testing(interpreter &pl)
   });
 
   // string/1
-  pl.add_meta_op("string", [&](runtime &rt, int argc, object_iterator argv,
+  pl.add_meta_op("string", [&](runtime &rt, size_t argc, object_iterator argv,
                                const continuation &cont) {
     assert_arity(pl, "string", argc, 1);
     const object_iterator x = rt.reduce(argv);

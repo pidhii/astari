@@ -1,7 +1,9 @@
 #include "interpreter.hpp"
 
 #include "pl/coding/basic_decoder.hpp"
+#include "pl/misc/term_utils.hpp"
 #include "pl/obj/object.hpp"
+#include "pl/parse/prolog_parser.hpp"
 #include "utl/resolve_path.hpp"
 
 #include <filesystem>
@@ -20,6 +22,12 @@ interpreter::interpreter()
     if (m_symdict[name] != op)
       throw std::logic_error {"failed to register symbol"};
   };
+// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! WARNING !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+//
+//                  THESE REQUIRES MUST BE IN SYNC WITH THE ORDER
+//                          OF ENUMS IN THE HEADER
+//
+// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! WARNING !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   require(",",    op_and);
   require(";",    op_or);
   require("if",   op_if);
@@ -195,3 +203,88 @@ interpreter::ensure_loaded(std::string_view path_)
   throw std::runtime_error {
       std::format("failed to resolve library ({})", path_)};
 }
+
+void
+interpreter::make_true(const dictionary &vardict, object_view expr,
+                       const std::function<void(const solution &)> &cont,
+                       bool recover_vars)
+{
+  varnamespace ns;
+  barrier cp;
+
+  push_choice_point(&cp);
+  object_view adexpr = adopt_hp(ns, expr);
+  try
+  {
+    make_true(*this, adexpr, [&](runtime &rt) {
+      basic_decoder dc;
+      solution sol;
+      for (const auto [nsid, rtid] : ns)
+      {
+        const std::string_view varname = vardict[nsid];
+        if (varname == "_")
+          continue;
+        if (const auto varval = rt.dereference(rtid))
+        {
+          object obj = rt.reconstruct(dc.decode_object(*varval));
+          if (recover_vars)
+            recover_variables(rt, ns, obj);
+          sol[varname] = std::move(obj);
+        }
+        else
+          sol[varname] = { };
+      }
+      cont(sol);
+    });
+  }
+  catch (...)
+  {
+    unwind(&cp);
+    throw;
+  }
+  unwind(&cp);
+}
+
+
+void
+interpreter::make_true(std::string_view expr,
+                       const std::function<void(const solution &)> &cont)
+{
+  prolog_parser p;
+  dictionary vardict;
+  const object e = p.parse_expr(m_symdict, vardict, expr);
+  make_true(vardict, e, cont, false);
+}
+
+
+void
+interpreter::eval(object_view obj, const dictionary &vardict)
+{
+  std::cout << "[eval] " << dump_object(m_symdict, obj) << std::endl;
+  make_true(vardict, obj, [this] (const solution &ans) {
+    std::cout << "yes";
+    bool isfirst = true;
+    for (const auto &[name, val] : ans)
+    {
+      if (isfirst) std::cout << ": ";
+      else         std::cout << ", ";
+      isfirst = false;
+      if (not val.empty())
+        std::cout << name << " = " << dump_object(m_symdict, val);
+      else
+        std::cout << name << " is unbound";
+    }
+    std::cout << std::endl;
+  });
+}
+
+
+void
+interpreter::eval(std::string_view text)
+{
+  prolog_parser p;
+  dictionary vardict;
+  const object expr = p.parse_expr(m_symdict, vardict, text);
+  eval(expr, vardict);
+}
+

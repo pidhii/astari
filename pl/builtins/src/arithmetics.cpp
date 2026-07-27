@@ -224,7 +224,7 @@ _evaluate(runtime &rt, object_iterator e, size_t n, word_t *stack)
 void
 iso_arithmetics(interpreter &pl)
 {
-  pl.add_meta_op("is", [&](runtime &rt, int argc, object_iterator argv,
+  pl.add_meta_op("is", [&](runtime &rt, size_t argc, object_iterator argv,
                            continuation &cont) {
     assert_arity(pl, "is", argc, 2);
     basic_decoder dc;
@@ -241,7 +241,7 @@ iso_arithmetics(interpreter &pl)
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wsign-compare"
 #define DEFINE_CMP(name, op)                                                   \
-  pl.add_meta_op(name, [&](runtime &rt, int argc, object_iterator argv,        \
+  pl.add_meta_op(name, [&](runtime &rt, size_t argc, object_iterator argv,     \
                            continuation &cont) {                               \
     assert_arity(pl, name, argc, 2);                                           \
     _evaluate(rt, argv, 2, rt.query()->heap_p);                                \
@@ -258,6 +258,4 @@ iso_arithmetics(interpreter &pl)
   DEFINE_CMP("=<", <=)
   DEFINE_CMP(">=", >=)
 #pragma GCC diagnostic pop
-
-  // pl.load_objfile(PLO_PATH_iso_arithmetics);
 }

@@ -10,7 +10,8 @@ class lib_parsing {
   lib_parsing(interpreter &pl)
   {
     // tokens/2
-    pl.add_meta_op("tokens", [&pl](runtime &rt, int argc, object_iterator argv,
+    pl.add_meta_op("tokens", [&pl](runtime &rt, size_t argc,
+                                   object_iterator argv,
                                    const continuation &cont) {
       assert(argc == 2);
       basic_decoder dc;

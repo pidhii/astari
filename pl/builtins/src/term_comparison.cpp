@@ -8,7 +8,7 @@ void
 iso_term_comparison(interpreter &pl)
 {
 #define DEFINE_CMP(name, op)                                                   \
-  pl.add_meta_op(name, [&](runtime &rt, int argc, object_iterator argv,        \
+  pl.add_meta_op(name, [&](runtime &rt, size_t argc, object_iterator argv,     \
                            const continuation &cont) {                         \
     assert_arity(pl, name, argc, 2);                                           \
     basic_decoder dc;                                                          \

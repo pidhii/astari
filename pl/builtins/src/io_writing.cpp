@@ -18,7 +18,7 @@ void
 iso_writing_terms(iso_io &io, interpreter &pl)
 {
   // write_term__/5
-  pl.add_meta_op("write_term__", [&](runtime &rt, int argc,
+  pl.add_meta_op("write_term__", [&](runtime &rt, size_t argc,
                                      object_iterator argv,
                                      const continuation &cont) {
     assert_arity(pl, "write_term__", argc, 5);
@@ -51,7 +51,7 @@ void
 iso_writing_characters(iso_io &io, interpreter &pl)
 {
   // put_code/1, put_code/2
-  pl.add_meta_op("put_code", [&](runtime &rt, int argc, object_iterator argv,
+  pl.add_meta_op("put_code", [&](runtime &rt, size_t argc, object_iterator argv,
                                  const continuation &cont) {
     assert_arity(pl, "put_code", argc, 1, 2);
     basic_decoder dc;

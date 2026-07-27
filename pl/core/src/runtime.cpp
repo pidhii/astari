@@ -7,6 +7,19 @@
 #include "pl/obj/object.hpp"
 
 
+void
+runtime::print_dynamic_database(dictionary &symbols) const
+{
+  basic_decoder dc;
+  for (const auto &[w, variants] : m_dyndb)
+  {
+    term_header hdr;
+    dc.decode(w, hdr);
+    std::cerr << std::format("  have {}/{}:", symbols[hdr.id], hdr.arity)
+              << std::endl;
+  }
+}
+
 
 object_view
 runtime::adopt_g(varnamespace &ns, object_view in)
@@ -331,8 +344,11 @@ runtime::assertz_dyn(object_view signobj, object_view bodyobj)
 }
 
 runtime::recovery
-runtime::retract_dyn(size_t signkey, dyn_variant_iterator it)
-{ return {signkey, m_dyndb.erase(signkey, it)}; }
+runtime::retract_dyn(word_t signkey, dyn_variant_iterator it)
+{
+  signkey = the_word(signkey);
+  return {signkey, m_dyndb.erase(signkey, it)};
+}
 
 void
 runtime::recover(recovery &&recovery)

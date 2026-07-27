@@ -13,12 +13,13 @@
 
 
 [[noreturn]] inline void
-assert_arity(interpreter &pl, std::string_view who, int argc)
-{ raise(pl, term("arity_error", term(who), argc)); }
+assert_arity(interpreter &pl, std::string_view who, size_t argc)
+{ raise(pl, term("arity_error", term(who), int(argc))); }
 
-template <typename ...Args>
+template <typename... Args>
 void
-assert_arity(interpreter &pl, std::string_view who, int argc, int n, Args ...args)
+assert_arity(interpreter &pl, std::string_view who, size_t argc, size_t n,
+             Args... args)
 { if (argc != n) assert_arity(pl, who, argc, args...); }
 
 
@@ -39,7 +40,7 @@ struct iso_io {
     current_input {stdin_term}
   {
     // current_output/1
-    pl.add_meta_op("current_output", [&](runtime &rt, int argc,
+    pl.add_meta_op("current_output", [&](runtime &rt, size_t argc,
                                          object_iterator argv,
                                          const continuation &cont) {
       assert_arity(pl, "current_output", argc, 1);
@@ -80,6 +81,7 @@ void iso_arithmetics(interpreter &pl);
 void iso_term_creation_and_decomposition(interpreter &pl);
 void iso_throwcatch(interpreter &pl);
 void iso_all_solutions(interpreter &pl);
+void iso_clause_creation_and_destruction(interpreter &pl);
 
 struct iso {
   iso_io io;

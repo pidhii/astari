@@ -3,7 +3,10 @@
 @defgroup core Prolog interpreter
 @page pl Embedable Prolog interpreter
 
-- @ref core
+# @ref core
+
+@copydetails interpreter
+
 
 */
 

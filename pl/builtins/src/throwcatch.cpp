@@ -5,7 +5,7 @@ void
 iso_throwcatch(interpreter &pl)
 {
   // throw/1
-  pl.add_meta_op("throw", [&](runtime &rt, int argc, object_iterator argv,
+  pl.add_meta_op("throw", [&](runtime &rt, size_t argc, object_iterator argv,
                               const continuation &cont) {
     assert_arity(pl, "throw", argc, 1);
     basic_decoder dc;
@@ -13,7 +13,7 @@ iso_throwcatch(interpreter &pl)
   });
 
   // catch/3
-  pl.add_meta_op("catch", [&](runtime &rt, int argc, object_iterator argv,
+  pl.add_meta_op("catch", [&](runtime &rt, size_t argc, object_iterator argv,
                               const continuation &cont) {
     assert_arity(pl, "catch", argc, 3);
     basic_decoder dc;

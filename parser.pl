@@ -162,8 +162,7 @@ rotate_left(xfx(Al, Ao, xfx(X, Bo, Br)), xfx(xfx(Al, Ao, X), Bo, Br)).
 rotate_left(fx(Ao, xfx(X, Bo, Br)), xfx(fx(Ao, X), Bo, Br)).
 
 balance(I, O) :-
-  breadthfirst,
-  balance_(I, O).
+  once(breadthfirst(balance_(I, O))).
 
 balance_(X, X) :- atomic(X).
 balance_(var(X), var(X)).
@@ -337,10 +336,7 @@ do_parse_one_stmt(Tokens, Term) :-
   flatten(Balanced, Term).
 
 parse_one_stmt(Tokens, Term, RemTokens) :-
-  breadthfirst,
   once(append(L, ['.'|RemTokens], Tokens)),
-  yield,
   append(L, ['.'], StmtToks),
-  yield,
   do_parse_one_stmt(StmtToks, Term).
 

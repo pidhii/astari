@@ -73,40 +73,7 @@ interpreter::load(std::istream &in)
 
 
 void
-interpreter::eval(object_view obj, const dictionary &vardict)
-{
-  std::cout << "[eval] " << dump_object(m_symdict, obj) << std::endl;
-  make_true(vardict, obj, [this] (const solution &ans) {
-    std::cout << "yes";
-    bool isfirst = true;
-    for (const auto &[name, val] : ans)
-    {
-      if (isfirst) std::cout << ": ";
-      else         std::cout << ", ";
-      isfirst = false;
-      if (not val.empty())
-        std::cout << name << " = " << dump_object(m_symdict, val);
-      else
-        std::cout << name << " is unbound";
-    }
-    std::cout << std::endl;
-  });
-}
-
-
-void
-interpreter::eval(std::string_view text)
-{
-  prolog_parser p;
-  dictionary vardict;
-  const object expr = p.parse_expr(m_symdict, vardict, text);
-  eval(expr, vardict);
-}
-
-
-void
-interpreter::interpret(prolog_parser &p, object_view stmt,
-                       const dictionary &vardict)
+interpreter::interpret(prolog_parser &p, object_view stmt)
 {
   assert(not stmt.empty());
 

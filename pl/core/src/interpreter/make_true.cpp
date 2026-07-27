@@ -14,40 +14,6 @@
 
 
 void
-interpreter::make_true(const dictionary &vardict, object_view expr,
-                       const std::function<void(const solution &)> &cont,
-                       bool recover_vars)
-{
-  varnamespace ns;
-  barrier cp;
-
-  push_choice_point(&cp);
-  object_view adexpr = adopt_hp(ns, expr);
-  make_true(*this, adexpr, [&](runtime &rt) {
-    basic_decoder dc;
-    solution sol;
-    for (const auto [nsid, rtid] : ns)
-    {
-      const std::string_view varname = vardict[nsid];
-      if (varname == "_")
-        continue;
-      if (const auto varval = rt.dereference(rtid))
-      {
-        object obj = rt.reconstruct(dc.decode_object(*varval));
-        if (recover_vars)
-          recover_variables(rt, ns, obj);
-        sol[varname] = std::move(obj);
-      }
-      else
-        sol[varname] = { };
-    }
-    cont(sol);
-  });
-  unwind(&cp);
-}
-
-
-void
 interpreter::_make_true(runtime &rt, size_t, object_iterator e, barrier *clause,
                         continuation &cont)
 {

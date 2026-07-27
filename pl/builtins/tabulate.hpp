@@ -11,7 +11,7 @@ class lib_tabulate {
   lib_tabulate(interpreter &pl)
   {
     // tabulate/1
-    pl.add_meta_op("tabulate", [this, &pl](runtime &rt, int argc,
+    pl.add_meta_op("tabulate", [this, &pl](runtime &rt, size_t argc,
                                            object_iterator argv,
                                            const continuation &cont) {
       assert(argc == 1);

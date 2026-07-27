@@ -6,6 +6,7 @@
 
 #include "predicate_entry.hpp"
 
+#include "pl/dictionary.hpp"
 #include "pl/misc/object_allocator.hpp"
 #include "pl/obj/object.hpp"
 #include "pvector/pvector.hpp"
@@ -86,6 +87,9 @@ class runtime: public object_allocator {
   struct recovery { word_t key; dynamic_database_type::recovery entrecov; };
   using dyn_variant_iterator = dynamic_database_type::const_iterator;
   /** @endcond  */
+
+  void
+  print_dynamic_database(dictionary &symbols) const;
 
   /**
    * @name Object relocation and linking

@@ -26,7 +26,7 @@ minimal_predicates(interpreter &pl)
                                 term("fail"), term("true"))));
 
   // once/1
-  pl.add_meta_op("once", [&](runtime &rt, int argc, object_iterator argv,
+  pl.add_meta_op("once", [&](runtime &rt, size_t argc, object_iterator argv,
                              const continuation &cont) {
     assert_arity(pl, "once", argc, 1);
     basic_decoder dc;
@@ -41,4 +41,6 @@ minimal_predicates(interpreter &pl)
   iso_term_comparison(pl);                 // Doesn't use parser
   iso_term_creation_and_decomposition(pl); // Doesn't use parser
   iso_throwcatch(pl);                      // Doesn't use parser
+  iso_clause_creation_and_destruction(pl); // Doesn't use parser
+  iso_arithmetics(pl);                     // Doesn't use parser
 }

@@ -5,8 +5,8 @@ void
 iso_term_creation_and_decomposition(interpreter &pl)
 {
   // =../2
-  pl.add_meta_op("=..", [&](runtime &rt, int argc, object_iterator argv,
-                              const continuation &cont) {
+  pl.add_meta_op("=..", [&](runtime &rt, size_t argc, object_iterator argv,
+                            const continuation &cont) {
     basic_encoder ec;
     basic_decoder dc;
 
@@ -71,7 +71,7 @@ iso_term_creation_and_decomposition(interpreter &pl)
   });
 
   // functor/3
-  pl.add_meta_op("functor", [&](runtime &rt, int argc, object_iterator argv,
+  pl.add_meta_op("functor", [&](runtime &rt, size_t argc, object_iterator argv,
                                 const continuation &cont) {
     assert(argc >= 2);
     basic_decoder dc;
