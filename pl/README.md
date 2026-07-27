@@ -163,6 +163,6 @@ o <b>Predicates</b>
   - Tabled Execution
     - [x] tabulate/1
   - BFS Execution
-    - [x] breadthfirst/0
+    - [x] breadthfirst/1
     - [x] yield/0
 </pre>
