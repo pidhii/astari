@@ -38,6 +38,7 @@ interpreter::interpreter()
   require("*",    op_mul);
   require("/",    op_div);
   require("//",   op_divdiv);
+  require("sqrt", op_sqrt);
   require(":-",   op_penis);
 
   m_query = reinterpret_cast<query_state *>(

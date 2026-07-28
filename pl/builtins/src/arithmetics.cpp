@@ -6,6 +6,8 @@
 #include "pl/misc/term_utils.hpp"
 #include "pl/obj/object.hpp"
 
+#include <cmath>
+
 
 static struct {
   int operator () (int lhs, int rhs) { return lhs + rhs; }
@@ -182,7 +184,6 @@ _evaluate(interpreter &pl, runtime &rt, object_iterator e, size_t n,
     switch (hdr.id)
     {
       case op_plus:
-      {
         if (hdr.arity == 2)
         {
           _evaluate(pl, rt, e + 1, 2, stack);
@@ -200,9 +201,8 @@ _evaluate(interpreter &pl, runtime &rt, object_iterator e, size_t n,
         }
         else
           TYPE_ERROR(e);
-      }
+
       case op_minus:
-      {
         if (hdr.arity == 2)
         {
           _evaluate(pl, rt, e + 1, 2, stack);
@@ -222,9 +222,8 @@ _evaluate(interpreter &pl, runtime &rt, object_iterator e, size_t n,
         }
         else
           TYPE_ERROR(e);
-      }
+
       case op_mul:
-      {
         if (hdr.arity == 2)
         {
           _evaluate(pl, rt, e + 1, 2, stack);
@@ -235,9 +234,8 @@ _evaluate(interpreter &pl, runtime &rt, object_iterator e, size_t n,
         }
         else
           TYPE_ERROR(e);
-      }
+
       case op_div:
-      {
         if (hdr.arity == 2)
         {
           _evaluate(pl, rt, e + 1, 2, stack);
@@ -248,9 +246,8 @@ _evaluate(interpreter &pl, runtime &rt, object_iterator e, size_t n,
         }
         else
           TYPE_ERROR(e);
-      }
+
       case op_divdiv:
-      {
         if (hdr.arity == 2)
         {
           _evaluate(pl, rt, e + 1, 2, stack);
@@ -261,7 +258,20 @@ _evaluate(interpreter &pl, runtime &rt, object_iterator e, size_t n,
         }
         else
           TYPE_ERROR(e);
-      }
+
+      case op_sqrt:
+        if (hdr.arity == 1) 
+        {
+          _evaluate(pl, rt, e + 1, 1, stack);
+          const double val =
+              number(pl, stack, [](double x) { return std::sqrt(x); });
+          *stack++ = ec.encode(float(val));
+          dc.decode_object(e); // call for side-effects
+          continue;
+        }
+        else
+          TYPE_ERROR(e);
+
       default:
         TYPE_ERROR(e);
     }
