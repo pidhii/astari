@@ -774,8 +774,11 @@ class interpreter: private runtime {
    * to allow defining continuation via a lambda argument.
    */
   void
-  make_true(runtime &rt, object_view expr, continuation cont)
-  { _make_true(rt, 0, expr.begin(), m_query->cp, cont); }
+  make_true(runtime &rt, object_view expr, const continuation &cont)
+  {
+    continuation contcopy = cont;
+    _make_true(rt, 0, expr.begin(), m_query->cp, contcopy);
+  }
 
   private:
   void

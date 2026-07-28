@@ -1,4 +1,6 @@
 #include "iso.hpp"
+#include "pl/coding/basic_decoder.hpp"
+#include "pl/coding/basic_encoder.hpp"
 #include "pl/core/interpreter.hpp"
 
 
@@ -7,9 +9,40 @@ iso_basic(interpreter &pl)
 {
   pl.load_objfile(PLO_PATH_iso_basic);
 
+  pl.add_meta_op("call", [&](runtime &rt, size_t argc, object_iterator argv,
+                             continuation &cont) {
+    assert(argc >= 1);
+    basic_decoder dc;
+    basic_encoder ec;
+
+    // Merge all the arguments into one clause
+    word_t *p = rt.query()->heap_p;
+    for (size_t i = 0; i < argc; ++i)
+    {
+      const object_view arg = rt.reduce(dc.decode_object(argv));
+      rt.query()->heap_p = std::copy(arg.begin(), arg.end(), rt.query()->heap_p);
+    }
+    if (not is_term(*p))
+      raise(pl, term("type_error", term("term"), dc.decode_object(p)));
+
+    // Fix the key of the clause to account for appended arguments
+    term_header hdr;
+    dc.decode(*p, hdr);
+    const size_t nargs = hdr.arity + argc - 1;
+    *p = ec.encode(term_header(hdr.id, nargs));
+    const object_view goal {p, rt.query()->heap_p};
+
+    // Call the merged goal clause in encapsulated scope (so that it can't cut
+    // the outer scope)
+    barrier cp;
+    rt.push_choice_point(&cp);
+    pl.make_true(rt, goal, cont);
+    rt.pop_choice_point(&cp);
+  });
+
   // once/1
   pl.add_meta_op("once", [&](runtime &rt, size_t argc, object_iterator argv,
-                             const continuation &cont) {
+                             continuation &cont) {
     assert_arity(pl, "once", argc, 1);
     basic_decoder dc;
     const object_view expr = dc.decode_object(argv);

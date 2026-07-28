@@ -14,7 +14,7 @@ o <b>Directives</b>
 o <b>Control Constructs</b>
   - [x] true/0
   - [x] fail/0
-  - [x] call/1
+  - [x] call/1,2,...
   - [x] !/0
   - [x] `,`/2
   - [x] `;`/2
