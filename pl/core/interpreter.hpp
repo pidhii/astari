@@ -15,24 +15,6 @@
  *   (control constructs);
  * - @ref exception -- the C++ exception type used to carry a Prolog error
  *   term across `throw`/`catch`.
- *
- * @section interpreter_hpp_quickstart Quick-start example
- * The smallest possible embedding looks like this:
- * @code{.cpp}
- * #include "pl/core/interpreter.hpp"
- * #include "pl/builtins/minimal.hpp"
- *
- * int main()
- * {
- *   interpreter pl;
- *   minimal_predicates(pl);           // register a small builtin set
- *
- *   pl.eval("X = 1 + 1");             // parse & run a query, print solutions
- * }
- * @endcode
- * See @ref interpreter for a complete overview of the API and further
- * examples (loading scripts, asserting facts from C++, defining native
- * predicates, and collecting solutions programmatically).
  */
 #pragma once
 
@@ -105,17 +87,16 @@ using meta_op_handle =
 
 /**
  * @ingroup core
- * @brief IDs of symbols with special meaning to the interpreter
+ * @brief IDs of select subset of frequently occuring symbols for fast dispatch
  *
  * @details These are the control constructs and arithmetic operators that
- * @ref interpreter::_make_true (and the arithmetic evaluator) recognize
- * directly rather than looking them up as ordinary predicates/meta-ops. The
- * @ref interpreter constructor registers the corresponding names (`,`, `;`,
+ * @ref interpreter::_make_true and the arithmetic evaluator recognize
+ * directly rather than looking them up in dictionary. The @ref interpreter
+ * constructor registers the corresponding names (`,`, `;`,
  * `if`, `fail`, `!`, `+`, `-`, `*`, `/`, `//`, `:-`) in the symbol
  * dictionary and asserts that they map to exactly these enumerators.
- * This is a low-level implementation detail; user code implementing ordinary
- * predicates via add_meta_op rarely needs this; it's only used by a few
- * low-level builtins (arithmetic evaluation, clause-shape checks).
+ * This is rather a low-level implementation detail; user code rarely needs
+ * this.
  */
 // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! WARNING !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 //
@@ -211,91 +192,6 @@ class prolog_parser;
  *  everything a `runtime` needs to actually be dereferenced against (predicate
  *  tables, symbol dictionary, memory).
  *
- * **Basic usage**: construct an `interpreter`, attach one or more
- * builtin libraries (they take a `interpreter&` in their constructor and
- * call @ref add_meta_op / @ref assertz on it), load Prolog source
- * (@ref load_file / @ref load / `operator<<`), then run queries with
- * @ref eval or, for programmatic access to solutions/bindings, with
- * @ref make_true.
- *
- * @section interpreter_ex1 Example: setting up an interpreter with builtins
- * @code{.cpp}
- * #include "pl/builtins/iso.hpp"
- * #include "pl/builtins/tabulate.hpp"
- * #include "pl/builtins/breadthfirst.hpp"
- * #include "pl/core/interpreter.hpp"
- *
- * interpreter pl;
- * iso              _iso {pl};   // ISO builtins (write/1, is/2, =/2, ...)
- * lib_tabulate     _tab {pl};   // tabled execution (tabulate/1)
- * lib_breadthfirst _bfs {pl};   // cooperative BFS scheduling (yield/0)
- *
- * pl.import_directory("./pl/libs"); // where ensure_loaded/1 looks for files
- * pl.load_file("myprogram.pl");
- * @endcode
- *
- * @section interpreter_ex2 Example: running a query and printing solutions
- * `eval` parses a query string, prints the query, then prints every
- * solution found, including bindings for its free variables:
- * @code{.cpp}
- * pl.eval("member(X, [1,2,3])");
- * // prints:
- * // [eval] member(X,[1,2,3])
- * // yes: X = 1
- * // yes: X = 2
- * // yes: X = 3
- * @endcode
- *
- * @section interpreter_ex3 Example: collecting solutions programmatically
- * Use @ref make_true  to iterate over every solution of a goal from C++, with
- * full control over what happens with each binding -- this is the primitive
- * used to implement things like `findall/3`:
- * @code{.cpp}
- *
- * std::vector<object> results;
- * pl.make_true("member(X, [a, b, c])", [&](const interpreter::solution &sol) {
- *   // sol is a map from variable name ("X") to its (possibly-empty) binding
- *   if (auto it = sol.find("X"); it != sol.end() and not it->second.empty())
- *     results.push_back(it->second);
- * });
- * // results == [a, b, c]  (as encoded `object`s)
- * @endcode
- *
- * @section interpreter_ex4 Example: asserting facts/rules from C++
- * Facts and rules can be constructed in C++ with the helpers from
- * `pl/misc/term_utils.hpp` and `pl/coding/tape_writer.hpp`, then added
- * to the database with @ref assertz / @ref asserta:
- * @code{.cpp}
- * #include "pl/misc/term_utils.hpp"
- *
- * // fact: parent(tom, bob).
- * pl.assertz(make_term(pl, term("parent", term("tom"), term("bob"))));
- *
- * // rule: grandparent(X, Z) :- parent(X, Y), parent(Y, Z).
- * dictionary vd;
- * auto var = [&](auto name) { return nonterminal(vd[name]); };
- * pl.assertz(
- *     make_term(pl, term("grandparent", var("X"), var("Z"))),
- *     make_term(pl, term(",", term("parent", var("X"), var("Y")),
- *                             term("parent", var("Y"), var("Z")))));
- * @endcode
- *
- * @section interpreter_ex5 Example: defining a native predicate (meta-op)
- * @code{.cpp}
- * // succ_native(X, Y) :- Y is X + 1.   (implemented in C++)
- * pl.add_meta_op("succ_native", [](runtime &rt, size_t argc,
- *                                   object_iterator argv, continuation &cont)
- * {
- *   assert(argc == 2);
- *   basic_decoder dc;
- *   const object_view x = dc.decode_object(argv);
- *   const object_view y = dc.decode_object(argv);
- *   // ... compute x + 1, and put it in `result` ...
- *   if (rt.match(y, result))
- *     TAILCALL cont(rt);
- * });
- * @endcode
- *
  * @warning `interpreter` instances are **not** thread-safe: a single
  * instance (and the `runtime` *sprouts* derived from it) must not be driven
  * concurrently from multiple native threads. Cooperative concurrency within
@@ -310,21 +206,15 @@ class interpreter: private runtime {
    * @details Allocates the term heap and unwind heap (see @ref query_state),
    * initializes an empty database, and registers the small set of symbols with
    * special meaning to the engine (see @ref meta_symbol) -- notably `,`, `;`,
-   * `if`, `fail`, `!`, the arithmetic operators, and `:-`. No builtin
-   * predicates are registered by the constructor itself; attach the builtin
-   * libraries you need (e.g. @ref iso, `lib_tabulate`, `lib_breadthfirst`)
-   * right after construction.
+   * `if`, `fail`, `!`, the arithmetic operators, and `:-`. Constructor does
+   * not register any predicates itself. The database of a new interpreter
+   * instance is completely empty.
    */
   interpreter();
 
   /**
-   * @brief Dump the current predicate/meta-op database to `stderr`
-   *
-   * @details Debugging helper: prints, for every static predicate name,
-   * every clause variant currently stored (`Head.` or `Head :- Body.`), and
-   * lists the names of registered meta-ops. Dynamic predicates are not
-   * included. Intended for interactive debugging, not for
-   * machine-consumable output.
+   * @brief (DEUBG) Dump the current static predicate and meta-op database to
+   *        `stderr`
    */
   void
   debug() const
@@ -354,9 +244,8 @@ class interpreter: private runtime {
    *
    * @details Returns the @ref object_allocator that `interpreter` inherits
    * (transitively, via @ref runtime). Useful for allocating persistent
-   * objects that must outlive backtracking, e.g. when implementing custom
-   * meta-ops that need scratch storage tied to the query rather than a
-   * single choice point.
+   * objects when setting up the interpreter like precompiled constant terms or
+   * strings.
    */
   object_allocator &
   global_memory()
@@ -365,11 +254,12 @@ class interpreter: private runtime {
   /**
    * @brief Access the interpreter's symbol dictionary
    *
-   * @details Maps atom/functor names (`std::string_view`) to/from the
-   * compact integer IDs (`size_t`) used everywhere internally to represent
-   * terms (see @ref dictionary, @ref term_header). Builtin libraries and
-   * user code alike use this to look up or intern names, e.g.
-   * `pl.symbols()["foo"]` interns/returns the ID for atom `foo`.
+   * @details Maps atom/functor names to/from the compact integer IDs used
+   * everywhere internally to represent terms (see @ref dictionary,
+   * @ref term_header). Builtin libraries and user code alike use this to look
+   * up or intern names, e.g. `pl.symbols()["foo"]` returnes the ID for atom
+   * `foo`. It is permitted to add new names to the symbols dictionary at any
+   * moment, which happens automatically upon referencing such name.
    */
   dictionary &
   symbols() noexcept
@@ -441,10 +331,6 @@ class interpreter: private runtime {
    * all other clauses for the predicate associated to @p sign. The procedure
    * automatically determines whether the predicate is static or dynamic and
    * puts it in the appropriate table.
-   * @code{.cpp}
-   * // asserta a fact:  color(red).
-   * pl.asserta(make_term(pl, term("color", term("red"))));
-   * @endcode
    *
    * @note By default all predicates have *static* qualifiers, until explicitly
    * declared *dynamic*. Addition of a predicate without a prior *dynamic*
@@ -465,10 +351,6 @@ class interpreter: private runtime {
    * all other clauses for the predicate associated to @p sign. The procedure
    * automatically determines whether the predicate is static or dynamic and
    * puts it in the appropriate table.
-   * @code{.cpp}
-   * // assertz a fact:  color(blue).
-   * pl.assertz(make_term(pl, term("color", term("blue"))));
-   * @endcode
    *
    * @note By default all predicates have *static* qualifiers, until explicitly
    * declared *dynamic*. Addition of a predicate without a prior *dynamic*
@@ -504,9 +386,6 @@ class interpreter: private runtime {
    * @p path.
    *
    * @details Parse all statements in the file and @ref interpret them.
-   * @code{.cpp}
-   * pl.load_file("myprogram.pl");
-   * @endcode
    */
   void
   load_file(std::string_view path);
@@ -592,8 +471,8 @@ class interpreter: private runtime {
    * Prolog level (see @ref interpret).
    *
    * @code{.cpp}
-   * pl.import_directory("./pl/libs");
-   * pl.ensure_loaded("lists"); // resolves to ./pl/libs/lists.plo or .pl
+   * pl.import_directory("./mylibs");
+   * pl.ensure_loaded("lists"); // resolves to ./mylibs/lists.plo or .pl
    * @endcode
    */
   void
