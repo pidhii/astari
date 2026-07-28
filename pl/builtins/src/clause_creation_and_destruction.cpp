@@ -47,7 +47,8 @@ iso_clause_creation_and_destruction(interpreter &pl)
     assert_arity(pl, "retract", argc, 1);
     basic_decoder dc;
     const object_view clause = dc.decode_object(rt.reduce(argv));
-    const word_t key = the_word(clause[0]);
+    const word_t key = is_term(clause[0], op_penis, 2) ? the_word(clause[1])
+                                                       : the_word(clause[0]);
     if (not pl.is_dynamic(key))
       raise(pl, term("permission_error", term("modify"),
                      term("static_procedure"), clause));
