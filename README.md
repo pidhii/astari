@@ -3,10 +3,10 @@
 <pre>
 <b>pl</b>
 
-Tiny embeddable Prolog interpreter with first-class continuations.
+Tiny embeddable Prolog interpreter with first-class query continuations.
 
+For a quick-start gude see <a href="https://github.com/pidhii/astari/tree/master/pl/INTRO.md">./pl/INTRO.md</a>.
 Builtins are in WIP, see <a href=https://github.com/pidhii/astari/tree/master/pl>./pl/README.md</a> for the status.
-
 
 Performance:
 <table>
