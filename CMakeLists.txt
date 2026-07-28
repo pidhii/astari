@@ -58,3 +58,7 @@ set_target_properties(astari_shared PROPERTIES OUTPUT_NAME astari)
 add_library(astari_static STATIC ${astari_objects})
 install (TARGETS astari_static DESTINATION lib)
 set_target_properties(astari_static PROPERTIES OUTPUT_NAME astari)
+
+install (DIRECTORY utl DESTINATION include/astari)
+install (DIRECTORY ualloc DESTINATION include/astari)
+install (DIRECTORY pvector DESTINATION include/astari)
