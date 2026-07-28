@@ -1,6 +1,7 @@
 #include "iso.hpp"
 
 #include "pl/coding/basic_decoder.hpp"
+#include "pl/coding/basic_encoder.hpp"
 #include "pl/core/interpreter.hpp"
 #include "pl/misc/term_utils.hpp"
 #include "pl/obj/object.hpp"
@@ -143,10 +144,15 @@ _eval(word_t lhs, word_t rhs, Op op = Op { })
 }
 
 static void
-_evaluate(runtime &rt, object_iterator e, size_t n, word_t *stack)
+_evaluate(interpreter &pl, runtime &rt, object_iterator e, size_t n,
+          word_t *stack)
 {
   basic_decoder dc;
+  basic_encoder ec;
   term_header hdr;
+
+#define TYPE_ERROR(e)                                                          \
+  raise(pl, term("type_error", term("evaluable"), dc.decode_object(e)))
 
   while (n--)
   {
@@ -163,13 +169,13 @@ _evaluate(runtime &rt, object_iterator e, size_t n, word_t *stack)
       dc.decode(*e, var);
       if (auto val = rt.dereference(var.id))
       {
-        _evaluate(rt, *val, 1, stack);
+        _evaluate(pl, rt, *val, 1, stack);
         stack++;
         e++;
         continue;
       }
       else
-        throw std::runtime_error {"evaulation error"};
+        TYPE_ERROR(e);
     }
 
     dc.decode(*e, hdr);
@@ -177,46 +183,87 @@ _evaluate(runtime &rt, object_iterator e, size_t n, word_t *stack)
     {
       case op_plus:
       {
-        _evaluate(rt, e + 1, 2, stack);
-        *stack = _eval(stack[0], stack[1], ev_add);
-        stack++;
-        dc.decode_object(e); // call for side-effects
-        continue;
+        if (hdr.arity == 2)
+        {
+          _evaluate(pl, rt, e + 1, 2, stack);
+          *stack = _eval(stack[0], stack[1], ev_add);
+          stack++;
+          dc.decode_object(e); // call for side-effects
+          continue;
+        }
+        else if (hdr.arity == 1)
+        {
+          _evaluate(pl, rt, e + 1, 1, stack);
+          stack++;
+          dc.decode_object(e); // call for side-effects
+          continue;
+        }
+        else
+          TYPE_ERROR(e);
       }
       case op_minus:
       {
-        _evaluate(rt, e + 1, 2, stack);
-        *stack = _eval(stack[0], stack[1], ev_sub);
-        stack++;
-        dc.decode_object(e); // call for side-effects
-        continue;
+        if (hdr.arity == 2)
+        {
+          _evaluate(pl, rt, e + 1, 2, stack);
+          *stack = _eval(stack[0], stack[1], ev_sub);
+          stack++;
+          dc.decode_object(e); // call for side-effects
+          continue;
+        }
+        else if (hdr.arity == 1)
+        {
+          _evaluate(pl, rt, e + 1, 1, stack);
+          const word_t zero = ec.encode(int(0));
+          *stack = _eval(zero, stack[0], ev_sub);
+          stack++;
+          dc.decode_object(e); // call for side-effects
+          continue;
+        }
+        else
+          TYPE_ERROR(e);
       }
       case op_mul:
       {
-        _evaluate(rt, e + 1, 2, stack);
-        *stack = _eval(stack[0], stack[1], ev_mul);
-        stack++;
-        dc.decode_object(e); // call for side-effects
-        continue;
+        if (hdr.arity == 2)
+        {
+          _evaluate(pl, rt, e + 1, 2, stack);
+          *stack = _eval(stack[0], stack[1], ev_mul);
+          stack++;
+          dc.decode_object(e); // call for side-effects
+          continue;
+        }
+        else
+          TYPE_ERROR(e);
       }
       case op_div:
       {
-        _evaluate(rt, e + 1, 2, stack);
-        *stack = _eval(stack[0], stack[1], ev_fdiv);
-        stack++;
-        dc.decode_object(e); // call for side-effects
-        continue;
+        if (hdr.arity == 2)
+        {
+          _evaluate(pl, rt, e + 1, 2, stack);
+          *stack = _eval(stack[0], stack[1], ev_fdiv);
+          stack++;
+          dc.decode_object(e); // call for side-effects
+          continue;
+        }
+        else
+          TYPE_ERROR(e);
       }
       case op_divdiv:
       {
-        _evaluate(rt, e + 1, 2, stack);
-        *stack = _eval(stack[0], stack[1], ev_idiv);
-        stack++;
-        dc.decode_object(e); // call for side-effects
-        continue;
+        if (hdr.arity == 2)
+        {
+          _evaluate(pl, rt, e + 1, 2, stack);
+          *stack = _eval(stack[0], stack[1], ev_idiv);
+          stack++;
+          dc.decode_object(e); // call for side-effects
+          continue;
+        }
+        else
+          TYPE_ERROR(e);
       }
       default:
-        throw std::runtime_error {"evaluation error"};
+        TYPE_ERROR(e);
     }
   }
 }
@@ -231,7 +278,7 @@ iso_arithmetics(interpreter &pl)
     const object_view lhs = dc.decode_object(argv);
     const object_iterator rhs = argv;
 
-    _evaluate(rt, rhs, 1, rt.query()->heap_p);
+    _evaluate(pl, rt, rhs, 1, rt.query()->heap_p);
     const object_view result = {rt.query()->heap_p++, 1};
     if (rt.match(lhs, result))
       TAILCALL cont(rt);
@@ -244,7 +291,7 @@ iso_arithmetics(interpreter &pl)
   pl.add_meta_op(name, [&](runtime &rt, size_t argc, object_iterator argv,     \
                            continuation &cont) {                               \
     assert_arity(pl, name, argc, 2);                                           \
-    _evaluate(rt, argv, 2, rt.query()->heap_p);                                \
+    _evaluate(pl, rt, argv, 2, rt.query()->heap_p);                            \
     const bool ans = number(pl, rt.query()->heap_p + 0, [&](auto &&lhs) {      \
               return number(pl, rt.query()->heap_p + 1, [&](auto &&rhs) {      \
               return lhs op rhs; });});                                        \
