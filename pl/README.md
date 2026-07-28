@@ -35,7 +35,7 @@ o <b>Type Testing</b>
   - [x] nonvar/1 
   - [x] number/1 
   - [x] string/1
-o <b>Term Comparison</b>                    <i># <span style="color:yellow">order of terms besides numbers and strings is undetermined</span> (can differ between interpreter instances)</i>
+o <b>Term Comparison</b>                   <i># <span style="color:yellow">order of terms besides numbers and strings is undetermined</span> (can differ between interpreter instances)</i>
   - [x] `@=<`/2
   - [x] `==`/2
   - [x] `\==`/2
@@ -90,9 +90,9 @@ o <b>Clause Retrieval and Information</b>
   - [ ] clause/2 
   - [ ] current_predicate/1 
 o <b>Clause Creation and Destruction</b>
-  - [x] asserta/1
-  - [x] assertz/1 
-  - [x] retract/1
+  - [x] asserta/1                   <i># <span style="color:yellow">changes are unwound during backtracking</i>
+  - [x] assertz/1                   <i># <span style="color:yellow">changes are unwound during backtracking</i>
+  - [x] retract/1                   <i># <span style="color:yellow">changes are unwound during backtracking</i>
   - [ ] abolish/1
 o <b>All Solutions</b>
   - [x] findall/3
