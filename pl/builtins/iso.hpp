@@ -1,9 +1,7 @@
 #pragma once
 
-#include "pl/coding/basic_decoder.hpp"
 #include "pl/core/interpreter.hpp"
 #include "pl/dictionary.hpp"
-#include "pl/misc/display.hpp"
 #include "pl/misc/term_utils.hpp"
 #include "pl/obj/object.hpp"
 #include "pl/parse/lexer.hpp"
@@ -27,52 +25,20 @@ assert_arity(interpreter &pl, std::string_view who, size_t argc, size_t n,
 struct iso_io {
   dictionary &symbols;
   const object stdout_term, stderr_term, stdin_term;
-  std::map<word_t, std::pair<object_view, std::unique_ptr<std::ostream>>> ostreams;
-  std::map<word_t, std::pair<object_view, std::unique_ptr<std::istream>>> istreams;
+  std::map<word_t, std::pair<object_view, std::unique_ptr<std::ostream>>>
+      ostreams;
+  std::map<word_t, std::pair<object_view, std::unique_ptr<std::istream>>>
+      istreams;
   object_view current_output, current_input;
 
-  iso_io(interpreter &pl)
-  : symbols {pl.symbols()},
-    stdout_term {make_term(pl, term("stdout"))},
-    stderr_term {make_term(pl, term("stderr"))},
-    stdin_term {make_term(pl, term("stdin"))},
-    current_output {stdout_term},
-    current_input {stdin_term}
-  {
-    // current_output/1
-    pl.add_meta_op("current_output", [&](runtime &rt, size_t argc,
-                                         object_iterator argv,
-                                         const continuation &cont) {
-      assert_arity(pl, "current_output", argc, 1);
-      basic_decoder dc;
-      const object_view x = dc.decode_object(argv);
-      if (rt.match(x, current_output))
-        TAILCALL cont(rt);
-    });
-  }
+  iso_io(interpreter &pl);
 
   std::ostream &
-  get_output(object_view s)
-  {
-    if (is_term(s))
-    {
-      if (the_word(s[0]) == the_word(stdout_term[0]))
-        return std::cout;
-      else if (the_word(s[0]) == the_word(stderr_term[0]))
-        return std::cerr;
-      else if (auto it = ostreams.find(the_word(s[0])); it != ostreams.end())
-        return *it->second.second;
-      else
-        throw std::runtime_error {
-            std::format("no such output stream ({})", dump_object(symbols, s))};
-    }
-    else
-      throw std::runtime_error {
-          std::format("invalid output stream ({})", dump_object(symbols, s))};
-  }
+  get_output(object_view s);
 };
 
 
+void iso_basic(interpreter &pl);
 void iso_writing_terms(iso_io &io, interpreter &pl);
 void iso_writing_characters(iso_io &io, interpreter &pl);
 void iso_type_testing(interpreter &pl);
@@ -83,8 +49,25 @@ void iso_throwcatch(interpreter &pl);
 void iso_all_solutions(interpreter &pl);
 void iso_clause_creation_and_destruction(interpreter &pl);
 
+#define BIT(n) (1 << (n))
+enum iso_lib {
+  basic                           = BIT(0),
+  writing_terms                   = BIT(1),
+  writing_characters              = BIT(2),
+  io                              = writing_terms | writing_characters,
+  type_testing                    = BIT(3),
+  term_comparison                 = BIT(4),
+  arithmetics                     = BIT(5),
+  term_creation_and_decomposition = BIT(6),
+  throwcatch                      = BIT(7),
+  all_solutions                   = BIT(8),
+  clause_creation_and_destruction = BIT(9),
+};
+#undef BIT
+static constexpr unsigned iso_all = -1;
+
 struct iso {
   iso_io io;
 
-  iso(interpreter &pl);
+  iso(interpreter &pl, unsigned libs = iso_all);
 };
