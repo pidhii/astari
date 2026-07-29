@@ -110,19 +110,6 @@ _dump_object(const dictionary &dict, InIter &it, std::ostream &os, bool quoted,
 
       if (not ignore_ops and lex.is_operator(name) and hdr.arity > 0)
       {
-
-        if (name == "," and hdr.arity >= 2)
-        {
-          os << '(';
-          for (size_t i = 0; i < hdr.arity; ++i)
-          {
-            if (i > 0) os << ", ";
-            _dump_object(dict, it, os, quoted, ignore_ops, numbervars);
-          }
-          os << ')';
-          return;
-        }
-
         switch (hdr.arity)
         {
           case 1:
@@ -139,6 +126,18 @@ _dump_object(const dictionary &dict, InIter &it, std::ostream &os, bool quoted,
             os << ')';
             return;
         }
+      }
+
+      if (name == "," and hdr.arity >= 2)
+      {
+        os << '(';
+        for (size_t i = 0; i < hdr.arity; ++i)
+        {
+          if (i > 0) os << ", ";
+          _dump_object(dict, it, os, quoted, ignore_ops, numbervars);
+        }
+        os << ')';
+        return;
       }
 
       if (lex.is_symbol(name))
