@@ -47,7 +47,7 @@ yes: X = foo
 ```
 Here we used the `operator <<` of the interpreter. The `operator <<` provides an
 easy way to supply the interpreter with top-level Prolog expressions such as
-predicate definitions. So let's make yet something more useful:
+predicate definitions. Let's add more:
 ```cpp
 #include "pl/core/interpreter.hpp"
 
@@ -69,9 +69,9 @@ yes: X = a
 yes: X = b
 yes: X = c
 ```
-Great! However, as we keep defining more predicates, it will be better to
+Perfect. But as we keep defining more predicates, it will be better to
 offload the Prolog code into a separate file, which we load before querying the
-interpreter. let's move the Prolog definitions from the example outside:
+interpreter:
 ```prolog
 % file: program.pl
 
