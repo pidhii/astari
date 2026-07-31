@@ -85,6 +85,16 @@ make_term(interpreter &pl, Args &&...args)
   return buf;
 }
 
+template <typename ...Args>
+object
+make_term(dictionary &symbols, Args &&...args)
+{
+  object buf;
+  tape_writer tape {std::back_inserter(buf), symbols};
+  tape.operator<<(std::forward<Args>(args)...);
+  return buf;
+}
+
 
 word_t
 predicate_indicator(interpreter &pl, object_iterator x);
