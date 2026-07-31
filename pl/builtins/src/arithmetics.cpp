@@ -278,20 +278,26 @@ _evaluate(interpreter &pl, runtime &rt, object_iterator e, size_t n,
   }
 }
 
-void
-iso_arithmetics(interpreter &pl)
+void NOINLINE 
+_is(interpreter &pl, runtime &rt, size_t argc, object_iterator argv,
+    continuation &cont)
+{
+  assert_arity(pl, "is", argc, 2);
+  static basic_decoder dc;
+  const object_view lhs = rt.reduce(dc.decode_object(argv));
+  const object_iterator rhs = argv;
+
+  _evaluate(pl, rt, rhs, 1, rt.query()->heap_p);
+  const object_view result = {rt.query()->heap_p++, 1};
+  if (rt.match(lhs, result))
+    TAILCALL cont.call_tc(rt, 0, 0, 0, 0);
+}
+
+void iso_arithmetics(interpreter &pl)
 {
   pl.add_meta_op("is", [&](runtime &rt, size_t argc, object_iterator argv,
                            continuation &cont) {
-    assert_arity(pl, "is", argc, 2);
-    basic_decoder dc;
-    const object_view lhs = dc.decode_object(argv);
-    const object_iterator rhs = argv;
-
-    _evaluate(pl, rt, rhs, 1, rt.query()->heap_p);
-    const object_view result = {rt.query()->heap_p++, 1};
-    if (rt.match(lhs, result))
-      TAILCALL cont(rt);
+    TAILCALL _is(pl, rt, argc, argv, cont);
   });
 
 
@@ -306,7 +312,7 @@ iso_arithmetics(interpreter &pl)
               return number(pl, rt.query()->heap_p + 1, [&](auto &&rhs) {      \
               return lhs op rhs; });});                                        \
     if (ans)                                                                   \
-      TAILCALL cont(rt);                                                       \
+      TAILCALL cont.call_tc(rt, 0, 0, 0, 0);                                   \
   });
   DEFINE_CMP("=:=", ==)
   DEFINE_CMP("=\\=", !=)

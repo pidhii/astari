@@ -23,6 +23,7 @@ assert_arity(interpreter &pl, std::string_view who, size_t argc, size_t n,
 
 
 struct iso_io {
+  interpreter &pl;
   dictionary &symbols;
   const object stdout_term, stderr_term, stdin_term;
   std::map<word_t, std::pair<object_view, std::unique_ptr<std::ostream>>>

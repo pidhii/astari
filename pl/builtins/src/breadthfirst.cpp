@@ -28,23 +28,23 @@ lib_breadthfirst::lib_breadthfirst(interpreter &pl)
 
     // Wrap `cont` into an exit handle (exit from the breadthfirst-ed clause)
     // that will retract the yield/0
-    const auto exitcont = [&](runtime &rt) {
+    const auto exitcont = [&](CONT_ARGS) {
       const auto it = rt.variants_begin(yield_sign[0]);
       assert(std::next(it) == rt.variants_end());
       runtime::recovery recov = rt.retract_dyn(yield_sign[0], it);
-      cont(rt);
+      cont(rt, 0, 0, 0, 0);
       rt.recover(std::move(recov));
     };
 
     // First round of sprouts
-    pl.make_true(rt, goal, exitcont);
+    pl.make_true(rt, goal, continuation::from_lambda(exitcont));
 
     // Keep growing until all sprouts have exhausted (or until a cut)
     while (not t.sprouts.empty() and not t.root_cp.cut)
     {
       auto [srt, scont] = std::move(t.sprouts.front());
       t.sprouts.pop_front();
-      scont(srt);
+      scont(srt, 0, 0, 0, 0);
     }
 
     rt.recover(std::move(recov));

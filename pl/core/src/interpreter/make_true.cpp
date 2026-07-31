@@ -41,7 +41,7 @@ interpreter::_make_true(runtime &rt, size_t, object_iterator e, barrier *clause,
           assert(hdr.arity == 0);
           assert(clause);
           rt.cut_exc(clause);
-          TAILCALL cont(rt);
+          TAILCALL cont.call_tc(rt, PLUG, PLUG, clause, NULL);
 
         case op_fail:
           assert(hdr.arity == 0);
@@ -79,13 +79,13 @@ interpreter::_make_true__and(runtime &rt, size_t i, object_iterator eit,
   {
     const object_iterator e = eit;
     dc.decode_object(eit); // call for side-effects
-    cont = [this, i, eit, cont, clause](runtime &rt) mutable {
+    cont = continuation::from_lambda([this, i, eit, cont, clause](CONT_ARGS) mutable {
       TAILCALL _make_true__and(rt, i - 1, eit, clause, cont);
-    };
+    });
     TAILCALL _make_true(rt, PLUG, e, clause, cont);
   }
   else // i == 0
-    TAILCALL cont(rt);
+    TAILCALL cont.call_tc(rt, 0, 0, 0, 0);
 }
 
 
@@ -154,10 +154,10 @@ interpreter::_make_true__if(runtime &rt, size_t _, object_iterator eit,
   barrier cp;
   rt.push_choice_point(&cp);
   {
-    continuation condcont = [&](runtime &rt) {
+    continuation condcont = continuation::from_lambda([&](CONT_ARGS) {
       rt.cut(&cp);
       cond = true;
-    };
+    });
     _make_true(rt, PLUG, econd.begin(), &cp, condcont);
   }
 
@@ -194,7 +194,7 @@ interpreter::_make_true__if(runtime &rt, size_t _, object_iterator eit,
       _make_true(rt, PLUG, predbody.begin(), cp.prev, cont);                   \
     }                                                                          \
     else                                                                       \
-      cont(rt);                                                                \
+      cont(rt, PLUG, PLUG, PLUG, PLUG);                                        \
   }                                                                            \
                                                                                \
   if (rt.uwuc(&cp))                                                            \
@@ -218,7 +218,7 @@ interpreter::_make_true__if(runtime &rt, size_t _, object_iterator eit,
       TAILCALL _make_true(rt, PLUG, predbody.begin(), m_query->cp, cont);      \
     }                                                                          \
     else                                                                       \
-      TAILCALL cont(rt);                                                       \
+      TAILCALL cont.call_tc(rt, PLUG, PLUG, PLUG, PLUG);                       \
   }                                                                            \
   return;
 
@@ -252,7 +252,7 @@ interpreter::_make_true__predicate(runtime &rt, size_t _, object_iterator e_,
   term_header hdr;
   dc.decode(e[0], hdr);
   if (const auto it = m_metaops.find(hdr.id); it != m_metaops.end())
-    TAILCALL it->second(rt, hdr.arity, e.begin() + 1, cont);
+    TAILCALL it->second.call_tc(rt, hdr.arity, e.begin() + 1, cont);
 
   // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
   //                        dynamic predicates

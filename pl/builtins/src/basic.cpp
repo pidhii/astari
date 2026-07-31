@@ -48,7 +48,10 @@ iso_basic(interpreter &pl)
     const object_view expr = dc.decode_object(argv);
     barrier cp;
     rt.push_choice_point(&cp);
-    pl.make_true(rt, expr, [cont, &cp](runtime &rt) { rt.cut(&cp); cont(rt); });
+    pl.make_true(rt, expr, continuation::from_lambda([cont, &cp](CONT_ARGS) {
+      rt.cut(&cp);
+      TAILCALL cont.call_tc(rt, 0, 0, 0, 0);
+    }));
     rt.pop_choice_point(&cp); // let someone else to unwind it if needed
   });
 

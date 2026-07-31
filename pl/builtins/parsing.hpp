@@ -23,7 +23,7 @@ class lib_parsing {
       const object list = _tokenize(pl, vardict, ::string(string[0]));
       const object_view pobj = rt.adopt_hp(list);
       if (rt.match(pobj, tokens))
-        TAILCALL cont(rt);
+        TAILCALL cont(rt, 0, 0, 0, 0);
     });
   }
 

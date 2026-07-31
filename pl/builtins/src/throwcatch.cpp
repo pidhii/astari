@@ -27,13 +27,13 @@ iso_throwcatch(interpreter &pl)
     struct pass { exception exn; };
     try
     {
-      pl.make_true(rt, goal, [cont](runtime &rt) {
+      pl.make_true(rt, goal, continuation::from_lambda([cont](CONT_ARGS) {
         // Wrap further exceptions to distinguish them from those originating
         // from the goal clause
-        try { cont(rt); }
+        try { cont(rt, 0, 0, 0, 0); }
         catch (const exception &exn)
         { throw pass {exn}; }
-      });
+      }));
     }
     catch (const pass &pass)
     {

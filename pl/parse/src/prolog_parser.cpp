@@ -53,7 +53,7 @@ prolog_parser::prolog_parser() : m_lib_bf {m_pl}, m_lib_tab {m_pl}
     const object list = _tokenize(m_pl, vardict, ::string(string[0]));
     const object_view pobj = rt.adopt_hp(list);
     if (rt.match(pobj, tokens))
-      cont(rt);
+      cont(rt, 0, 0, 0, 0);
   });
 
   m_pl.add_meta_op("debug", [this](runtime &rt, size_t argc,
@@ -63,7 +63,7 @@ prolog_parser::prolog_parser() : m_lib_bf {m_pl}, m_lib_tab {m_pl}
     basic_decoder dc;
     const object x = rt.reconstruct(dc.decode_object(argv));
     std::cerr << dump_object(m_pl.symbols(), x) << std::endl;
-    cont(rt);
+    cont(rt, 0, 0, 0, 0);
   });
 
   std::string parserfilepath;

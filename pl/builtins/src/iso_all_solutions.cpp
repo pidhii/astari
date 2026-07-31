@@ -31,13 +31,13 @@ iso_all_solutions(interpreter &pl)
       object l;
       const size_t varbar = rt.n_vars();
       size_t varn = varbar;
-      pl.make_true(rt, goal, [&] (runtime &rt) {
+      pl.make_true(rt, goal, continuation::from_lambda([&](CONT_ARGS) {
         object inst = rt.reconstruct(temp);
         varnamespace ns_local;
         varn = normalize_r(inst, inst.data(), ns_local, varn);
         l += cons2;
         l += inst; 
-      });
+      }));
       l += nil0;
 
       rt.unwind(&cp);
@@ -50,6 +50,6 @@ iso_all_solutions(interpreter &pl)
     }
 
     if (rt.match(list, result))
-      TAILCALL cont(rt);
+      TAILCALL cont.call_tc(rt, 0, 0, 0, 0);
   });
 }

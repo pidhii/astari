@@ -39,7 +39,7 @@ class lib_tabulate {
           const object_view g = rt.adopt_hp(variant);
           [[maybe_unused]] const bool ok = rt.match(goal, g);
           assert(ok);
-          cont(rt);
+          cont(rt, 0, 0, 0, 0);
           if (rt.uwuc(&cp))
             break;
         }
@@ -51,15 +51,15 @@ class lib_tabulate {
 #if VER == 1
       m_table[goalview].is_building = true;
       std::list<runtime> todo;
-      pl.make_true(rt, goal, [&](runtime &rt) {
+      pl.make_true(rt, goal, continuation::from_lambda([&](CONT_ARGS) {
         table_entry &entry = m_table[goalview];
         entry.solutions.push_back(rt.reconstruct(goal));
         todo.emplace_back(rt);
-      });
+      }));
       m_table[goalview].is_building = false;
 
       for (runtime &rt : todo)
-        cont(rt);
+        cont(rt, 0, 0, 0, 0);
 #else
       m_table[goalview].is_building = true;
       pl.make_true(rt, goal, [&](runtime &rt) {

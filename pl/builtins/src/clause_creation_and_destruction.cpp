@@ -28,7 +28,7 @@ iso_clause_creation_and_destruction(interpreter &pl)
     insert;                                                                    \
     try                                                                        \
     {                                                                          \
-      cont(rt);                                                                \
+      cont(rt, 0, 0, 0, 0);                                                    \
     }                                                                          \
     catch (...)                                                                \
     {                                                                          \
@@ -60,7 +60,8 @@ iso_clause_creation_and_destruction(interpreter &pl)
       if (rt.match(clause, itclause))
       {
         auto save = rt.retract_dyn(key, it);
-        try { cont(rt); } catch (...) { rt.recover(std::move(save)); throw; }
+        try { cont(rt, 0, 0, 0, 0); }
+        catch (...) { rt.recover(std::move(save)); throw; }
         rt.recover(std::move(save));
       }
       if (rt.uwuc(&cp))

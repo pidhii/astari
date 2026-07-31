@@ -153,19 +153,6 @@ interpreter::assertz(object_view signobj, object_view bodyobj)
 
 
 void
-interpreter::add_meta_op(std::string_view name, const meta_op_handle &handle)
-{
-  const size_t id = m_symdict[name];
-  if (has(id))
-  {
-    throw std::runtime_error {std::format(
-        "duplicate names for meta operators are not allowed ({})", name)};
-  }
-  m_metaops.emplace(id, handle);
-}
-
-
-void
 interpreter::ensure_loaded(std::string_view path_)
 {
   namespace fs = std::filesystem;
@@ -217,7 +204,7 @@ interpreter::make_true(const dictionary &vardict, object_view expr,
   object_view adexpr = adopt_hp(ns, expr);
   try
   {
-    make_true(*this, adexpr, [&](runtime &rt) {
+    make_true(*this, adexpr, continuation::from_lambda([&](CONT_ARGS) {
       basic_decoder dc;
       solution sol;
       for (const auto [nsid, rtid] : ns)
@@ -236,7 +223,7 @@ interpreter::make_true(const dictionary &vardict, object_view expr,
           sol[varname] = { };
       }
       cont(sol);
-    });
+    }));
   }
   catch (...)
   {

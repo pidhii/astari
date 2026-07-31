@@ -6,7 +6,8 @@
 
 
 iso_io::iso_io(interpreter &pl)
-: symbols {pl.symbols()},
+: pl {pl},
+  symbols {pl.symbols()},
   stdout_term {make_term(pl, term("stdout"))},
   stderr_term {make_term(pl, term("stderr"))},
   stdin_term {make_term(pl, term("stdin"))},
@@ -14,14 +15,14 @@ iso_io::iso_io(interpreter &pl)
   current_input {stdin_term}
 {
   // current_output/1
-  pl.add_meta_op("current_output", [&](runtime &rt, size_t argc,
-                                       object_iterator argv,
-                                       const continuation &cont) {
+  pl.add_meta_op("current_output", [&] NOINLINE (runtime &rt, size_t argc,
+                                                 object_iterator argv,
+                                                 continuation &cont) {
     assert_arity(pl, "current_output", argc, 1);
     basic_decoder dc;
     const object_view x = dc.decode_object(argv);
     if (rt.match(x, current_output))
-      TAILCALL cont(rt);
+      TAILCALL cont.call_tc(rt, 0, 0, 0, 0);
   });
 }
 

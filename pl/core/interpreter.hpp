@@ -24,6 +24,7 @@
 #include "pl/dictionary.hpp"
 #include "pl/misc/display.hpp"
 #include "pl/obj/object.hpp"
+#include "utl/tcfunction.hpp"
 
 #include <format>
 #include <functional>
@@ -33,38 +34,10 @@
 #include <unordered_set>
 
 
-/**
- * @ingroup core
- * @brief Prolog *success continuation*
- * @details A continuation is invoked with the current @ref runtime *sprout*
- * every time the goal it was attached to succeeds. Returning from a
- * continuation without throwing means "and now try to find another
- * solution" -- backtracking into whatever choice points remain further up
- * the call chain. This is the standard *continuation-passing style* used
- * throughout the interpreter to implement conjunction, disjunction,
- * if-then-else and predicate calls without growing the native C++ call
- * stack (tail-calls are used internally, see @ref TAILCALL).
- */
-using continuation = std::function<void(runtime&)>;
-
-/**
- * @ingroup core
- * @brief Signature of a native (C++) predicate implementation, a.k.a. *meta-op*
- * @details Registered via @ref interpreter::add_meta_op. A meta-op behaves
- * like a Prolog predicate but its body is implemented in C++ instead of
- * Prolog. It receives:
- * - the current @ref runtime *sprout*;
- * - the arity with which it was called;
- * - an iterator to the (encoded) argument list;
- * - the @ref continuation to invoke for every solution.
- * @see @ref interpreter::add_meta_op
- */
-using meta_op_handle =
-    std::function<void(runtime &, size_t, object_iterator, continuation &)>;
-
 #ifdef __clang__
 # warning "Won't ensure tail-calls with clang. Your stack may evaporate."
-# define TAILCALL return
+// # define TAILCALL [[clang::musttail]] return
+#define TAILCALL return
 #elif ASTARI_DEBUG
 # define TAILCALL return
 #else
@@ -83,6 +56,51 @@ using meta_op_handle =
  */
 # define TAILCALL [[gnu::musttail]] return
 #endif
+
+#ifdef __clang__
+# define NOINLINE
+#else
+# define NOINLINE __attribute__((noinline))
+#endif
+
+/**
+ * @ingroup core
+ * @brief Prolog *success continuation*
+ * @details A continuation is invoked with the current @ref runtime *sprout*
+ * every time the goal it was attached to succeeds. Returning from a
+ * continuation without throwing means "and now try to find another
+ * solution" -- backtracking into whatever choice points remain further up
+ * the call chain. This is the standard *continuation-passing style* used
+ * throughout the interpreter to implement conjunction, disjunction,
+ * if-then-else and predicate calls without growing the native C++ call
+ * stack (tail-calls are used internally, see @ref TAILCALL).
+ */
+// class continuation {
+//   private:
+//   void *m_clos;
+//   void (*m_func)(void *,runtime &, size_t, object_iterator, continuation &);
+// };
+// using continuation =
+//     std::function<void(runtime &, size_t, object_iterator, barrier *, void *)>;
+#define CONT_ARGS runtime &rt, size_t, object_iterator, barrier *, void*
+using continuation = tcfunction<void(CONT_ARGS)>;
+
+
+/**
+ * @ingroup core
+ * @brief Signature of a native (C++) predicate implementation, a.k.a. *meta-op*
+ * @details Registered via @ref interpreter::add_meta_op. A meta-op behaves
+ * like a Prolog predicate but its body is implemented in C++ instead of
+ * Prolog. It receives:
+ * - the current @ref runtime *sprout*;
+ * - the arity with which it was called;
+ * - an iterator to the (encoded) argument list;
+ * - the @ref continuation to invoke for every solution.
+ * @see @ref interpreter::add_meta_op
+ */
+using meta_op_handle =
+    tcfunction<void(runtime &, size_t, object_iterator, continuation &)>;
+// std::function<void(runtime &, size_t, object_iterator, continuation &)>;
 
 
 /**
@@ -240,6 +258,15 @@ class interpreter: private runtime {
       std::cerr << std::format("  have {}/*:", m_symdict[id]) << std::endl;
   }
 
+  size_t
+  heap_size() const noexcept
+  { return m_query->heap_e - m_term_heap.get(); }
+
+  ssize_t
+  heap_remsize() const noexcept
+  { return m_query->heap_e - m_query->heap_p; }
+
+
   /**
    * @brief Access the global (non-backtrackable) memory allocator
    *
@@ -372,8 +399,18 @@ class interpreter: private runtime {
    * builtin libraries are implemented on top of it. See @ref meta_op_handle for
    * the handler signature.
    */
+  template <typename F>
   void
-  add_meta_op(std::string_view name, const meta_op_handle &handle);
+  add_meta_op(std::string_view name, F &&handle)
+  {
+    const size_t id = m_symdict[name];
+    if (has(id))
+    {
+      throw std::runtime_error {std::format(
+          "duplicate names for meta operators are not allowed ({})", name)};
+    }
+    m_metaops.emplace(id, meta_op_handle::from_lambda(handle));
+  }
   /** @} */
 
   /**

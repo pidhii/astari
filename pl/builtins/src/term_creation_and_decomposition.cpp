@@ -48,7 +48,7 @@ iso_term_creation_and_decomposition(interpreter &pl)
       word_t *p = rt.allocate(buf.size());
       std::copy(buf.begin(), buf.end(), p);
       if (rt.match(result, {p, buf.size()}))
-        TAILCALL cont(rt);
+        TAILCALL cont.call_tc(rt, 0, 0, 0, 0);
       else
         rt.unallocate(buf.size());
     }
@@ -64,7 +64,7 @@ iso_term_creation_and_decomposition(interpreter &pl)
       word_t *p = rt.allocate(list.size());
       std::copy(list.begin(), list.end(), p);
       if (rt.match({p, list.size()}, rhs))
-        TAILCALL cont(rt);
+        TAILCALL cont.call_tc(rt, 0, 0, 0, 0);
       else
         rt.unallocate({p, list.size()});
     }
@@ -88,7 +88,7 @@ iso_term_creation_and_decomposition(interpreter &pl)
       const object_view name = dc.decode_object(argv);
       const object_view arity = dc.decode_object(argv);
       if (rt.match(name, {termname, 1}) and rt.match(arity, {termarity, 1}))
-        TAILCALL cont(rt);
+        TAILCALL cont.call_tc(rt, 0, 0, 0, 0);
       else
         rt.unallocate(2);
     }
