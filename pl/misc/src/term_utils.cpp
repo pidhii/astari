@@ -131,7 +131,7 @@ predicate_indicator(interpreter &pl, object_iterator indicator)
 
 
 void
-transfer_symbols(dictionary &from, dictionary &to, object &obj)
+transfer_symbols(const dictionary &from, dictionary &to, object &obj)
 {
   basic_encoder ec;
   basic_decoder dc;

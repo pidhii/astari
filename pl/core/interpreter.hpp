@@ -23,6 +23,7 @@
 #include "pl/coding/basic_decoder.hpp"
 #include "pl/dictionary.hpp"
 #include "pl/misc/display.hpp"
+#include "pl/misc/object_file.hpp"
 #include "pl/obj/object.hpp"
 #include "utl/tcfunction.hpp"
 
@@ -243,16 +244,16 @@ class interpreter: private runtime {
     {
       term_header hdr;
       dc.decode(w, hdr);
-      std::cerr << std::format("  have {}/{}:", m_symdict[hdr.id], hdr.arity)
+      std::cerr << std::format("  have {}/{}", m_symdict[hdr.id], hdr.arity)
                 << std::endl;
-      for (const auto &pred : variants)
-      {
-        if (pred.body.empty())
-          std::clog << "  - " << dump(pred.sign) << "." << std::endl;
-        else
-          std::clog << "  - " << dump(pred.sign) << " :- " << dump(pred.body)
-                    << std::endl;
-      }
+      // for (const auto &pred : variants)
+      // {
+      //   if (pred.body.empty())
+      //     std::clog << "  - " << dump(pred.sign) << "." << std::endl;
+      //   else
+      //     std::clog << "  - " << dump(pred.sign) << " :- " << dump(pred.body)
+      //               << std::endl;
+      // }
     }
     for (const auto &[id, _] : m_metaops)
       std::cerr << std::format("  have {}/*:", m_symdict[id]) << std::endl;
@@ -441,6 +442,9 @@ class interpreter: private runtime {
    */
   void
   load_objfile(std::string_view path);
+
+  void
+  load_objfile(const object_file &path);
 
   /**
    * @brief Load script from a stream

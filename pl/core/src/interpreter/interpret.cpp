@@ -57,6 +57,19 @@ interpreter::load_objfile(std::string_view path)
 
 
 void
+interpreter::load_objfile(const object_file &objfile)
+{
+  prolog_parser p;
+
+  for (object obj : objfile.objects)
+  {
+    transfer_symbols(objfile.symbols, m_symdict, obj);
+    interpret(p, obj);
+  }
+}
+
+
+void
 interpreter::load(std::istream &in)
 {
   prolog_parser p;

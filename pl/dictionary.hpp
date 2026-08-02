@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <string>
 #include <unordered_map>
+#include <ranges>
 
 
 class dictionary {
@@ -43,6 +44,10 @@ class dictionary {
   void
   clear() noexcept
   { m_ids.clear(); m_names.clear(); }
+
+  std::ranges::view auto
+  names() const noexcept
+  { return std::views::all(m_names) | std::views::values; }
 
   private:
   uint64_t m_cnt {0};

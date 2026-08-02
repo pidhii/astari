@@ -101,7 +101,7 @@ predicate_indicator(interpreter &pl, object_iterator x);
 
 
 void
-transfer_symbols(dictionary &from, dictionary &to, object &obj);
+transfer_symbols(const dictionary &from, dictionary &to, object &obj);
 
 
 /**
