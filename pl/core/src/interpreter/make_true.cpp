@@ -260,11 +260,9 @@ interpreter::_make_true__predicate(runtime &rt, size_t _, object_iterator e_,
   if (auto it = rt.variants_begin(key); it != rt.variants_end())
   {
     auto nextit = std::next(it);
-    while (nextit != m_dyndb.end(key))
+    for (; nextit != m_dyndb.end(key); it = nextit, ++nextit)
     { // NOTE: dont remove these curly brackets
       MAKE_PREDICATE_TRUE(rt, e, *it, cont)
-      it = nextit;
-      ++nextit;
     }
     // Tail-call on the last variant
     MAKE_PREDICATE_TRUE_TC(rt, e, *it, cont);
