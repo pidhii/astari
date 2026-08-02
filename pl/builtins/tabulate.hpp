@@ -26,12 +26,6 @@ class lib_tabulate {
         if (it->second.is_building)
           return;
 
-        // if (not it->second.solutions.empty())
-        // {
-        //   std::cerr << std::format("hit {} [table size = {}]", pl.dump(goalview),
-        //                           it->second.solutions.size())
-        //             << std::endl;
-        // }
         for (const object &variant : it->second.solutions)
         {
           barrier cp;
@@ -46,20 +40,28 @@ class lib_tabulate {
         return;
       }
 
-      // std::cerr << "miss " << pl.dump(goalview) << std::endl;
 #define VER 1
 #if VER == 1
-      m_table[goalview].is_building = true;
+      barrier buildcp;
+      rt.push_choice_point(&buildcp);
+      {
+        table_entry &ent = m_table[goalview];
+        ent.is_building = true;
+        ent.build_cp = &buildcp;
+      }
       std::list<runtime> todo;
       pl.make_true(rt, goal, continuation::from_lambda([&](CONT_ARGS) {
         table_entry &entry = m_table[goalview];
         entry.solutions.push_back(rt.reconstruct(goal));
+        rt.lock_heap_exc(&buildcp);
         todo.emplace_back(rt);
       }));
       m_table[goalview].is_building = false;
 
       for (runtime &rt : todo)
         cont(rt, 0, 0, 0, 0);
+
+      rt.unwind(&buildcp);
 #else
       m_table[goalview].is_building = true;
       pl.make_true(rt, goal, [&](runtime &rt) {
@@ -94,6 +96,7 @@ class lib_tabulate {
   private:
   struct table_entry {
     bool is_building;
+    barrier *build_cp;
     std::vector<object> solutions;
   };
   std::unordered_map<object_view, table_entry> m_table;

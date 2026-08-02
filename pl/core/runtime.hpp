@@ -216,6 +216,19 @@ class runtime: public object_allocator {
   void
   cut_exc(barrier *tgt);
 
+  void
+  lock_heap_exc(barrier *tgt)
+  {
+    barrier *cp = query()->cp;
+    while (cp != tgt)
+    {
+      if (cp->noreclaim)
+        break; // rest was already marked (TODO: find a way to assure this)
+      cp->noreclaim = true;
+      cp = cp->prev;
+    }
+  }
+
   /**
    * @brief Pop the choice point
    */
