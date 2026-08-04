@@ -154,23 +154,22 @@ interpreter::_make_true__if(runtime &rt, size_t _, object_iterator eit,
   barrier cp;
   rt.push_choice_point(&cp);
   {
-    continuation condcont = continuation::from_lambda([&](CONT_ARGS) {
-      rt.cut(&cp);
-      cond = true;
-    });
+    continuation condcont = continuation::from_lambda(
+        [this, &cond, &cp, cont, ethen](CONT_ARGS) mutable {
+          rt.cut(&cp);
+          cond = true;
+          TAILCALL _make_true(rt, PLUG, ethen.begin(), &cp, cont);
+        });
     _make_true(rt, PLUG, econd.begin(), &cp, condcont);
   }
 
-  if (cond)
-  { // Don't unwind and proceed with the then clause.
-    rt.pop_choice_point(&cp);
-    TAILCALL _make_true(rt, PLUG, ethen.begin(), clause, cont);
-  }
-  else
-  { // Unwind unifications from the cond clause and go into the else clause.
+  if (not cond)
+  {
     rt.unwind(&cp);
     TAILCALL _make_true(rt, PLUG, eelse.begin(), clause, cont);
   }
+  else
+    rt.pop_choice_point(&cp);
 }
 
 
