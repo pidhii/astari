@@ -24,6 +24,8 @@ iso_all_solutions(interpreter &pl)
     // copy the list onto the data heap directly, without using adopt. For this,
     // rename variables in the reconstructed instances s.t. they form a densely
     // packed immediate complement of the current set of variables.
+    // - patch: Preserve all bindings to old variables. New variables are
+    //          disentangled as before.
     {
       barrier cp;
       rt.push_choice_point(&cp);
@@ -34,7 +36,20 @@ iso_all_solutions(interpreter &pl)
       pl.make_true(rt, goal, continuation::from_lambda([&](CONT_ARGS) {
         object inst = rt.reconstruct(temp);
         varnamespace ns_local;
-        varn = normalize_r(inst, inst.data(), ns_local, varn);
+        for (word_t &w : inst)
+        {
+          if (is_nonterminal(w))
+          {
+            nonterminal var;
+            dc.decode(w, var);
+            if (var.id >= varn)
+            {
+              auto [it, isnew] = ns_local.emplace(var.id, varn);
+              varn += isnew;
+              w = ec.encode(nonterminal(it->second));
+            }
+          }
+        }
         l += cons2;
         l += inst; 
       }));
