@@ -45,7 +45,7 @@ iso_term_creation_and_decomposition(interpreter &pl)
       dc.decode(buf[0], hdr);
       buf[0] = ec.encode(term_header(hdr.id, lsize - 1));
 
-      word_t *p = rt.allocate(buf.size());
+      word_t *p = rt.allocate(buf.size()); // FIXME (heap)
       std::copy(buf.begin(), buf.end(), p);
       if (rt.match(result, {p, buf.size()}))
         TAILCALL cont.call_tc(rt, 0, 0, 0, 0);
@@ -61,7 +61,7 @@ iso_term_creation_and_decomposition(interpreter &pl)
       list += cons;
       list += ec.encode(term_header(hdr.id, 0));
       list += arglist;
-      word_t *p = rt.allocate(list.size());
+      word_t *p = rt.allocate(list.size()); // FIXME (heap)
       std::copy(list.begin(), list.end(), p);
       if (rt.match({p, list.size()}, rhs))
         TAILCALL cont.call_tc(rt, 0, 0, 0, 0);
@@ -81,8 +81,8 @@ iso_term_creation_and_decomposition(interpreter &pl)
     {
       term_header hdr;
       dc.decode(term[0], hdr);
-      word_t *termname = rt.allocate(1);
-      word_t *termarity = rt.allocate(1);
+      word_t *termname = rt.allocate(1); // FIXME (heap)
+      word_t *termarity = rt.allocate(1); // FIXME (heap)
       *termname = ec.encode(term_header(hdr.id, 0));
       *termarity = ec.encode(int(hdr.arity));
       const object_view name = dc.decode_object(argv);
@@ -94,5 +94,16 @@ iso_term_creation_and_decomposition(interpreter &pl)
     }
     else
       raise(pl, ::term("instantiation_error"));
+  });
+
+  pl.add_meta_op("copy_term", [&](runtime &rt, size_t argc, object_iterator argv,
+                                  continuation &cont) {
+    assert_arity(pl, "copy_term", argc, 2);
+    basic_decoder dc;
+    const object_view term = dc.decode_object(argv);
+    const object_view rslt = dc.decode_object(argv);
+    const object_view copy = rt.adopt_hp(rt.reconstruct(term));
+    if (rt.match(copy, rslt))
+      TAILCALL cont.call_tc(rt, 0, 0, 0, 0);
   });
 }

@@ -69,4 +69,43 @@ iso_clause_creation_and_destruction(interpreter &pl)
     }
   });
 
+  // TODO:
+  // - handle static predicates
+  // - handle nonterminal arguments
+  pl.add_meta_op("clause", [&](runtime &rt, size_t argc, object_iterator argv,
+                               continuation &cont) {
+    assert_arity(pl, "clause", argc, 2);
+    basic_decoder dc;
+    const object_view head = rt.reduce(dc.decode_object(argv));
+    const object_view body = rt.reduce(dc.decode_object(argv));
+    const object_view true0 = rt.adopt_hp(make_term(pl, term("true")));
+    if (is_term(head[0]))
+    {
+      const word_t key = the_word(head[0]);
+      if (pl.is_dynamic(key))
+      {
+        for (auto it = rt.variants_begin(key); it != rt.variants_end(); ++it)
+        {
+          barrier cp;
+          rt.push_choice_point(&cp);
+          state_saver _ {cont};
+
+          const object_view ithead = rt.adopt_hp(rt.variant_sign(it));
+          const object_view itbody = rt.variant_body(it).empty()
+                                         ? true0
+                                         : rt.adopt_hp(rt.variant_body(it));
+          if (rt.match(head, ithead) and rt.match(body, itbody))
+            cont(rt, 0, 0, 0, 0);
+          if (rt.uwuc(&cp))
+            return;
+        }
+      }
+      else
+        raise(pl, term("unimplemented", term("clause", rt.reconstruct(head),
+                                             rt.reconstruct(body))));
+    }
+    else
+      raise(pl, term("unimplemented", term("clause", rt.reconstruct(head),
+                                           rt.reconstruct(body))));
+  });
 }

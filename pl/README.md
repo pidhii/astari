@@ -46,7 +46,7 @@ o <b>Term Creation and Decomposition</b>
   - [x] functor/3
   - [ ] arg/3
   - [x] `=..`/2
-  - [ ] copy_term/2 
+  - [x] copy_term/2 
 o <b>Arithmetic Evaluation</b>
   - [x] is/2
   - Evaluable Functors 
