@@ -73,6 +73,62 @@ class lib_tabulate {
 
 #endif
     });
+
+    // tabulate/1
+    pl.add_meta_op("tabulatex", [this, &pl](runtime &rt, size_t argc,
+                                            object_iterator argv,
+                                            const continuation &cont) {
+      assert(argc == 1);
+      basic_decoder dc;
+      const object_view goal = rt.reduce(dc.decode_object(argv));
+
+      const object_view goalview = _snapshot(rt, goal);
+
+      if (auto it = m_xtable.find(goalview); it != m_xtable.end())
+      {
+        _unsnapshot(goalview);
+        if (it->second.is_building)
+        {
+          if (rt.match(goal, it->second.orig_goal))
+            TAILCALL cont.call_tc(rt, 0, 0, 0, 0);
+          return;
+        }
+
+        for (const object &variant : it->second.solutions)
+        {
+          barrier cp;
+          rt.push_choice_point(&cp);
+          const object_view g = rt.adopt_hp(variant);
+          [[maybe_unused]] const bool ok = rt.match(goal, g);
+          assert(ok);
+          cont(rt, 0, 0, 0, 0);
+          if (rt.uwuc(&cp))
+            break;
+        }
+        return;
+      }
+
+      barrier buildcp;
+      rt.push_choice_point(&buildcp);
+      {
+        xtable_entry &ent = m_xtable[goalview];
+        ent.is_building = true;
+        ent.build_cp = &buildcp;
+        ent.orig_goal = goal;
+      }
+      std::list<runtime> todo;
+      pl.make_true(rt, goal, continuation::from_lambda([&](CONT_ARGS) {
+        xtable_entry &ent = m_xtable[goalview];
+        ent.solutions.push_back(rt.reconstruct(goal));
+        rt.lock_heap_exc(&buildcp);
+        todo.emplace_back(rt);
+      }));
+      m_xtable[goalview].is_building = false;
+
+      for (runtime &rt : todo)
+        cont(rt, 0, 0, 0, 0);
+      rt.unwind(&buildcp);
+    });
   }
 
   private:
@@ -100,5 +156,15 @@ class lib_tabulate {
     std::vector<object> solutions;
   };
   std::unordered_map<object_view, table_entry> m_table;
+
+  using state = std::tuple<runtime, continuation, object_view>;
+  struct xtable_entry {
+    bool is_building;
+    barrier *build_cp;
+    object_view orig_goal;
+    std::vector<object> solutions;
+  };
+  std::unordered_map<object_view, xtable_entry> m_xtable;
+
   object_allocator m_cache;
 };
