@@ -43,6 +43,9 @@ struct push_deleter {
   private:
   push_deleter() = default;
   push_deleter(const push_deleter &) = delete;
+  push_deleter(push_deleter &&) = delete;
+  void operator = (const push_deleter &) = delete;
+  void operator = (push_deleter &&) = delete;
 
   private:
   std::deque<std::pair<void *, void (*)(void *)>> m_queue;
@@ -57,7 +60,7 @@ struct tcfunction<RetT(ArgsT...)> {
   tcfunction() = default;
 
   tcfunction(const tcfunction &other)
-  : m_clos {other.m_copy(other.m_clos)},
+  : m_clos {other._copy_clos()},
     m_func {other.m_func},
     m_dtor {other.m_dtor},
     m_copy {other.m_copy}
@@ -73,11 +76,10 @@ struct tcfunction<RetT(ArgsT...)> {
   tcfunction &
   operator = (const tcfunction &other)
   {
-    if (this == &other)
-      return *this;
+    void *clos = other._copy_clos();
     if (m_clos)
       m_dtor(m_clos);
-    m_clos = other.m_copy(other.m_clos);
+    m_clos = clos;
     m_func = other.m_func;
     m_dtor = other.m_dtor;
     m_copy = other.m_copy;
@@ -126,7 +128,10 @@ struct tcfunction<RetT(ArgsT...)> {
   ~tcfunction()
   {
     if (m_clos)
+    {
       push_deleter::instance().push_delete(m_clos, m_dtor);
+      m_clos = nullptr;
+    }
     // if (m_clos)
     //   m_dtor(m_clos);
   }
@@ -143,6 +148,16 @@ struct tcfunction<RetT(ArgsT...)> {
   {
     assert(m_clos != nullptr);
     TAILCALL m_func(m_clos, args...);
+  }
+
+  private:
+  void*
+  _copy_clos() const noexcept
+  {
+    if (m_clos and m_copy)
+      return m_copy(m_clos);
+    else
+      return nullptr;
   }
 
   private:

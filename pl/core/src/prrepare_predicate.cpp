@@ -55,8 +55,8 @@ prepare_predicate(object_view signobj, object_view bodyobj)
   _occurances occurs;
   _count_occurances(sign, occurs);
   _count_occurances(body, occurs);
-  _mark_wildcards(sign, occurs);
-  _mark_wildcards(body, occurs);
+  // _mark_wildcards(sign, occurs);
+  // _mark_wildcards(body, occurs);
 
   dc.decode_object(sign.data()); // call for side-effects
   if (not body.empty())

@@ -1,5 +1,7 @@
 #include "iso.hpp"
 
+#include "utl/state_saver.hpp"
+
 
 void
 iso_clause_creation_and_destruction(interpreter &pl)
@@ -43,7 +45,7 @@ iso_clause_creation_and_destruction(interpreter &pl)
                 rt.recover(std::move(save)));
 
   pl.add_meta_op("retract", [&](runtime &rt, size_t argc, object_iterator argv,
-                             const continuation &cont) {
+                                continuation &cont) {
     assert_arity(pl, "retract", argc, 1);
     basic_decoder dc;
     const object_view clause = dc.decode_object(rt.reduce(argv));
@@ -56,6 +58,7 @@ iso_clause_creation_and_destruction(interpreter &pl)
     {
       barrier cp;
       rt.push_choice_point(&cp);
+      state_saver _ {cont};
       const object_view itclause = rt.adopt_clause_hp(it);
       if (rt.match(clause, itclause))
       {

@@ -14,7 +14,7 @@
 #include <readline/readline.h>
 
 
-static interpreter repl_pl;
+static interpreter *repl_pl;
 
 static char*
 repl_term_generator(const char *_text, int state)
@@ -26,7 +26,7 @@ repl_term_generator(const char *_text, int state)
   if (state == 0)
   {
     text = _text;
-    const auto ns = repl_pl.symbols().names();
+    const auto ns = repl_pl->symbols().names();
     names.assign(ns.begin(), ns.end());
     offset = 0;
   }
@@ -73,9 +73,9 @@ repl()
     {
       try {
         parser.pop_token(tokens);
-        const object expr = parser.parse_expr(repl_pl.symbols(), tokens);
+        const object expr = parser.parse_expr(repl_pl->symbols(), tokens);
         const clock_t start = clock();
-        repl_pl.eval(expr, tokens.vars);
+        repl_pl->eval(expr, tokens.vars);
         const clock_t end = clock();
         std::cerr << std::fixed << std::setprecision(2) << "CPU time used: "
                   << 1000.0 * (end - start) / CLOCKS_PER_SEC << "ms\n";
@@ -93,6 +93,8 @@ repl()
 int
 main(int argc, char **argv)
 {
+  repl_pl = new interpreter;
+
   int opt;
   while ((opt = getopt(argc, argv, "h")) >= 0)
   {
@@ -104,9 +106,9 @@ main(int argc, char **argv)
   while (optind < argc)
   {
     if (std::string_view(argv[optind]).ends_with(".pl"))
-      repl_pl.load_file(argv[optind++]);
+      repl_pl->load_file(argv[optind++]);
     else if (std::string_view(argv[optind]).ends_with(".plo"))
-      repl_pl.load_objfile(argv[optind++]);
+      repl_pl->load_objfile(argv[optind++]);
     else
     {
       std::cerr << std::format("unrecognized file format ({})", argv[optind])
@@ -115,11 +117,13 @@ main(int argc, char **argv)
     }
   }
 
-  iso _ {repl_pl};
-  lib_breadthfirst _bf {repl_pl};
-  lib_tabulate _tab {repl_pl};
-  lib_parsing _pars {repl_pl};
+  iso _ {*repl_pl};
+  lib_breadthfirst _bf {*repl_pl};
+  lib_tabulate _tab {*repl_pl};
+  lib_parsing _pars {*repl_pl};
 
-  repl_pl.eval("write(\"Hello World!\"), nl");
+  repl_pl->eval("write(\"Hello World!\"), nl");
   repl();
+
+  delete repl_pl;
 }
