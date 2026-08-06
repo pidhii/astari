@@ -38,7 +38,7 @@ parse_(X, [X]).
 %% expr => expr op expr
 parse_(expr(xfx(Lhs, Op, Rhs)), Input) :-
   append(L, [opsym(Op)|R], Input),
-  parse(expr(Lhs), L),
+  parse(expr(Lhs), L), !,
   parse(expr(Rhs), R).
 
 %% expr => sym
@@ -54,7 +54,7 @@ parse_(expr(var(X)), [var(X)]).
 parse_(expr(func(F, E)), [fun(F), '(' | Input]) :-
   append(I, [')'], Input),
   parse(expr(E), I).
-%
+
 %% expr => sym '(' ')'
 parse_(expr(F), [fun(F), '(', ')']).
 
@@ -80,9 +80,67 @@ parse_(expr(implist(E, Last)), ['[' | Input]) :-
 parse_(expr(fx(Op, Arg)), [opsym(Op) | Input]) :-
   parse(expr(Arg), Input).
 
+%%                           dcg => ...
+%%
+%% dcg => dcg ',' dcg
+parse_(dcg(E, StIn, StOut), Input) :-
+  append(L, [opsym(',')|R], Input),
+  parse(dcg(LE, StIn, St), L), !,
+  parse(dcg(RE, St, StOut), R),
+  (
+    RE =.. [','|REs] -> E =.. [',',LE|REs];
+    E = (LE, RE)
+  ).
+
+%% dcg => '!'
+parse_(dcg('!', St, St), [sym('!')]).
+
+%% dcg => sym
+parse_(dcg(E, StIn, StOut), [sym(F)]) :- F \= '!',
+  E =.. [F, StIn, StOut].
+
+%% dcg => sym '(' expr ')'
+parse_(dcg(E, StIn, StOut), [fun(F), '(' | Input]) :-
+  append(I, [')'], Input),
+  parse(expr(Arg), I),
+  balance(Arg, BArg),
+  flatten(BArg, FArg, M),
+  (
+    M, FArg =.. [','|Args];
+    Args = [FArg]
+  ),
+  append(Args, [StIn, StOut], FArgs),
+  E =.. [F|FArgs].
+
+%% dcg => '[' expr ']'
+parse_(dcg(E, StIn, StOut), ['[' | Input]) :-
+  append(I, [']'], Input), !,
+  parse(expr(Expr), I),
+  balance(Expr, BExpr),
+  flatten(BExpr, FExpr, M),
+  (
+    M, FExpr =.. [','|FArgs] -> append(FArgs, StOut, EArgs), E = (StIn = EArgs);
+    E = (StIn = [FExpr | StOut])
+  ).
+
+%% dcg => '{' expr '}'
+parse_(dcg(E, St, St), ['{' | Input]) :-
+  append(I, ['}'], Input), !,
+  parse(expr(Expr), I),
+  balance(Expr, BExpr),
+  flatten(BExpr, E).
+
 
 %%                           stmt => ...
 %%
+%% stmt => expr '-->' dcg
+parse(stmt(dcg(E)), In) :-
+  append(L, [opsym('-->')|RR], In),
+  append(R, ['.'], RR),
+  parse(dcg(SHead, StIn, StOut), L),
+  parse(dcg(SBody, StIn, StOut), R),
+  E = (SHead :- SBody).
+
 %% stmt => expr '.'
 parse(stmt(S), In) :-
   append(Input, ['.'], In),
@@ -95,7 +153,7 @@ qtokens([TH|TT], [QH|QT]) :-
   (
     var(TH)                                    -> QH = var(TH);
     op(_, _, TH)                               -> QH = opsym(TH);
-    member(TH, ['(', ')', '[', '|', ']', '.']) -> QH = TH;
+    member(TH, ['(',')','[','|',']','{','}','.']) -> QH = TH;
     atom(TH)                                   -> (
       TT = ['('|_] -> QH = fun(TH);
       QH = sym(TH)
@@ -162,16 +220,16 @@ rotate_left(xfx(Al, Ao, xfx(X, Bo, Br)), xfx(xfx(Al, Ao, X), Bo, Br)).
 rotate_left(fx(Ao, xfx(X, Bo, Br)), xfx(fx(Ao, X), Bo, Br)).
 
 balance(I, O) :-
-  once(breadthfirst(balance_(I, O))).
+  once(balance_(I, O)).
 
 balance_(X, X) :- atomic(X).
+balance_(dcg(E), dcg(E)).
 balance_(var(X), var(X)).
 balance_(func(F, AIn), func(F, AOut)) :- balance_(AIn, AOut).
 balance_(inbrackets(I), inbrackets(O)) :- balance_(I, O).
 balance_(list(I), list(O)) :- balance_(I, O).
 balance_(implist(IA, IB), implist(OA, OB)) :- balance_(IA, OA), balance_(IB, OB).
 balance_(fx(Io, Ir), O) :-
-  yield,
   balance_(Ir, Or),
   (
     right_assoc(fx(Io, Or), Or) -> O = fx(Io, Or);
@@ -179,7 +237,6 @@ balance_(fx(Io, Ir), O) :-
   ).
 
 balance_(xfx(Il, Io, Ir), O) :-
-  yield,
   balance_(Il, Ol),
   balance_(Ir, Or), 
   I = xfx(Ol, Io, Or),
@@ -207,6 +264,8 @@ flatten(X, FX, Mergable) :-
 
 
 flatten(X, X) :- atomic(X).
+
+flatten(dcg(X), X).
 
 flatten(var(X), X).
 
