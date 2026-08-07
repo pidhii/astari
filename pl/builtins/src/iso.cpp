@@ -24,4 +24,6 @@ iso::iso(interpreter &pl, unsigned libs)
     iso_all_solutions(pl);
   if (libs & clause_creation_and_destruction)
     iso_clause_creation_and_destruction(pl);
+  if (libs & atom_processing)
+    iso_atom_processing(pl);
 }

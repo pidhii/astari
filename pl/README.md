@@ -139,7 +139,7 @@ o <b>Logic and Control</b>
   - [x] once/1 
   - [x] repeat/0 
 o <b>Atom Processing</b>
-  - [ ] atom_concat/3 
+  - [x] atom_concat/3 
   - [ ] atom_length/2 
   - [ ] atom_chars/2
   - [ ] atom_codes/2 
@@ -160,6 +160,7 @@ o <b>Directives</b>
 o <b>Predicates</b>
   - [x] false/0
   - [x] tokenize/1
+  - [x] gensym/2
   - Tabled Execution
     - [x] tabulate/1
   - BFS Execution

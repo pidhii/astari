@@ -17,6 +17,9 @@ write(Term) :-
   current_output(S),
   write_term(S, Term, [numbervars(true)]).
 
+write(S,Term) :-
+  write_term(S, Term, [numbervars(true)]).
+
 writeq(Term) :-
   current_output(S),
   write_term(S, Term, [quoted(true), numbervars(true)]). 

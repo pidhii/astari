@@ -20,11 +20,10 @@ iso_type_testing(interpreter &pl)
 
   // atom/1
   pl.add_meta_op("atom", [&](runtime &rt, size_t argc, object_iterator argv,
-                             const continuation &cont) {
+                             continuation &cont) {
     assert_arity(pl, "atom", argc, 1);
-    basic_decoder dc;
     const object_iterator x = rt.reduce(argv);
-    if (is_term(x[0]) and dc.decode_term_header(x[0]).arity == 0)
+    if (is_term_n(x[0], 0))
       TAILCALL cont.call_tc(rt, 0, 0, 0, 0);
   });
 
@@ -36,7 +35,7 @@ iso_type_testing(interpreter &pl)
     switch (word_type(x[0]))
     {
       case word_type::signed_int_number: // fallthrough
-      case word_type::unsigned_int_number: TAILCALL cont(rt, 0, 0, 0, 0);
+      case word_type::unsigned_int_number: TAILCALL cont.call_tc(rt, 0, 0, 0, 0);
       default: return;
     }
   });

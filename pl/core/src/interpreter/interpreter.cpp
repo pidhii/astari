@@ -153,6 +153,14 @@ interpreter::assertz(object_view signobj, object_view bodyobj)
 
 
 void
+interpreter::import_directory(std::string_view path)
+{
+  const std::filesystem::path fullpath = std::filesystem::canonical(path);
+  m_importdirs.emplace(m_importdirs.begin(), fullpath);
+}
+
+
+void
 interpreter::ensure_loaded(std::string_view path_)
 {
   namespace fs = std::filesystem;
@@ -182,7 +190,7 @@ interpreter::ensure_loaded(std::string_view path_)
       else if (fullpath.extension() == ".plo")
         return load_objfile(fullpath.c_str());
       else
-        assert(not "unreachable code" );
+        assert(not "unreachable code");
     }
     catch (...)
     { continue; }
@@ -247,9 +255,15 @@ interpreter::make_true(std::string_view expr,
 
 
 void
+interpreter::make_true(std::string_view expr)
+{
+  make_true(expr, [](const solution &) {});
+}
+
+
+void
 interpreter::eval(object_view obj, const dictionary &vardict)
 {
-  std::cout << "[eval] " << dump_object(m_symdict, obj) << std::endl;
   make_true(vardict, obj, [this] (const solution &ans) {
     std::cout << "yes";
     bool isfirst = true;

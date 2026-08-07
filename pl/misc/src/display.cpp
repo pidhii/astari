@@ -33,8 +33,8 @@ _dump_escaped_string(std::string_view s, std::ostream &os)
 
 template <typename InIter>
 void
-_dump_object(const dictionary &dict, InIter &it, std::ostream &os, bool quoted,
-             bool ignore_ops, bool numbervars)
+_dump_object(const dictionary &dict, InIter &it, std::ostream &os,
+             const bool quoted, const bool ignore_ops, const bool numbervars)
 {
   static lexer lex;
   static basic_decoder dc;

@@ -7,10 +7,11 @@
 #include "pl/misc/term_utils.hpp"
 #include "pl/parse/parse_error.hpp"
 #include "pl/parse/prolog_parser.hpp"
+#include "utl/cd.hpp"
 
+#include <filesystem>
 #include <fstream>
 #include <iostream>
-
 
 
 #define ERROR(fmt, ...)                                                        \
@@ -19,7 +20,10 @@
 void
 interpreter::load_file(std::string_view path)
 {
-  std::ifstream file {path.data(), std::ios_base::binary};
+  const std::filesystem::path fullpath = std::filesystem::canonical(path);
+  auto _ = cd(fullpath.parent_path());
+
+  std::ifstream file {fullpath.filename(), std::ios_base::binary};
   if (not file)
     ERROR("failed to open file for reading ({})", path);
 
@@ -39,11 +43,14 @@ interpreter::load_file(std::string_view path)
 void
 interpreter::load_objfile(std::string_view path)
 {
+  const std::filesystem::path fullpath = std::filesystem::canonical(path);
+  auto _ = cd(fullpath.parent_path());
+
   object_file objfile;
 
   // fill in `objfile`
   prolog_parser p;
-  std::ifstream file {path.data()};
+  std::ifstream file {fullpath.filename()};
   if (not file)
     ERROR("failed to open file for reading ({})", path);
   objfile.read(file, *this);

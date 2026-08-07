@@ -484,8 +484,7 @@ class interpreter: private runtime {
    * @see @ref interpreter::ensure_loaded
    */
   void
-  import_directory(std::string_view path) noexcept
-  { m_importdirs.emplace(m_importdirs.begin(), path); }
+  import_directory(std::string_view path);
 
   /**
    * @brief Require a script or objects loaded into interpreter
@@ -663,6 +662,9 @@ class interpreter: private runtime {
   void
   make_true(std::string_view expr,
             const std::function<void(const solution &)> &cont);
+
+  void
+  make_true(std::string_view expr);
 
   /**
    * @brief Low-level goal evaluation entry point 

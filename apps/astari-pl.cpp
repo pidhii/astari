@@ -122,7 +122,6 @@ main(int argc, char **argv)
   lib_tabulate _tab {*repl_pl};
   lib_parsing _pars {*repl_pl};
 
-  repl_pl->eval("write(\"Hello World!\"), nl");
   repl();
 
   delete repl_pl;

@@ -32,6 +32,7 @@ _write_term(iso_io &io, runtime &rt, size_t argc, object_iterator argv,
     dump_object(io.symbols, term, io.get_output(s),
                 the_word(quoted[0]) == true0, the_word(ignore_ops[0]) == true0,
                 the_word(numbervars[0]) == true0);
+    io.get_output(s).flush();
   }
   TAILCALL cont.call_tc(rt, 0, 0, 0, 0);
 }

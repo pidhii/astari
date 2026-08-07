@@ -136,6 +136,9 @@ struct tcfunction<RetT(ArgsT...)> {
     //   m_dtor(m_clos);
   }
 
+  operator bool () const noexcept
+  { return m_clos != nullptr; }
+
   RetT
   operator () (ArgsT ...args) const noexcept
   {
