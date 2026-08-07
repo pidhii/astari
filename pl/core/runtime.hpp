@@ -68,7 +68,7 @@ struct barrier {
 // using continuation =
 //     std::function<void(runtime &, size_t, object_iterator, barrier *, void *)>;
 class runtime;
-#define CONT_ARGS runtime &rt, size_t, object_iterator, barrier *, void*
+#define CONT_ARGS runtime &rt
 using continuation = tcfunction<tcfunction<void()>(CONT_ARGS)>;
 
 
@@ -275,7 +275,7 @@ class runtime: public object_allocator {
         return true;
       }
       if (cc)
-        cc = cc(*this, 0, 0, 0, 0).reinterpret<continuation::signature>();
+        cc = cc(*this).reinterpret<continuation::signature>();
       else
         return false;
     }
@@ -285,7 +285,7 @@ class runtime: public object_allocator {
   exhaust(continuation cc)
   {
     while (cc)
-      cc = cc(*this, 0, 0, 0, 0).reinterpret<continuation::signature>();
+      cc = cc(*this).reinterpret<continuation::signature>();
   }
 
   /**

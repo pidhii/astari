@@ -1,14 +1,12 @@
 #include "iso.hpp"
 
-#include "utl/state_saver.hpp"
-
 
 void
 iso_clause_creation_and_destruction(interpreter &pl)
 {
 #define DEFINE_ASSERT(name, insert, recover)                                   \
   pl.add_meta_op(name, [&](runtime &rt, size_t argc, object_iterator argv,     \
-                           continuation cont) {                         \
+                           continuation cont) {                                \
     assert_arity(pl, name, argc, 1);                                           \
     basic_decoder dc;                                                          \
     const object clause = rt.reconstruct(dc.decode_object(argv));              \
@@ -30,8 +28,7 @@ iso_clause_creation_and_destruction(interpreter &pl)
     insert;                                                                    \
     try                                                                        \
     {                                                                          \
-      while (cont)                                                             \
-        cont = cont(rt, 0, 0, 0, 0).reinterpret<continuation::signature>();    \
+      rt.exhaust(cont);                                                        \
     }                                                                          \
     catch (...)                                                                \
     {                                                                          \
@@ -69,11 +66,9 @@ iso_clause_creation_and_destruction(interpreter &pl)
         {
           if (rt.driveuc(&cp, cc))
           {
-            return continuation::from_lambda([cc,save](CONT_ARGS) mutable {
-              rt.exhaust(std::move(cc));
-              rt.recover(std::move(save));
-              return DONE;
-            });
+            rt.exhaust(std::move(cc));
+            rt.recover(std::move(save));
+            return FAIL;
           }
         }
         catch (...)

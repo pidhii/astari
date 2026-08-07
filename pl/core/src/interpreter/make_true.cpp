@@ -21,7 +21,7 @@ _obj(object_iterator e)
 
 continuation
 interpreter::_make_true(runtime &rt, size_t, object_iterator e, barrier *clause,
-                        continuation cont)
+                        const continuation &cont)
 {
   static basic_decoder dc;
   // std::clog << "[make_true] " << dump(rt.reconstruct(_obj(e))) << std::endl;
@@ -35,14 +35,14 @@ interpreter::_make_true(runtime &rt, size_t, object_iterator e, barrier *clause,
       switch (hdr.id)
       {
         case op_and:
-          return _make_true__and(rt, hdr.arity, e + 1, clause, std::move(cont));
+          return _make_true__and(rt, hdr.arity, e + 1, clause, cont);
 
         case op_or:
-          return _make_true__or(rt, hdr.arity, e + 1, clause, std::move(cont));
+          return _make_true__or(rt, hdr.arity, e + 1, clause, cont);
 
         case op_if:
           assert(hdr.arity == 3);
-          return _make_true__if(rt, PLUG, e + 1, clause, std::move(cont));
+          return _make_true__if(rt, PLUG, e + 1, clause, cont);
 
         case op_cut:
           assert(hdr.arity == 0);
@@ -55,7 +55,7 @@ interpreter::_make_true(runtime &rt, size_t, object_iterator e, barrier *clause,
           return continuation {};
 
         default: // predicate
-          return _make_true__predicate(rt, PLUG, e, clause, std::move(cont));
+          return _make_true__predicate(rt, PLUG, e, clause, cont);
       }
     }
 
@@ -64,7 +64,7 @@ interpreter::_make_true(runtime &rt, size_t, object_iterator e, barrier *clause,
       nonterminal var;
       dc.decode(e[0], var);
       if (auto val = rt.dereference(var.id))
-        return _make_true(rt, PLUG, val.value(), clause, std::move(cont));
+        return _make_true(rt, PLUG, val.value(), clause, cont);
       else
         raise(*this, term("instantiation_error"));
     }
@@ -77,12 +77,12 @@ interpreter::_make_true(runtime &rt, size_t, object_iterator e, barrier *clause,
 
 continuation
 interpreter::_make_true__and(runtime &rt, size_t i, object_iterator eit,
-                             barrier *clause, continuation cont)
+                             barrier *clause, const continuation &cont)
 {
   // std::clog << "[make_true/and] " << dump(rt.reconstruct(_obj(eit))) << std::endl;
   basic_decoder dc;
   if (i == 1)
-    return _make_true(rt, PLUG, eit, clause, std::move(cont));
+    return _make_true(rt, PLUG, eit, clause, cont);
   if (i > 0)
   {
     const object_iterator e = eit;
@@ -90,10 +90,10 @@ interpreter::_make_true__and(runtime &rt, size_t i, object_iterator eit,
     continuation thencont = continuation::from_lambda(
         // [this, i, eit, cont = std::move(cont), clause](CONT_ARGS) {
         [this, i, eit, cc=std::move(cont), clause](CONT_ARGS) {
-          return _make_true__and(rt, i - 1, eit, clause, std::move(cc))
+          return _make_true__and(rt, i - 1, eit, clause, cc)
               .reinterpret<void()>();
         });
-    return _make_true(rt, PLUG, e, clause, std::move(thencont));
+    return _make_true(rt, PLUG, e, clause, thencont);
   }
   else // i == 0
     return cont;
@@ -102,7 +102,7 @@ interpreter::_make_true__and(runtime &rt, size_t i, object_iterator eit,
 
 continuation
 interpreter::_make_true__or(runtime &rt, size_t i, object_iterator eit,
-                            barrier *clause, continuation cont)
+                            barrier *clause, const continuation &cont)
 {
   // std::clog << "[make_true/or] ..." << std::endl;
   basic_decoder dc;
@@ -118,7 +118,7 @@ interpreter::_make_true__or(runtime &rt, size_t i, object_iterator eit,
     rt.unwind(&cp);
     dc.decode_object(eit); // call for side-effects
   }
-  return _make_true(rt, PLUG, eit, clause, std::move(cont));
+  return _make_true(rt, PLUG, eit, clause, cont);
 }
 
 // Soft cut version
@@ -153,7 +153,7 @@ interpreter::_make_true__or(runtime &rt, size_t i, object_iterator eit,
 // Strong cut version
 continuation
 interpreter::_make_true__if(runtime &rt, size_t _, object_iterator eit,
-                            barrier *clause, continuation cont)
+                            barrier *clause, const continuation &cont)
 {
   // std::clog << "[make_true/if] ..." << std::endl;
   basic_decoder dc;
@@ -168,16 +168,16 @@ interpreter::_make_true__if(runtime &rt, size_t _, object_iterator eit,
   continuation thencont = continuation::from_lambda(
       [this, &cp, cc=cont, ethen](CONT_ARGS) {
         rt.cut(&cp);
-        return _make_true(rt, PLUG, ethen.begin(), &cp, std::move(cc))
+        return _make_true(rt, PLUG, ethen.begin(), &cp, cc)
             .reinterpret<void()>();
       });
 
-  continuation cc = _make_true(rt, PLUG, econd.begin(), &cp, std::move(thencont));
+  continuation cc = _make_true(rt, PLUG, econd.begin(), &cp, thencont);
   if (rt.driveuc(&cp, cc))
       return cc;
 
   rt.unwind(&cp);
-  return _make_true(rt, PLUG, eelse.begin(), clause, std::move(cont));
+  return _make_true(rt, PLUG, eelse.begin(), clause, cont);
 }
 
 
@@ -225,8 +225,7 @@ interpreter::_make_true__if(runtime &rt, size_t _, object_iterator eit,
     if (not body.empty())                                                      \
     {                                                                          \
       const object_view predbody = rt.adopt_hp_n(base, body);                  \
-      return _make_true(rt, PLUG, predbody.begin(), m_query->cp,               \
-                        std::move(cont));                                      \
+      return _make_true(rt, PLUG, predbody.begin(), m_query->cp, cont);        \
     }                                                                          \
     else                                                                       \
       return cont;                                                             \
@@ -236,7 +235,7 @@ interpreter::_make_true__if(runtime &rt, size_t _, object_iterator eit,
 
 continuation
 interpreter::_make_true__predicate(runtime &rt, size_t _, object_iterator e_,
-                                   barrier *__, continuation cont)
+                                   barrier *__, const continuation &cont)
 {
   // std::clog << "[make_true/pred] " << dump(rt.reconstruct(_obj(e_))) << std::endl;
   static basic_decoder dc;
@@ -264,7 +263,7 @@ interpreter::_make_true__predicate(runtime &rt, size_t _, object_iterator e_,
   term_header hdr;
   dc.decode(e[0], hdr);
   if (const auto it = m_metaops.find(hdr.id); it != m_metaops.end())
-    return it->second(rt, hdr.arity, e.begin() + 1, std::move(cont));
+    return it->second(rt, hdr.arity, e.begin() + 1, cont);
 
   // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
   //                        dynamic predicates

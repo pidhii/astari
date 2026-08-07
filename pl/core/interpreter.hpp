@@ -681,23 +681,23 @@ class interpreter: private runtime {
 
   [[nodiscard]] continuation
   _make_true(runtime &rt, size_t _, object_iterator e, barrier *clause,
-             continuation cont);
+             const continuation& cont);
 
   [[nodiscard]] continuation
   _make_true__and(runtime &rt, size_t i, object_iterator eit,
-                  barrier *clause, continuation cont);
+                  barrier *clause, const continuation &cont);
 
   [[nodiscard]] continuation
   _make_true__or(runtime &rt, size_t i, object_iterator eit,
-                 barrier *clause, continuation cont);
+                 barrier *clause, const continuation &cont);
 
   [[nodiscard]] continuation
   _make_true__if(runtime &rt, size_t _, object_iterator eit,
-                 barrier *clause, continuation cont);
+                 barrier *clause, const continuation &cont);
 
   [[nodiscard]] continuation
   _make_true__predicate(runtime &rt, size_t _, object_iterator e,
-                        barrier *clause, continuation cont);
+                        barrier *clause, const continuation &cont);
 
   private:
   std::unordered_map<word_t, std::vector<predicate_entry>> m_predicates;

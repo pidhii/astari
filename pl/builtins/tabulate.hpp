@@ -141,7 +141,8 @@ class lib_tabulate {
       m_xtable[goalview].is_building = false;
 
       for (runtime &rt : todo)
-        cont(rt, 0, 0, 0, 0);
+        rt.exhaust(cont);
+
       rt.unwind(&buildcp);
       return FAIL;
     });
