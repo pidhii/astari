@@ -11,9 +11,18 @@ class lib_tabulate {
   lib_tabulate(interpreter &pl)
   {
     // tabulate/1
+    // pl.add_meta_op("tabulate", [this, &pl](runtime &rt, size_t argc,
+    //                                        object_iterator argv,
+    //                                        continuation cont) {
+    //   assert(argc == 1);
+    //   basic_decoder dc;
+    //   const object_view goal = rt.reduce(dc.decode_object(argv));
+    //   return pl.make_true(rt, goal, cont);
+    // });
+    // tabulate/1
     pl.add_meta_op("tabulate", [this, &pl](runtime &rt, size_t argc,
                                            object_iterator argv,
-                                           const continuation &cont) {
+                                           continuation cont) {
       assert(argc == 1);
       basic_decoder dc;
       const object_view goal = rt.reduce(dc.decode_object(argv));
@@ -24,7 +33,7 @@ class lib_tabulate {
       {
         _unsnapshot(goalview);
         if (it->second.is_building)
-          return;
+          return FAIL;
 
         for (const object &variant : it->second.solutions)
         {
@@ -33,11 +42,12 @@ class lib_tabulate {
           const object_view g = rt.adopt_hp(variant);
           [[maybe_unused]] const bool ok = rt.match(goal, g);
           assert(ok);
-          cont(rt, 0, 0, 0, 0);
-          if (rt.uwuc(&cp))
-            break;
+          continuation cc = cont;
+          if (rt.driveuc(&cp, cc))
+            return cc;
+          rt.unwind(&cp);
         }
-        return;
+        return FAIL;
       }
 
 #define VER 1
@@ -50,18 +60,20 @@ class lib_tabulate {
         ent.build_cp = &buildcp;
       }
       std::list<runtime> todo;
-      pl.make_true(rt, goal, continuation::from_lambda([&](CONT_ARGS) {
+      rt.exhaust(pl.make_true(rt, goal, continuation::from_lambda([&](CONT_ARGS) {
         table_entry &entry = m_table[goalview];
         entry.solutions.push_back(rt.reconstruct(goal));
         rt.lock_heap_exc(&buildcp);
         todo.emplace_back(rt);
-      }));
+        return DONE;
+      })));
       m_table[goalview].is_building = false;
 
       for (runtime &rt : todo)
-        cont(rt, 0, 0, 0, 0);
+        rt.exhaust(cont);
 
       rt.unwind(&buildcp);
+      return FAIL;
 #else
       m_table[goalview].is_building = true;
       pl.make_true(rt, goal, [&](runtime &rt) {
@@ -74,7 +86,7 @@ class lib_tabulate {
 #endif
     });
 
-    // tabulate/1
+    // tabulatex/1
     pl.add_meta_op("tabulatex", [this, &pl](runtime &rt, size_t argc,
                                             object_iterator argv,
                                             const continuation &cont) {
@@ -90,8 +102,9 @@ class lib_tabulate {
         if (it->second.is_building)
         {
           if (rt.match(goal, it->second.orig_goal))
-            TAILCALL cont.call_tc(rt, 0, 0, 0, 0);
-          return;
+            return cont;
+          else
+            return FAIL;
         }
 
         for (const object &variant : it->second.solutions)
@@ -101,11 +114,12 @@ class lib_tabulate {
           const object_view g = rt.adopt_hp(variant);
           [[maybe_unused]] const bool ok = rt.match(goal, g);
           assert(ok);
-          cont(rt, 0, 0, 0, 0);
-          if (rt.uwuc(&cp))
-            break;
+          continuation cc = cont;
+          if (rt.driveuc(&cp, cc))
+            return cc;
+          rt.unwind(&cp);
         }
-        return;
+        return FAIL;
       }
 
       barrier buildcp;
@@ -117,17 +131,19 @@ class lib_tabulate {
         ent.orig_goal = goal;
       }
       std::list<runtime> todo;
-      pl.make_true(rt, goal, continuation::from_lambda([&](CONT_ARGS) {
+      rt.exhaust(pl.make_true(rt, goal, continuation::from_lambda([&](CONT_ARGS) {
         xtable_entry &ent = m_xtable[goalview];
         ent.solutions.push_back(rt.reconstruct(goal));
         rt.lock_heap_exc(&buildcp);
         todo.emplace_back(rt);
-      }));
+        return DONE;
+      })));
       m_xtable[goalview].is_building = false;
 
       for (runtime &rt : todo)
         cont(rt, 0, 0, 0, 0);
       rt.unwind(&buildcp);
+      return FAIL;
     });
   }
 

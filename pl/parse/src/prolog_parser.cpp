@@ -42,7 +42,7 @@ prolog_parser::prolog_parser() : m_lib_bf {m_pl}, m_lib_tab {m_pl}
   // tokens/2
   m_pl.add_meta_op("tokens", [this](runtime &rt, size_t argc,
                                     object_iterator argv,
-                                    const continuation &cont) {
+                                    continuation cont) {
     assert(argc == 2);
     basic_decoder dc;
     const object_view string = rt.reduce(dc.decode_object(argv));
@@ -53,17 +53,19 @@ prolog_parser::prolog_parser() : m_lib_bf {m_pl}, m_lib_tab {m_pl}
     const object list = _tokenize(m_pl, vardict, ::string(string[0]));
     const object_view pobj = rt.adopt_hp(list);
     if (rt.match(pobj, tokens))
-      cont(rt, 0, 0, 0, 0);
+      return cont;
+    else
+      return FAIL;
   });
 
   m_pl.add_meta_op("debug", [this](runtime &rt, size_t argc,
                                    object_iterator argv,
-                                   const continuation &cont) {
+                                   continuation cont) {
     assert(argc == 1);
     basic_decoder dc;
     const object x = rt.reconstruct(dc.decode_object(argv));
     std::cerr << dump_object(m_pl.symbols(), x) << std::endl;
-    cont(rt, 0, 0, 0, 0);
+    return cont;
   });
 
   std::string parserfilepath;
@@ -117,6 +119,7 @@ prolog_parser::parse_expr(dictionary &symbols, const tokens &toks)
 
   object result;
   m_pl.make_true(exprvars, goal, [&] (const interpreter::solution &ans) {
+    // std::clog << "[prolog_parser] got results of parse_expr" << std::endl;
     result = ans.at("Expr");
     transfer_symbols(m_pl.symbols(), symbols, result);
   }, true);

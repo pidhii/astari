@@ -311,22 +311,6 @@ runtime::pop_choice_point(barrier *cp)
   m_query->cp = cp->prev;
 }
 
-bool
-runtime::uwuc(barrier *cp)
-{
-  if (cp->cut)
-  {
-    pop_choice_point(cp);
-    return true;
-  }
-  else
-  {
-    unwind(cp);
-    return false;
-  }
-}
-
-
 runtime::recovery
 runtime::asserta_dyn(object_view signobj, object_view bodyobj)
 {

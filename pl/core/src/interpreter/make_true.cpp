@@ -5,19 +5,26 @@
 #include "pl/dictionary.hpp"
 #include "pl/misc/term_utils.hpp"
 #include "pl/obj/object.hpp"
-#include "utl/state_saver.hpp"
 
 #include <iostream>
 
 
 #define PLUG 0
 
+object_view
+_obj(object_iterator e)
+{
+  basic_decoder dc;
+  return dc.decode_object(e);
+}
 
-void
+
+continuation
 interpreter::_make_true(runtime &rt, size_t, object_iterator e, barrier *clause,
-                        continuation &cont)
+                        continuation cont)
 {
   static basic_decoder dc;
+  // std::clog << "[make_true] " << dump(rt.reconstruct(_obj(e))) << std::endl;
 
   switch (word_type(e[0]))
   {
@@ -28,27 +35,27 @@ interpreter::_make_true(runtime &rt, size_t, object_iterator e, barrier *clause,
       switch (hdr.id)
       {
         case op_and:
-          TAILCALL _make_true__and(rt, hdr.arity, e + 1, clause, cont);
+          return _make_true__and(rt, hdr.arity, e + 1, clause, std::move(cont));
 
         case op_or:
-          TAILCALL _make_true__or(rt, hdr.arity, e + 1, clause, cont);
+          return _make_true__or(rt, hdr.arity, e + 1, clause, std::move(cont));
 
         case op_if:
           assert(hdr.arity == 3);
-          TAILCALL _make_true__if(rt, PLUG, e + 1, clause, cont);
+          return _make_true__if(rt, PLUG, e + 1, clause, std::move(cont));
 
         case op_cut:
           assert(hdr.arity == 0);
           assert(clause);
           rt.cut_exc(clause);
-          TAILCALL cont.call_tc(rt, PLUG, PLUG, clause, NULL);
+          return cont;
 
         case op_fail:
           assert(hdr.arity == 0);
-          return;
+          return continuation {};
 
         default: // predicate
-          TAILCALL _make_true__predicate(rt, PLUG, e, clause, cont);
+          return _make_true__predicate(rt, PLUG, e, clause, std::move(cont));
       }
     }
 
@@ -57,7 +64,7 @@ interpreter::_make_true(runtime &rt, size_t, object_iterator e, barrier *clause,
       nonterminal var;
       dc.decode(e[0], var);
       if (auto val = rt.dereference(var.id))
-        TAILCALL _make_true(rt, PLUG, val.value(), clause, cont);
+        return _make_true(rt, PLUG, val.value(), clause, std::move(cont));
       else
         raise(*this, term("instantiation_error"));
     }
@@ -68,46 +75,50 @@ interpreter::_make_true(runtime &rt, size_t, object_iterator e, barrier *clause,
 }
 
 
-void
+continuation
 interpreter::_make_true__and(runtime &rt, size_t i, object_iterator eit,
-                             barrier *clause, continuation &cont)
+                             barrier *clause, continuation cont)
 {
+  // std::clog << "[make_true/and] " << dump(rt.reconstruct(_obj(eit))) << std::endl;
   basic_decoder dc;
   if (i == 1)
-    TAILCALL _make_true(rt, PLUG, eit, clause, cont);
+    return _make_true(rt, PLUG, eit, clause, std::move(cont));
   if (i > 0)
   {
     const object_iterator e = eit;
     dc.decode_object(eit); // call for side-effects
-    cont = continuation::from_lambda([this, i, eit, cont, clause](CONT_ARGS) mutable {
-      TAILCALL _make_true__and(rt, i - 1, eit, clause, cont);
-    });
-    TAILCALL _make_true(rt, PLUG, e, clause, cont);
+    continuation thencont = continuation::from_lambda(
+        // [this, i, eit, cont = std::move(cont), clause](CONT_ARGS) {
+        [this, i, eit, cc=std::move(cont), clause](CONT_ARGS) {
+          return _make_true__and(rt, i - 1, eit, clause, std::move(cc))
+              .reinterpret<void()>();
+        });
+    return _make_true(rt, PLUG, e, clause, std::move(thencont));
   }
   else // i == 0
-    TAILCALL cont.call_tc(rt, 0, 0, 0, 0);
+    return cont;
 }
 
 
-void
+continuation
 interpreter::_make_true__or(runtime &rt, size_t i, object_iterator eit,
-                            barrier *clause, continuation &cont)
+                            barrier *clause, continuation cont)
 {
+  // std::clog << "[make_true/or] ..." << std::endl;
   basic_decoder dc;
 
   assert(i >= 1);
   while (i-- > 1) // Will taill-call on the last clause
   { 
-    state_saver _ {cont};
     barrier cp;
     rt.push_choice_point(&cp);
-    _make_true(rt, PLUG, eit, clause, cont);
-    if (rt.uwuc(&cp))
-      return;
-
+    continuation cc = _make_true(rt, PLUG, eit, clause, cont);
+    if (rt.driveuc(&cp, cc))
+      return cc;
+    rt.unwind(&cp);
     dc.decode_object(eit); // call for side-effects
   }
-  TAILCALL _make_true(rt, PLUG, eit, clause, cont);
+  return _make_true(rt, PLUG, eit, clause, std::move(cont));
 }
 
 // Soft cut version
@@ -140,36 +151,33 @@ interpreter::_make_true__or(runtime &rt, size_t i, object_iterator eit,
 
 
 // Strong cut version
-void
+continuation
 interpreter::_make_true__if(runtime &rt, size_t _, object_iterator eit,
-                            barrier *clause, continuation &cont)
+                            barrier *clause, continuation cont)
 {
+  // std::clog << "[make_true/if] ..." << std::endl;
   basic_decoder dc;
 
   const object_view econd = dc.decode_object(eit);
   const object_view ethen = dc.decode_object(eit);
   const object_view eelse = dc.decode_object(eit);
 
-  bool cond = false;
   barrier cp;
   rt.push_choice_point(&cp);
-  {
-    continuation condcont = continuation::from_lambda(
-        [this, &cond, &cp, cont, ethen](CONT_ARGS) mutable {
-          rt.cut(&cp);
-          cond = true;
-          TAILCALL _make_true(rt, PLUG, ethen.begin(), &cp, cont);
-        });
-    _make_true(rt, PLUG, econd.begin(), &cp, condcont);
-  }
 
-  if (not cond)
-  {
-    rt.unwind(&cp);
-    TAILCALL _make_true(rt, PLUG, eelse.begin(), clause, cont);
-  }
-  else
-    rt.pop_choice_point(&cp);
+  continuation thencont = continuation::from_lambda(
+      [this, &cp, cc=cont, ethen](CONT_ARGS) {
+        rt.cut(&cp);
+        return _make_true(rt, PLUG, ethen.begin(), &cp, std::move(cc))
+            .reinterpret<void()>();
+      });
+
+  continuation cc = _make_true(rt, PLUG, econd.begin(), &cp, std::move(thencont));
+  if (rt.driveuc(&cp, cc))
+      return cc;
+
+  rt.unwind(&cp);
+  return _make_true(rt, PLUG, eelse.begin(), clause, std::move(cont));
 }
 
 
@@ -186,25 +194,28 @@ interpreter::_make_true__if(runtime &rt, size_t _, object_iterator eit,
   rt.make_n_vars(n);                                                           \
   if (rt.match(e, predsign))                                                   \
   {                                                                            \
-    state_saver _ {cont};                                                      \
     if (not body.empty())                                                      \
     {                                                                          \
       const object_view predbody = rt.adopt_hp_n(base, body);                  \
-      _make_true(rt, PLUG, predbody.begin(), cp.prev, cont);                   \
+      continuation cc = _make_true(rt, PLUG, predbody.begin(), cp.prev, cont); \
+      if (rt.driveuc(&cp, cc))                                                 \
+        return cc;                                                             \
     }                                                                          \
     else                                                                       \
-      cont(rt, PLUG, PLUG, PLUG, PLUG);                                        \
+    {                                                                          \
+      continuation cc = cont;                                                  \
+      if (rt.driveuc(&cp, cc))                                                 \
+        return cc;                                                             \
+    }                                                                          \
   }                                                                            \
-                                                                               \
-  if (rt.uwuc(&cp))                                                            \
-    return;
+  rt.unwind(&cp);
 
 
 #define MAKE_PREDICATE_TRUE_TC(rt, e, pred, cont)                              \
   const auto &[sign, body, n] = pred;                                          \
                                                                                \
   if (not shallow_match(e.begin(), sign.data()))                               \
-    return;                                                                    \
+    return continuation {};                                                    \
                                                                                \
   const size_t base = rt.n_vars();                                             \
   const object_view predsign = rt.adopt_hp_n(base, sign);                      \
@@ -214,18 +225,20 @@ interpreter::_make_true__if(runtime &rt, size_t _, object_iterator eit,
     if (not body.empty())                                                      \
     {                                                                          \
       const object_view predbody = rt.adopt_hp_n(base, body);                  \
-      TAILCALL _make_true(rt, PLUG, predbody.begin(), m_query->cp, cont);      \
+      return _make_true(rt, PLUG, predbody.begin(), m_query->cp,               \
+                        std::move(cont));                                      \
     }                                                                          \
     else                                                                       \
-      TAILCALL cont.call_tc(rt, PLUG, PLUG, PLUG, PLUG);                       \
+      return cont;                                                             \
   }                                                                            \
-  return;
+  return continuation {};
 
 
-void
+continuation
 interpreter::_make_true__predicate(runtime &rt, size_t _, object_iterator e_,
-                                   barrier *__, continuation &cont)
+                                   barrier *__, continuation cont)
 {
+  // std::clog << "[make_true/pred] " << dump(rt.reconstruct(_obj(e_))) << std::endl;
   static basic_decoder dc;
 
   const object_view e = dc.decode_object(e_);
@@ -251,7 +264,7 @@ interpreter::_make_true__predicate(runtime &rt, size_t _, object_iterator e_,
   term_header hdr;
   dc.decode(e[0], hdr);
   if (const auto it = m_metaops.find(hdr.id); it != m_metaops.end())
-    TAILCALL it->second.call_tc(rt, hdr.arity, e.begin() + 1, cont);
+    return it->second(rt, hdr.arity, e.begin() + 1, std::move(cont));
 
   // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
   //                        dynamic predicates
@@ -267,7 +280,7 @@ interpreter::_make_true__predicate(runtime &rt, size_t _, object_iterator e_,
     MAKE_PREDICATE_TRUE_TC(rt, e, *it, cont);
   }
   else if (is_dynamic(key))
-    return; // absense of dynamic predicate definitions is not an error
+    return FAIL; // absense of dynamic predicate definitions is not an error
 
   std::cerr << std::format("no such predicate ({}/{})", m_symdict[hdr.id],
                            hdr.arity)

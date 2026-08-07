@@ -64,28 +64,8 @@
 # define NOINLINE __attribute__((noinline))
 #endif
 
-/**
- * @ingroup core
- * @brief Prolog *success continuation*
- * @details A continuation is invoked with the current @ref runtime *sprout*
- * every time the goal it was attached to succeeds. Returning from a
- * continuation without throwing means "and now try to find another
- * solution" -- backtracking into whatever choice points remain further up
- * the call chain. This is the standard *continuation-passing style* used
- * throughout the interpreter to implement conjunction, disjunction,
- * if-then-else and predicate calls without growing the native C++ call
- * stack (tail-calls are used internally, see @ref TAILCALL).
- */
-// class continuation {
-//   private:
-//   void *m_clos;
-//   void (*m_func)(void *,runtime &, size_t, object_iterator, continuation &);
-// };
-// using continuation =
-//     std::function<void(runtime &, size_t, object_iterator, barrier *, void *)>;
-#define CONT_ARGS runtime &rt, size_t, object_iterator, barrier *, void*
-using continuation = tcfunction<void(CONT_ARGS)>;
-
+#define DONE (tcfunction<void()> {})
+#define FAIL (continuation {})
 
 /**
  * @ingroup core
@@ -100,7 +80,7 @@ using continuation = tcfunction<void(CONT_ARGS)>;
  * @see @ref interpreter::add_meta_op
  */
 using meta_op_handle =
-    tcfunction<void(runtime &, size_t, object_iterator, continuation &)>;
+    tcfunction<continuation(runtime &, size_t, object_iterator, continuation)>;
 // std::function<void(runtime &, size_t, object_iterator, continuation &)>;
 
 
@@ -687,42 +667,37 @@ class interpreter: private runtime {
    * });
    * @endcode
    */
-  void
-  make_true(runtime &rt, object_view expr, continuation &cont)
-  { TAILCALL _make_true(rt, 0, expr.begin(), m_query->cp, cont); }
-
-  /**
-   * @brief Low-level goal evaluation entry point
-   * @details Identical to the reference overload above. Convenient sugar
-   * to allow defining continuation via a lambda argument.
-   */
-  void
-  make_true(runtime &rt, object_view expr, const continuation &cont)
-  {
-    continuation contcopy = cont;
-    _make_true(rt, 0, expr.begin(), m_query->cp, contcopy);
-  }
+  [[nodiscard]] continuation
+  make_true(runtime &rt, object_view expr, continuation cont)
+  { return _make_true(rt, 0, expr.begin(), m_query->cp, std::move(cont)); }
 
   private:
-  void
+  // void
+  // _exhaust(runtime &rt, continuation cont)
+  // {
+  //   while (cont)
+  //     cont = cont(rt, 0, 0, 0, 0).reinterpret<continuation::signature>();
+  // }
+
+  [[nodiscard]] continuation
   _make_true(runtime &rt, size_t _, object_iterator e, barrier *clause,
-             continuation &cont);
+             continuation cont);
 
-  void
+  [[nodiscard]] continuation
   _make_true__and(runtime &rt, size_t i, object_iterator eit,
-                  barrier *clause, continuation &cont);
+                  barrier *clause, continuation cont);
 
-  void
+  [[nodiscard]] continuation
   _make_true__or(runtime &rt, size_t i, object_iterator eit,
-                 barrier *clause, continuation &cont);
+                 barrier *clause, continuation cont);
 
-  void
+  [[nodiscard]] continuation
   _make_true__if(runtime &rt, size_t _, object_iterator eit,
-                 barrier *clause, continuation &cont);
+                 barrier *clause, continuation cont);
 
-  void
+  [[nodiscard]] continuation
   _make_true__predicate(runtime &rt, size_t _, object_iterator e,
-                        barrier *clause, continuation &cont);
+                        barrier *clause, continuation cont);
 
   private:
   std::unordered_map<word_t, std::vector<predicate_entry>> m_predicates;

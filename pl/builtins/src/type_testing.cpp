@@ -11,55 +11,61 @@ iso_type_testing(interpreter &pl)
 {
   // var/1
   pl.add_meta_op("var", [&](runtime &rt, size_t argc, object_iterator argv,
-                            const continuation &cont) {
+                            continuation cont) {
     assert_arity(pl, "var", argc, 1);
     const object_iterator x = rt.reduce(argv);
     if (is_nonterminal(x[0]))
-      TAILCALL cont.call_tc(rt, 0, 0, 0, 0);
+      return cont;
+    else
+      return FAIL;
   });
 
   // atom/1
   pl.add_meta_op("atom", [&](runtime &rt, size_t argc, object_iterator argv,
-                             continuation &cont) {
+                             continuation cont) {
     assert_arity(pl, "atom", argc, 1);
     const object_iterator x = rt.reduce(argv);
     if (is_term_n(x[0], 0))
-      TAILCALL cont.call_tc(rt, 0, 0, 0, 0);
+      return cont;
+    else
+      return FAIL;
   });
 
   // integer/1
   pl.add_meta_op("integer", [&](runtime &rt, size_t argc, object_iterator argv,
-                                const continuation &cont) {
+                                continuation cont) {
     assert_arity(pl, "integer", argc, 1);
     const object_iterator x = rt.reduce(argv);
     switch (word_type(x[0]))
     {
       case word_type::signed_int_number: // fallthrough
-      case word_type::unsigned_int_number: TAILCALL cont.call_tc(rt, 0, 0, 0, 0);
-      default: return;
+      case word_type::unsigned_int_number: return cont;
+      default: return FAIL;
     }
   });
 
   // float/1
   pl.add_meta_op("float", [&](runtime &rt, size_t argc, object_iterator argv,
-                              const continuation &cont) {
+                              continuation cont) {
     assert_arity(pl, "float", argc, 1);
     const object_iterator x = rt.reduce(argv);
     switch (word_type(x[0]))
     {
-      case word_type::float_number: TAILCALL cont.call_tc(rt, 0, 0, 0, 0);
-      default: return;
+      case word_type::float_number: return cont;
+      default: return FAIL;
     }
   });
 
   // string/1
   pl.add_meta_op("string", [&](runtime &rt, size_t argc, object_iterator argv,
-                               const continuation &cont) {
+                               continuation cont) {
     assert_arity(pl, "string", argc, 1);
     const object_iterator x = rt.reduce(argv);
     if (word_type(x[0]) == word_type::blob and
         blob_tag(x[0]) == blob_tag::string)
-      TAILCALL cont.call_tc(rt, 0, 0, 0, 0);
+      return cont;
+    else
+      return FAIL;
   });
 
   dictionary v;

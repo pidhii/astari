@@ -6,7 +6,7 @@ iso_term_creation_and_decomposition(interpreter &pl)
 {
   // =../2
   pl.add_meta_op("=..", [&](runtime &rt, size_t argc, object_iterator argv,
-                            const continuation &cont) {
+                            continuation cont) {
     basic_encoder ec;
     basic_decoder dc;
 
@@ -48,9 +48,12 @@ iso_term_creation_and_decomposition(interpreter &pl)
       word_t *p = rt.allocate(buf.size()); // FIXME (heap)
       std::copy(buf.begin(), buf.end(), p);
       if (rt.match(result, {p, buf.size()}))
-        TAILCALL cont.call_tc(rt, 0, 0, 0, 0);
+        return cont;
       else
+      {
         rt.unallocate(buf.size());
+        return continuation { };
+      }
     }
     else if (is_term(result[0]))
     {
@@ -64,15 +67,20 @@ iso_term_creation_and_decomposition(interpreter &pl)
       word_t *p = rt.allocate(list.size()); // FIXME (heap)
       std::copy(list.begin(), list.end(), p);
       if (rt.match({p, list.size()}, rhs))
-        TAILCALL cont.call_tc(rt, 0, 0, 0, 0);
+        return cont;
       else
+      {
         rt.unallocate({p, list.size()});
+        return FAIL;
+      }
     }
+
+    return FAIL;
   });
 
   // functor/3
   pl.add_meta_op("functor", [&](runtime &rt, size_t argc, object_iterator argv,
-                                const continuation &cont) {
+                                continuation cont) {
     assert(argc >= 2);
     basic_decoder dc;
     basic_encoder ec;
@@ -88,22 +96,27 @@ iso_term_creation_and_decomposition(interpreter &pl)
       const object_view name = dc.decode_object(argv);
       const object_view arity = dc.decode_object(argv);
       if (rt.match(name, {termname, 1}) and rt.match(arity, {termarity, 1}))
-        TAILCALL cont.call_tc(rt, 0, 0, 0, 0);
+        return cont;
       else
+      {
         rt.unallocate(2);
+        return continuation { };
+      }
     }
     else
       raise(pl, ::term("instantiation_error"));
   });
 
   pl.add_meta_op("copy_term", [&](runtime &rt, size_t argc, object_iterator argv,
-                                  continuation &cont) {
+                                  continuation cont) {
     assert_arity(pl, "copy_term", argc, 2);
     basic_decoder dc;
     const object_view term = dc.decode_object(argv);
     const object_view rslt = dc.decode_object(argv);
     const object_view copy = rt.adopt_hp(rt.reconstruct(term));
     if (rt.match(copy, rslt))
-      TAILCALL cont.call_tc(rt, 0, 0, 0, 0);
+      return cont;
+    else
+      return FAIL;
   });
 }

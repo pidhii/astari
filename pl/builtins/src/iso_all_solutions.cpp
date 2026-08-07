@@ -7,7 +7,7 @@ void
 iso_all_solutions(interpreter &pl)
 {
   pl.add_meta_op("findall", [&](runtime &rt, size_t argc, object_iterator argv,
-                                const continuation &cont) {
+                                continuation cont) {
     assert_arity(pl, "findall", argc, 3);
     basic_decoder dc;
     const object_view temp = rt.reduce(dc.decode_object(argv));
@@ -33,7 +33,7 @@ iso_all_solutions(interpreter &pl)
       object l;
       const size_t varbar = rt.n_vars();
       size_t varn = varbar;
-      pl.make_true(rt, goal, continuation::from_lambda([&](CONT_ARGS) {
+      rt.exhaust(pl.make_true(rt, goal, continuation::from_lambda([&](CONT_ARGS) {
         object inst = rt.reconstruct(temp);
         varnamespace ns_local;
         for (word_t &w : inst)
@@ -52,7 +52,8 @@ iso_all_solutions(interpreter &pl)
         }
         l += cons2;
         l += inst; 
-      }));
+        return DONE;
+      })));
       l += nil0;
 
       rt.unwind(&cp);
@@ -65,6 +66,8 @@ iso_all_solutions(interpreter &pl)
     }
 
     if (rt.match(list, result))
-      TAILCALL cont.call_tc(rt, 0, 0, 0, 0);
+      return cont;
+    else
+      return FAIL;
   });
 }

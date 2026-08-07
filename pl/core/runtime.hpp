@@ -13,6 +13,7 @@
 #include "ualloc/ualloc.hpp"
 #include "utl/persistent_database.hpp"
 #include "utl/rooted_forest.hpp"
+#include "utl/tcfunction.hpp"
 
 #include <optional>
 #include <unordered_map>
@@ -45,6 +46,30 @@ struct barrier {
   uint8_t cut;
   uint8_t noreclaim;
 };
+
+
+/**
+ * @ingroup core
+ * @brief Prolog *success continuation*
+ * @details A continuation is invoked with the current @ref runtime *sprout*
+ * every time the goal it was attached to succeeds. Returning from a
+ * continuation without throwing means "and now try to find another
+ * solution" -- backtracking into whatever choice points remain further up
+ * the call chain. This is the standard *continuation-passing style* used
+ * throughout the interpreter to implement conjunction, disjunction,
+ * if-then-else and predicate calls without growing the native C++ call
+ * stack (tail-calls are used internally, see @ref TAILCALL).
+ */
+// class continuation {
+//   private:
+//   void *m_clos;
+//   void (*m_func)(void *,runtime &, size_t, object_iterator, continuation &);
+// };
+// using continuation =
+//     std::function<void(runtime &, size_t, object_iterator, barrier *, void *)>;
+class runtime;
+#define CONT_ARGS runtime &rt, size_t, object_iterator, barrier *, void*
+using continuation = tcfunction<tcfunction<void()>(CONT_ARGS)>;
 
 
 /**
@@ -236,23 +261,32 @@ class runtime: public object_allocator {
   pop_choice_point(barrier *cp);
 
   /**
-   * @brief UnWind-Unless-Cut
-   * @details Checks if @p cp was cut and calls either @ref unwind (if not cut),
-   * or @ref pop_choice_point (if cut). Meant for use in loops setting choice
-   * points, i.e:
-   * @code{.cpp}
-   * for (...)
-   * {
-   *   rt.push_choice_point(&cp);
-   *   ...
-   *   if (rt.uwuc(&cp))
-   *     return;
-   * }
-   * @endcode
+   * @brief Drive Until Cut
    * @return `true` if @p cp was cut, `false` otherwise.
    */
   [[nodiscard]] bool
-  uwuc(barrier *cp);
+  driveuc(barrier *cp, continuation &cc)
+  {
+    while (true)
+    {
+      if (cp->cut)
+      {
+        pop_choice_point(cp);
+        return true;
+      }
+      if (cc)
+        cc = cc(*this, 0, 0, 0, 0).reinterpret<continuation::signature>();
+      else
+        return false;
+    }
+  }
+
+  void
+  exhaust(continuation cc)
+  {
+    while (cc)
+      cc = cc(*this, 0, 0, 0, 0).reinterpret<continuation::signature>();
+  }
 
   /**
    * @brief Test if two variables are bound/unified

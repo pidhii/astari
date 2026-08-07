@@ -212,7 +212,8 @@ interpreter::make_true(const dictionary &vardict, object_view expr,
   object_view adexpr = adopt_hp(ns, expr);
   try
   {
-    make_true(*this, adexpr, continuation::from_lambda([&](CONT_ARGS) {
+    exhaust(make_true(*this, adexpr, continuation::from_lambda([&](CONT_ARGS) {
+      // std::clog << "[interpreter] preparing solutions" << std::endl;
       basic_decoder dc;
       solution sol;
       for (const auto [nsid, rtid] : ns)
@@ -231,7 +232,8 @@ interpreter::make_true(const dictionary &vardict, object_view expr,
           sol[varname] = { };
       }
       cont(sol);
-    }));
+      return DONE;
+    })));
   }
   catch (...)
   {

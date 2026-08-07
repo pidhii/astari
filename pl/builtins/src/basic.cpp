@@ -10,7 +10,7 @@ iso_basic(interpreter &pl)
   pl.load_objfile(PLO_PATH_iso_basic);
 
   pl.add_meta_op("call", [&](runtime &rt, size_t argc, object_iterator argv,
-                             continuation &cont) {
+                             continuation cont) {
     assert(argc >= 1);
     basic_decoder dc;
     basic_encoder ec;
@@ -35,35 +35,44 @@ iso_basic(interpreter &pl)
     // Call the merged goal clause in encapsulated scope (so that it can't cut
     // the outer scope)
     barrier cp;
+    // rt.push_choice_point(&cp);
+    // cont = pl.make_true(rt, goal, cont);
+    // rt.pop_choice_point(&cp);
+    // return cont;
     rt.push_choice_point(&cp);
-    pl.make_true(rt, goal, cont);
+    rt.exhaust(pl.make_true(rt, goal, cont));
     rt.pop_choice_point(&cp);
+    return FAIL;
   });
 
   // once/1
   pl.add_meta_op("once", [&](runtime &rt, size_t argc, object_iterator argv,
-                             continuation &cont) {
+                             continuation cont) {
     assert_arity(pl, "once", argc, 1);
     basic_decoder dc;
     const object_view expr = dc.decode_object(argv);
     barrier cp;
     rt.push_choice_point(&cp);
-    pl.make_true(rt, expr, continuation::from_lambda([cont, &cp](CONT_ARGS) {
+    cont = pl.make_true(rt, expr, continuation::from_lambda([cc=std::move(cont), &cp](CONT_ARGS) mutable {
       rt.cut(&cp);
-      TAILCALL cont.call_tc(rt, 0, 0, 0, 0);
+      return std::move(cc).reinterpret<void()>();
     }));
-    rt.pop_choice_point(&cp); // let someone else to unwind it if needed
+    if (rt.driveuc(&cp, cont))
+      return cont;
+    rt.pop_choice_point(&cp);
+    return FAIL;
   });
 
   ////////////////////////////////////////////////////////////////////////////
   // halt/0, halt/1
   //
   pl.add_meta_op("halt", [&](runtime &rt, size_t argc, object_iterator argv,
-                             const continuation &cont) {
+                             continuation cont) -> continuation {
     assert_arity(pl, "halt", argc, 0, 1);
     if (argc == 1)
       number(pl, rt.reduce(argv), std::exit);
     else
       std::exit(0);
+    std::terminate();
   });
 }

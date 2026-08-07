@@ -8,7 +8,7 @@ iso_clause_creation_and_destruction(interpreter &pl)
 {
 #define DEFINE_ASSERT(name, insert, recover)                                   \
   pl.add_meta_op(name, [&](runtime &rt, size_t argc, object_iterator argv,     \
-                           const continuation &cont) {                         \
+                           continuation cont) {                         \
     assert_arity(pl, name, argc, 1);                                           \
     basic_decoder dc;                                                          \
     const object clause = rt.reconstruct(dc.decode_object(argv));              \
@@ -30,7 +30,8 @@ iso_clause_creation_and_destruction(interpreter &pl)
     insert;                                                                    \
     try                                                                        \
     {                                                                          \
-      cont(rt, 0, 0, 0, 0);                                                    \
+      while (cont)                                                             \
+        cont = cont(rt, 0, 0, 0, 0).reinterpret<continuation::signature>();    \
     }                                                                          \
     catch (...)                                                                \
     {                                                                          \
@@ -38,6 +39,7 @@ iso_clause_creation_and_destruction(interpreter &pl)
       throw;                                                                   \
     }                                                                          \
     recover;                                                                   \
+    return continuation {};                                                    \
   });
   DEFINE_ASSERT("asserta", auto save = rt.asserta_dyn(sign, body),
                 rt.recover(std::move(save)));
@@ -45,7 +47,7 @@ iso_clause_creation_and_destruction(interpreter &pl)
                 rt.recover(std::move(save)));
 
   pl.add_meta_op("retract", [&](runtime &rt, size_t argc, object_iterator argv,
-                                continuation &cont) {
+                                continuation cont) {
     assert_arity(pl, "retract", argc, 1);
     basic_decoder dc;
     const object_view clause = dc.decode_object(rt.reduce(argv));
@@ -58,25 +60,39 @@ iso_clause_creation_and_destruction(interpreter &pl)
     {
       barrier cp;
       rt.push_choice_point(&cp);
-      state_saver _ {cont};
+      continuation cc = cont;
       const object_view itclause = rt.adopt_clause_hp(it);
       if (rt.match(clause, itclause))
       {
         auto save = rt.retract_dyn(key, it);
-        try { cont(rt, 0, 0, 0, 0); }
-        catch (...) { rt.recover(std::move(save)); throw; }
+        try
+        {
+          if (rt.driveuc(&cp, cc))
+          {
+            return continuation::from_lambda([cc,save](CONT_ARGS) mutable {
+              rt.exhaust(std::move(cc));
+              rt.recover(std::move(save));
+              return DONE;
+            });
+          }
+        }
+        catch (...)
+        {
+          rt.recover(std::move(save));
+          throw;
+        }
         rt.recover(std::move(save));
       }
-      if (rt.uwuc(&cp))
-        return;
+      rt.unwind(&cp);
     }
+    return FAIL;
   });
 
   // TODO:
   // - handle static predicates
   // - handle nonterminal arguments
   pl.add_meta_op("clause", [&](runtime &rt, size_t argc, object_iterator argv,
-                               continuation &cont) {
+                               continuation cont) {
     assert_arity(pl, "clause", argc, 2);
     basic_decoder dc;
     const object_view head = rt.reduce(dc.decode_object(argv));
@@ -91,16 +107,18 @@ iso_clause_creation_and_destruction(interpreter &pl)
         {
           barrier cp;
           rt.push_choice_point(&cp);
-          state_saver _ {cont};
 
+          continuation cc = cont;
           const object_view ithead = rt.adopt_hp(rt.variant_sign(it));
           const object_view itbody = rt.variant_body(it).empty()
                                          ? true0
                                          : rt.adopt_hp(rt.variant_body(it));
           if (rt.match(head, ithead) and rt.match(body, itbody))
-            cont(rt, 0, 0, 0, 0);
-          if (rt.uwuc(&cp))
-            return;
+          {
+            if (rt.driveuc(&cp, cc))
+              return cc;
+          }
+          rt.unwind(&cp);
         }
       }
       else
@@ -110,5 +128,6 @@ iso_clause_creation_and_destruction(interpreter &pl)
     else
       raise(pl, term("unimplemented", term("clause", rt.reconstruct(head),
                                            rt.reconstruct(body))));
+    return FAIL;
   });
 }

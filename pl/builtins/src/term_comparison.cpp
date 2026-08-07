@@ -9,13 +9,15 @@ iso_term_comparison(interpreter &pl)
 {
 #define DEFINE_CMP(name, op)                                                   \
   pl.add_meta_op(name, [&](runtime &rt, size_t argc, object_iterator argv,     \
-                           const continuation &cont) {                         \
+                           continuation cont) {                                \
     assert_arity(pl, name, argc, 2);                                           \
     basic_decoder dc;                                                          \
     const object_view lhs = rt.reduce(dc.decode_object(argv));                 \
     const object_view rhs = rt.reduce(dc.decode_object(argv));                 \
     if (compare(rt, lhs, rhs) op 0)                                            \
-      TAILCALL cont.call_tc(rt, 0, 0, 0, 0);                                   \
+      return cont;                                                             \
+    else                                                                       \
+      return FAIL;                                                             \
   });
 
   DEFINE_CMP("@=<", <=)

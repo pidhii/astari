@@ -17,12 +17,14 @@ iso_io::iso_io(interpreter &pl)
   // current_output/1
   pl.add_meta_op("current_output", [&] NOINLINE (runtime &rt, size_t argc,
                                                  object_iterator argv,
-                                                 continuation &cont) {
+                                                 continuation cont) {
     assert_arity(pl, "current_output", argc, 1);
     basic_decoder dc;
     const object_view x = dc.decode_object(argv);
     if (rt.match(x, current_output))
-      TAILCALL cont.call_tc(rt, 0, 0, 0, 0);
+      return cont;
+    else
+      return continuation {};
   });
 }
 

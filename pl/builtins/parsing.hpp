@@ -12,7 +12,7 @@ class lib_parsing {
     // tokens/2
     pl.add_meta_op("tokens", [&pl](runtime &rt, size_t argc,
                                    object_iterator argv,
-                                   const continuation &cont) {
+                                   continuation cont) {
       assert(argc == 2);
       basic_decoder dc;
       const object_view string = rt.reduce(dc.decode_object(argv));
@@ -23,7 +23,9 @@ class lib_parsing {
       const object list = _tokenize(pl, vardict, ::string(string[0]));
       const object_view pobj = rt.adopt_hp(list);
       if (rt.match(pobj, tokens))
-        TAILCALL cont(rt, 0, 0, 0, 0);
+        return cont;
+      else
+        return FAIL;
     });
   }
 

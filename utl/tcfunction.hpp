@@ -6,15 +6,6 @@
 #include <utility>
 
 
-#ifdef __clang__
-# define TAILCALL return
-#elif defined(__GNUC__) || defined(__GNUG__)
-# define TAILCALL [[gnu::musttail]] return
-#else
-# define TAILCALL return
-#endif
-
-
 /**
  * @brief Utility object for resolving recursive deletions
  */
@@ -57,6 +48,9 @@ struct tcfunction;
 
 template <typename RetT, typename ...ArgsT>
 struct tcfunction<RetT(ArgsT...)> {
+  using signature = RetT(ArgsT...);
+
+  // explicit
   tcfunction() = default;
 
   tcfunction(const tcfunction &other)
@@ -111,7 +105,7 @@ struct tcfunction<RetT(ArgsT...)> {
     cont.m_clos = new lambda_type {std::forward<Lambda>(lambda)};
     cont.m_func = [](void *p, ArgsT ...args) -> RetT {
       lambda_type *self = reinterpret_cast<lambda_type*>(p);
-      TAILCALL (*self)(args...);
+       return (*self)(args...);
     };
     cont.m_dtor = [](void *p) {
       lambda_type *self = reinterpret_cast<lambda_type *>(p);
@@ -146,11 +140,19 @@ struct tcfunction<RetT(ArgsT...)> {
     return m_func(m_clos, args...);
   }
 
-  RetT
-  call_tc(ArgsT... args) const
+  // RetT
+  // call_tc(ArgsT... args) const
+  // {
+  //   assert(m_clos != nullptr);
+  //   TAILCALL m_func(m_clos, args...);
+  // }
+
+  template <typename OtherSig>
+  tcfunction<OtherSig>
+  reinterpret() && noexcept
   {
-    assert(m_clos != nullptr);
-    TAILCALL m_func(m_clos, args...);
+    tcfunction<OtherSig> other = std::move(*reinterpret_cast<tcfunction<OtherSig>*>(this));
+    return other;
   }
 
   private:
@@ -169,5 +171,3 @@ struct tcfunction<RetT(ArgsT...)> {
   void (*m_dtor)(void *) = nullptr;
   void *(*m_copy)(void *) = nullptr;
 };
-
-#undef TAILCALL

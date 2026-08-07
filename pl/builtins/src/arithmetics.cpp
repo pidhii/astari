@@ -278,9 +278,9 @@ _evaluate(interpreter &pl, runtime &rt, object_iterator e, size_t n,
   }
 }
 
-void NOINLINE 
+continuation NOINLINE 
 _is(interpreter &pl, runtime &rt, size_t argc, object_iterator argv,
-    continuation &cont)
+    continuation cont)
 {
   assert_arity(pl, "is", argc, 2);
   static basic_decoder dc;
@@ -290,14 +290,16 @@ _is(interpreter &pl, runtime &rt, size_t argc, object_iterator argv,
   _evaluate(pl, rt, rhs, 1, rt.query()->heap_p);
   const object_view result = {rt.query()->heap_p++, 1};
   if (rt.match(lhs, result))
-    TAILCALL cont.call_tc(rt, 0, 0, 0, 0);
+    return cont;
+  else
+    return FAIL;
 }
 
 void iso_arithmetics(interpreter &pl)
 {
   pl.add_meta_op("is", [&](runtime &rt, size_t argc, object_iterator argv,
-                           continuation &cont) {
-    TAILCALL _is(pl, rt, argc, argv, cont);
+                           continuation cont) {
+    return _is(pl, rt, argc, argv, std::move(cont));
   });
 
 
@@ -305,14 +307,17 @@ void iso_arithmetics(interpreter &pl)
 #pragma GCC diagnostic ignored "-Wsign-compare"
 #define DEFINE_CMP(name, op)                                                   \
   pl.add_meta_op(name, [&](runtime &rt, size_t argc, object_iterator argv,     \
-                           continuation &cont) {                               \
+                           continuation cont) {                                \
     assert_arity(pl, name, argc, 2);                                           \
     _evaluate(pl, rt, argv, 2, rt.query()->heap_p);                            \
     const bool ans = number(pl, rt.query()->heap_p + 0, [&](auto &&lhs) {      \
-              return number(pl, rt.query()->heap_p + 1, [&](auto &&rhs) {      \
-              return lhs op rhs; });});                                        \
+      return number(pl, rt.query()->heap_p + 1,                                \
+                    [&](auto &&rhs) { return lhs op rhs; });                   \
+    });                                                                        \
     if (ans)                                                                   \
-      TAILCALL cont.call_tc(rt, 0, 0, 0, 0);                                   \
+      return cont;                                                             \
+    else                                                                       \
+      return FAIL;                                                             \
   });
   DEFINE_CMP("=:=", ==)
   DEFINE_CMP("=\\=", !=)
