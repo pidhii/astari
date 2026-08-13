@@ -167,9 +167,8 @@ runtime::_adopt_n(size_t base, object_view in, word_t *out)
     {
       nonterminal var;
       dc.decode(w, var);
-      const word_t magic = word_magic(w);
       const size_t rtid = base + var.id;
-      out[i] = add_magic(ec.encode(nonterminal(rtid)), magic);
+      out[i] = ec.encode(nonterminal(rtid));
     }
     else
       out[i] = w;
@@ -266,6 +265,7 @@ void
 runtime::unwind(barrier *cp)
 {
   assert(cp == m_query->cp);
+  assert(not cp->cut);
   assert(m_query->unwind_p >= cp->uwbar);
   for (size_t *uwp = cp->uwbar; uwp < m_query->unwind_p; ++uwp)
   {

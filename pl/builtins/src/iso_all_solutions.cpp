@@ -26,45 +26,44 @@ iso_all_solutions(interpreter &pl)
     // packed immediate complement of the current set of variables.
     // - patch: Preserve all bindings to old variables. New variables are
     //          disentangled as before.
-    {
-      barrier cp;
-      rt.push_choice_point(&cp);
+    
+    barrier cp;
+    rt.push_choice_point(&cp);
 
-      object l;
-      const size_t varbar = rt.n_vars();
-      size_t varn = varbar;
-      rt.exhaust(pl.make_true(rt, goal, continuation::from_lambda([&](CONT_ARGS) {
-        object inst = rt.reconstruct(temp);
-        varnamespace ns_local;
-        for (word_t &w : inst)
+    object l;
+    const size_t varbar = rt.n_vars();
+    size_t varn = varbar;
+    rt.exhaust(pl.make_true(rt, goal, continuation::from_lambda([&](CONT_ARGS) {
+      object inst = rt.reconstruct(temp);
+      varnamespace ns_local;
+      for (word_t &w : inst)
+      {
+        if (is_nonterminal(w))
         {
-          if (is_nonterminal(w))
+          nonterminal var;
+          dc.decode(w, var);
+          if (var.id >= varbar)
           {
-            nonterminal var;
-            dc.decode(w, var);
-            if (var.id >= varn)
-            {
-              auto [it, isnew] = ns_local.emplace(var.id, varn);
-              varn += isnew;
-              w = ec.encode(nonterminal(it->second));
-            }
+            auto [it, isnew] = ns_local.emplace(var.id, varn);
+            varn += isnew;
+            w = ec.encode(nonterminal(it->second));
           }
         }
-        l += cons2;
-        l += inst; 
-        return DONE;
-      })));
-      l += nil0;
+      }
+      l += cons2;
+      l += inst; 
+      return DONE;
+    })));
+    l += nil0;
 
-      rt.unwind(&cp);
+    rt.unwind(&cp);
 
-      // Relocate result onto the data heap
-      result = {rt.query()->heap_p, l.size()};
-      rt.query()->heap_p = std::copy(l.begin(), l.end(), rt.query()->heap_p);
-      // Link new variables
-      rt.make_n_vars(varn - varbar);
-    }
-
+    // Relocate result onto the data heap
+    result = {rt.query()->heap_p, l.size()};
+    rt.query()->heap_p = std::copy(l.begin(), l.end(), rt.query()->heap_p);
+    // Link new variables
+    rt.make_n_vars(varn - varbar);
+  
     if (rt.match(list, result))
       return cont;
     else

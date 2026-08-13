@@ -19,19 +19,19 @@ _count_occurances(object_view obj, _occurances &occurs)
   }
 }
 
-static void
-_mark_wildcards(object &obj, const _occurances &occurs)
-{
-  for (word_t &w : obj)
-  {
-    if (is_nonterminal(w))
-    {
-      assert(occurs.at(w) > 0);
-      if (occurs.at(w) == 1)
-        w = add_magic(w, wildcard);
-    }
-  }
-}
+// static void
+// _mark_wildcards(object &obj, const _occurances &occurs)
+// {
+//   for (word_t &w : obj)
+//   {
+//     if (is_nonterminal(w))
+//     {
+//       assert(occurs.at(w) > 0);
+//       if (occurs.at(w) == 1)
+//         w = add_magic(w, wildcard);
+//     }
+//   }
+// }
 
 predicate_entry
 prepare_predicate(object_view signobj, object_view bodyobj)

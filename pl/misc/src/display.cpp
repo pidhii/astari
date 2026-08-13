@@ -121,7 +121,7 @@ _dump_object(const dictionary &dict, InIter &it, std::ostream &os,
           case 2:
             os << '(';
             _dump_object(dict, it, os, quoted, ignore_ops, numbervars);
-            os << ' ' << name << ' ';
+            os << name;
             _dump_object(dict, it, os, quoted, ignore_ops, numbervars);
             os << ')';
             return;

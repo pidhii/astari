@@ -72,7 +72,7 @@ class lib_tabulate {
       for (runtime &rt : todo)
         rt.exhaust(cont);
 
-      rt.unwind(&buildcp);
+      rt.pop_choice_point(&buildcp);
       return FAIL;
 #else
       m_table[goalview].is_building = true;
@@ -143,7 +143,7 @@ class lib_tabulate {
       for (runtime &rt : todo)
         rt.exhaust(cont);
 
-      rt.unwind(&buildcp);
+      rt.pop_choice_point(&buildcp);
       return FAIL;
     });
   }
