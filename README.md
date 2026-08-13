@@ -1,5 +1,3 @@
-# A<sup>\*</sup>I
-
 <pre>
 <b>pl</b>
 
@@ -23,3 +21,18 @@ Performance:
 <sup>*</sup> CPU time elapsed ($ stari-pl ...) / CPU time elapsed ($ swipl ...)
 </pre>
 
+---
+
+<pre>
+<b>astari</b>
+
+A framework for combining a CSP solver with ML into an A* algorithm for traversal over complex decision trees.    
+</pre>
+
+---
+
+<pre>
+<b>opium</b>
+
+Rebirth of my idea about a practical universal constraint-driven type system engine. 
+</pre>
