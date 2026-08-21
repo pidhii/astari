@@ -6,10 +6,7 @@
 
 
 lib_scan_depthfirst::lib_scan_depthfirst(interpreter &pl, char *c_stack_limit)
-: m_c_stack_limit {c_stack_limit},
-  m_pl {pl},
-  m_graph {pl.symbols()},
-  m_gn {0}
+: m_c_stack_limit {c_stack_limit}, m_pl {pl}, m_gn_acc {0}, m_source {-1}
 {
   pl.add_meta_op("$graph:graph_entry", [&](runtime &rt, size_t argc,
                                             object_iterator argv,
@@ -20,7 +17,7 @@ lib_scan_depthfirst::lib_scan_depthfirst(interpreter &pl, char *c_stack_limit)
   pl.add_meta_op("$graph:yield", [&] NOINLINE (runtime &rt, size_t argc,
                                                 object_iterator argv,
                                                 continuation &cont) {
-    TAILCALL yield(rt, argc, argv, cont);
+    return yield(rt, argc, argv, cont);
   });
 
   pl.load_file("graph.pl");
@@ -46,20 +43,22 @@ lib_scan_depthfirst::print_stats(std::ostream &os, bool revcurs) const noexcept
 }
 
 
-void
+continuation
 lib_scan_depthfirst::graph_entry(runtime &rt, size_t argc, object_iterator argv,
                                  continuation &cont)
 {
   assert(argc == 0);
 
-  cont(rt, 0, 0, 0, 0); // begins graph generation
+  rt.exhaust(cont); // graph generation
 
   message("done");
   print_stats(std::clog);
+
+  return FAIL;
 }
 
 
-void
+continuation
 lib_scan_depthfirst::yield(runtime &rt, size_t argc, object_iterator argv,
                            continuation &cont)
 {
@@ -67,33 +66,31 @@ lib_scan_depthfirst::yield(runtime &rt, size_t argc, object_iterator argv,
   if (memory_limit_crossed(rt, 500 * (1 << 10), m_c_stack_limit))
   {
     message("\e[38;5;1;1mresource limit reached\e[0m");
-    return;
+    return FAIL;
   }
 
   basic_decoder dc;
 
   // argv[0] Length of the edge from the previous node (provided explicitly)
-  const object_view edgelen = rt.reduce(dc.decode_object(argv));
-  const float len =
-      number(m_pl, edgelen.begin(), [](auto x) { return float(x); });
+  const float edgelen = number(m_pl, rt.reduce(dc.decode_object(argv).begin()),
+                               [](auto x) { return float(x); });
 
   // argv[1] Node name
-  const object_view nodenam = rt.reduce(dc.decode_object(argv));
-  const object name = rt.reconstruct(nodenam);
+  const object nodename = rt.reconstruct(dc.decode_object(argv));
 
-  // argv[2] Heuristic distance to destiante
+  // argv[2] Heuristic distance to destination
   // ... ignore ...
 
-  const float gn = len + m_gn;
+  const float gn = edgelen + m_gn_acc;
 
-  // Record node
+  // Record node and edge
+  const size_t node = m_graph.node(nodename);
+  if (m_source >= 0)
+    m_graph.edge(m_source, node, edgelen);
+
   // (don't continue if visiting an old node via a longer or equal path)
-  if (not m_graph.node(name, gn))
-    return;
-
-  // Record edge
-  if (not m_source.empty())
-    m_graph.edge(m_source, name, len);
+  if (not m_gsp(node, gn))
+    return FAIL;
 
   static size_t _cnt = 0;
   if (_cnt++ % 10000 == 0)
@@ -102,8 +99,8 @@ lib_scan_depthfirst::yield(runtime &rt, size_t argc, object_iterator argv,
     message("processing");
   }
 
-  state_saver _ {m_source, m_gn};
-  m_source = name;
-  m_gn = gn;
-  cont(rt, 0, 0, 0, 0);
+  state_saver _ {m_source, m_gn_acc};
+  m_source = node;
+  m_gn_acc = gn;
+  return cont;
 }

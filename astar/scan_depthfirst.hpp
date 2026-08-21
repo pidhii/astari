@@ -8,11 +8,12 @@
 class lib_scan_depthfirst {
   const char *m_c_stack_limit;
   interpreter &m_pl;
-  graph m_graph;
+  ::graph m_graph;
+  graph_shortest_path m_gsp;
 
   // Runtime stuff:
-  float m_gn;
-  object_view m_source; // Proxy for building edges
+  float m_gn_acc;
+  ssize_t m_source; // Proxy for building edges
 
   // Misc
   std::string m_msg;
@@ -25,14 +26,18 @@ class lib_scan_depthfirst {
   public:
   lib_scan_depthfirst(interpreter &pl, char *c_stack_limit);
 
+  ::graph &
+  graph() noexcept
+  { return m_graph; }
+
   void
   print_stats(std::ostream &os, bool revcurs = false) const noexcept;
 
-  void
+  continuation
   graph_entry(runtime &rt, size_t argc, object_iterator argv,
               continuation &cont);
 
-  void
+  continuation
   yield(runtime &rt, size_t argc, object_iterator argv, continuation &cont);
 };
 

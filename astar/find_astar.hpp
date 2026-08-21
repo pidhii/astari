@@ -9,12 +9,8 @@ class lib_seach_astar {
   const char *m_c_stack_limit;
   interpreter &m_pl;
   barrier root_cp; // Choice point at the root of the graph
-
-  int m_acc; // Proxy for tracking g(n)
-  ssize_t m_minremwords = std::numeric_limits<ssize_t>::max();
-
+  int m_gn_acc; // Proxy for tracking g(n)
   std::optional<::astar> m_astar;
-  std::deque<std::pair<astar::const_iterator, astar::const_iterator>> m_edges;
 
   // TODO: move it out
   static void
@@ -36,11 +32,11 @@ class lib_seach_astar {
   void
   print_stats(std::ostream &os) const noexcept;
 
-  void
+  continuation
   graph_entry(runtime &rt, size_t argc, object_iterator argv,
               continuation &cont);
 
-  void
+  continuation
   yield(runtime &rt, size_t argc, object_iterator argv, continuation &cont);
 };
 

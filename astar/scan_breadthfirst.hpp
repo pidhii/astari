@@ -11,11 +11,12 @@ class lib_scan_breadthfirst {
   interpreter &m_pl;
   barrier root_cp; // Choice point at the root of the graph
 
-  object m_source;
-  int m_acc; // Proxy for tracking g(n)
+  ssize_t m_source;
+  int m_gn_acc; // Proxy for tracking g(n)
 
   astar m_astar;
-  graph m_graph;
+  ::graph m_graph;
+  graph_shortest_path m_gsp;
   std::deque<std::pair<astar::const_iterator, astar::const_iterator>> m_edges;
 
   // TODO: move it out
@@ -35,13 +36,17 @@ class lib_scan_breadthfirst {
   public:
   lib_scan_breadthfirst(interpreter &pl, char *c_stack_limit);
 
+  ::graph &
+  graph() noexcept
+  { return m_graph; }
+
   void
   print_stats(std::ostream &os, bool revcurs = false) const noexcept;
 
-  void
+  continuation
   graph_entry(runtime &rt, size_t argc, object_iterator argv,
               continuation &cont);
 
-  void
+  continuation
   yield(runtime &rt, size_t argc, object_iterator argv, continuation &cont);
 };

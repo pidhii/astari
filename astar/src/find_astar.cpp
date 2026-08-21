@@ -44,7 +44,7 @@ lib_seach_astar::print_stats(std::ostream &os) const noexcept
 }
 
 
-void
+continuation
 lib_seach_astar::graph_entry(runtime &rt, size_t argc, object_iterator argv,
                              continuation &cont)
 {
@@ -60,26 +60,28 @@ lib_seach_astar::graph_entry(runtime &rt, size_t argc, object_iterator argv,
   rt.push_choice_point(&root_cp);
 
   // First round of sprouts
-  m_acc = 0;
-  cont(rt, 0, 0, 0, 0);
+  m_gn_acc = 0;
+  rt.exhaust(cont);
 
   // Keep growing until all sprouts have been exhausted or until cut
   while (not m_astar->empty() and not root_cp.cut)
   {
     astar::iterator it = m_astar->pop();
     state st = it->second.drain_state();
-    m_acc = it->second.gn;
-    st.cont(st.rt, 0, 0, 0, 0);
+    m_gn_acc = it->second.gn;
+    st.rt.exhaust(cont);
   }
 
   print_stats(std::clog);
 
   rt.pop_choice_point(&root_cp);
   m_astar.reset();
+
+  return FAIL;
 }
 
 
-void
+continuation
 lib_seach_astar::yield(runtime &rt, size_t argc, object_iterator argv,
                        continuation &cont)
 {
@@ -87,13 +89,10 @@ lib_seach_astar::yield(runtime &rt, size_t argc, object_iterator argv,
   if (memory_limit_crossed(rt, 500 * (1 << 10), m_c_stack_limit))
   {
     std::clog << "memory limits reached" << std::endl;
-    return;
+    return FAIL;
   }
 
   basic_decoder dc;
-
-  // Record upper bound on heap usage
-  m_minremwords = std::min(m_minremwords, m_pl.heap_remsize());
 
   // argv[0] Length of the edge from the previous node (provided explicitly)
   const object_view edgelen = rt.reduce(dc.decode_object(argv));
@@ -110,8 +109,10 @@ lib_seach_astar::yield(runtime &rt, size_t argc, object_iterator argv,
       number(m_pl, heurlen.begin(), [](auto x) { return float(x); });
 
   // Suspend the sprout
-  const float gn = m_acc + len;
+  const float gn = m_gn_acc + len;
   const auto it = m_astar->put(node, {rt, std::move(cont)}, gn, hn);
   if (it != m_astar->end())
     _lock_heap(rt, &root_cp);
+
+  return FAIL;
 }

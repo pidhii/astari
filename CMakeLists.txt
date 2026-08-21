@@ -47,7 +47,7 @@ macro(make_astari_package package_name)
 endmacro()
 
 add_subdirectory(pl)
-# add_subdirectory(astar)
+add_subdirectory(astar)
 add_subdirectory(opium)
 add_subdirectory(apps)
 

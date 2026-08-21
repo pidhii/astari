@@ -6,7 +6,7 @@
 
 lib_scan_breadthfirst::lib_scan_breadthfirst(interpreter &pl,
                                              char *c_stack_limit)
-: m_c_stack_limit {c_stack_limit}, m_pl {pl}, m_graph {pl.symbols()}
+: m_c_stack_limit {c_stack_limit}, m_pl {pl}, m_source {-1}
 {
   using namespace std::placeholders;
   pl.add_meta_op("$graph:graph_entry", [&](runtime &rt, size_t argc,
@@ -47,7 +47,7 @@ lib_scan_breadthfirst::print_stats(std::ostream &os,
 }
 
 
-void
+continuation
 lib_scan_breadthfirst::graph_entry(runtime &rt, size_t argc,
                                    object_iterator argv, continuation &cont)
 {
@@ -58,32 +58,34 @@ lib_scan_breadthfirst::graph_entry(runtime &rt, size_t argc,
   rt.push_choice_point(&root_cp);
 
   // First round of sprouts
-  m_acc = 0;
-  cont(rt, 0, 0, 0, 0);
+  m_gn_acc = 0;
+  rt.exhaust(cont);
 
   // Keep growing until all sprouts have been exhausted or until cut
   while (not m_astar.empty() and not root_cp.cut)
   {
     astar::iterator it = m_astar.pop();
     state st = it->second.drain_state();
-    m_source = it->first;
-    m_acc = it->second.gn;
-    st.cont(st.rt, 0, 0, 0, 0);
+    m_source = m_graph.node(it->first);
+    m_gn_acc = it->second.gn;
+    st.rt.exhaust(st.cont);
   }
 
   print_stats(std::clog);
 
   rt.pop_choice_point(&root_cp);
+
+  return FAIL;
 }
 
 
-void
+continuation
 lib_scan_breadthfirst::yield(runtime &rt, size_t argc, object_iterator argv,
                              continuation &cont)
 {
   assert(argc == 3);
   if (memory_limit_crossed(rt, 500 * (1 << 10), m_c_stack_limit))
-    return;
+    return FAIL;
 
   basic_decoder dc;
 
@@ -93,22 +95,21 @@ lib_scan_breadthfirst::yield(runtime &rt, size_t argc, object_iterator argv,
       number(m_pl, edgelenobj.begin(), [](auto x) { return float(x); });
 
   // argv[1] Node name
-  const object_view nodenameobj = rt.reduce(dc.decode_object(argv));
-  object nodename = rt.reconstruct(nodenameobj);
+  const object nodename = rt.reconstruct(dc.decode_object(argv));
 
   // argv[2] Heuristic distance to destination
   // ... ignore ...
 
-  const float gn = m_acc + edgelen;
+  const float gn = m_gn_acc + edgelen;
 
-  // Record node
+  // Record node and edge
+  const size_t node = m_graph.node(nodename);
+  if (m_source >= 0)
+    m_graph.edge(m_source, node, edgelen);
+
   // (don't continue if visiting an old node via a longer or equal path)
-  if (not m_graph.node(nodename, gn))
-    return;
-
-  // Record edge
-  if (not m_source.empty())
-    m_graph.edge(m_source, nodename, edgelen);
+  if (not m_gsp(node, gn))
+    return FAIL;
 
   static size_t _cnt = 0;
   if (_cnt++ % 5000 == 0)
@@ -118,4 +119,6 @@ lib_scan_breadthfirst::yield(runtime &rt, size_t argc, object_iterator argv,
   const auto it = m_astar.put(nodename, {rt, std::move(cont)}, gn, 1);
   if (it != m_astar.end())
     _lock_heap(rt, &root_cp);
+
+  return FAIL;
 }
