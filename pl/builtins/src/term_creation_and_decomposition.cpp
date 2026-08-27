@@ -85,7 +85,7 @@ iso_term_creation_and_decomposition(interpreter &pl)
     basic_decoder dc;
     basic_encoder ec;
     const object_view term = rt.reduce(dc.decode_object(argv));
-    if (is_term(term))
+    if (is_term(term[0]))
     {
       term_header hdr;
       dc.decode(term[0], hdr);

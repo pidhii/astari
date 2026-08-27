@@ -32,7 +32,7 @@ iso_io::iso_io(interpreter &pl)
 std::ostream &
 iso_io::get_output(object_view s)
 {
-  if (is_term(s))
+  if (is_term(s[0]))
   {
     if (the_word(s[0]) == the_word(stdout_term[0]))
       return std::cout;
