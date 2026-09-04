@@ -45,13 +45,15 @@ indent(Lvl) :-
   write(" "), indent(Lvl - 1).
   
 
-ensure_asserted(ClauseHead) :-
-  clause(ClauseHead, true), !;
-  asserta(ClauseHead).
+ensure_asserted(Head) :-
+  copy_term(Head, OrigHead), clause(Head, true), Head == OrigHead -> true;
+  asserta(Head).
 
-ensure_asserted(ClauseHead, ClauseBody) :-
-  clause(ClauseHead, ClauseBody), !;
-  asserta(ClauseHead :- ClauseBody).
+ensure_asserted(Head, Body) :-
+  copy_term(Head, OrigHead), copy_term(Body, OrigBody),
+  clause(Head, Body),
+  Head == OrigHead, Body == OrigBody -> true;
+  asserta(Head :- Body).
 
 
 must(Goal, What) :-

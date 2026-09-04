@@ -40,7 +40,7 @@ es(overload(_, _):T) :- !, sinst(T).
 % - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 %                          <template-ident>
 %
-es(template(Ident, Schema):T) :- !,
+es(instance(Ident, Schema):T) :- !,
   must(T == Ident/Schema, "es(template-ident)"),
   sinst(T).
 
@@ -96,19 +96,19 @@ ss([overload, Alias, Idents]) :- !.
 % - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 %                         (define <ident> <stmt> ...+)
 %
-ss([define, Ident:_ |Body]) :- !,
+ss([define(_), Ident:_ |Body]) :- !,
   must(maplist(ss, Body), "ss(define-ident/body)").
 
 % - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 %                         (define <sign> <stmt> ...+)
 %
-ss([define, [Ident:_|Parms] |Body]) :- !,
+ss([define(_), [Ident:_|Parms] |Body]) :- !,
   must(maplist(ss, Body), "ss(define-func/body)").
 
 % - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 %                         (template <sign> <stmt> ...+)
 %
-ss([template, [Ident:_|Parms]:_ | Body]) :- !.
+ss([template(_), [Ident:_|Parms]:_ | Body]) :- !.
 
 
 % - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -

@@ -22,10 +22,7 @@ required_hook(conditional/1).
 :- dynamic(instance/2).
 :- dynamic(template/1).
 :- dynamic(overload/2).
-
-overloaded(RIdent) :-
-  once(overload(RIdent, _)).
-
+:- dynamic(overloaded/1).
 
 :- ensure_loaded("lists").
 :- ensure_loaded("apply").

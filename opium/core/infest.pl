@@ -66,6 +66,16 @@ eilis([IH|IT], [OH|OT]) :- ei(IH, OH), eilis(IT, OT).
 %                              STATEMENTS
 %
 % - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+%                            (declare ...)
+%
+si([declare|Args], [declare|Args]) :- !.
+
+% - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+%                            (declaret ...)
+%
+si([declaret|Args], [declaret|Args]) :- !.
+
+% - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 %                            (overload ...)
 %
 si([overload|Args], [overload|Args]) :- !.
@@ -93,24 +103,24 @@ si([overload|Args], [overload|Args]) :- !.
 % - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 %                    (define <ident> <stmt> ...+)
 %
-si([define, Ident | Body], [define, IIdent | IBody]) :- atom(Ident), !,
+si([define(Label), Ident | Body], [define(Label), IIdent | IBody]) :- atom(Ident), !,
   must(pi(Ident, IIdent), "si(define-ident/ident)"),
-  must(silis(Body, IBody), "si(define-ident/body)").
+  must(siblk(Body, IBody), "si(define-ident/body)").
 
 % - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 %                  (define (<ident> <parm> ...*) <stmt> ...+)
 %
-si([define, [Ident|Args] | Body], [define, [IIdent|IArgs] | IBody]) :- !,
+si([define(Label), [Ident|Args] | Body], [define(Label), [IIdent|IArgs] | IBody]) :- !,
   must(pi(Ident, IIdent), "si(define-func/ident)"),
   must(pilis(Args, IArgs), "si(define-func/parms)"),
-  must(silis(Body, IBody), "si(define-func/body)").
+  must(siblk(Body, IBody), "si(define-func/body)").
 
 % - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 %                         (template <sign> <stmt> ...+)
 %
-si([template, Sign | Body], [template, ISign:_ | IBody]) :- !,
+si([template(Label), Sign | Body], [template(Label), ISign:_ | IBody]) :- !,
   must(pilis(Sign, ISign), "si(template-func/sign)"),
-  must(silis(Body, IBody), "si(template-func/body)").
+  must(siblk(Body, IBody), "si(template-func/body)").
 
 % - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 %                               <expr>
@@ -118,10 +128,30 @@ si([template, Sign | Body], [template, ISign:_ | IBody]) :- !,
 si(E, OE) :- ei(E, OE), !.
 
 
+siblk(I, O) :-
+  ilabels(I, L),
+  silis(L, O).
+
 silis([], []).
 silis([IH|IT], [OH|OT]) :-
   si(IH, OH),
   silis(IT, OT).
+
+ilabels([], []).
+ilabels([H|T], [OH|OT]) :-
+  ( H = [template|A] ->
+    igenlabel(Label),
+    OH = [template(Label)|A]
+  ; H = [define|A] ->
+    igenlabel(Label),
+    OH = [define(Label)|A]
+  ; OH = H
+  ),
+  ilabels(T, OT).
+
+igenlabel(Label) :-
+  gensym('$L', Label).
+
 
 
 % ------------------------------------------------------------------------------
@@ -137,7 +167,7 @@ si(E, _) :- throw(transformation_error(si(E))).
 infest(FlatIr, FlatIrWithPlaceholders) :-
   info("injecting placeholders for annotations ..."),
   (
-    silis(FlatIr, FlatIrWithPlaceholders) -> infonl("done");
+    siblk(FlatIr, FlatIrWithPlaceholders) -> infonl("done");
     infonl("failure"), throw(typecheck_error(infest))
   ).
 

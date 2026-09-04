@@ -26,6 +26,10 @@ delimiter('}').
 delimiter(',').
 
 token(extern).
+token(declare).
+token(overload).
+token(with).
+token(template).
 token(as).
 token('->').
 token(infix).
@@ -55,30 +59,41 @@ extern('set!', 'set!', 'set!').
 % ------------------------------------------------------------------------------
 %                             PRIMITIVES
 %
+% <ident> = <atom>
+% <ident> = q(<atom>)
 ip(Ident) --> [Ident], { atom(Ident), \+ keyword(Ident) }, !.
-
 ip(Ident) --> [q(Ident)], { atom(Ident) }, !.
 
+
 % <type> = <ident>
-typ(Type) --> ip(Type), !.
 % <type> = <typevar>
-typ(Type) --> [q(Type)], { var(Type) }, !.
 % <type> = '(' <type> ...* ')' '->' <type>
+% <type> = '(' <type> ...* ')' '->' '(' <type> ...* ')'
+typ(Type) --> ip(Type), !.
+typ(Type) --> [q(Type)], { var(Type) }, !.
 typ('=>'(ArgTypes, [RetType])) -->
   ['('], pcomalis(typ, ')', ArgTypes), ['->'], typ(RetType), !.
-% <type> = '(' <type> ...* ')' '->' '(' <type> ...* ')'
 typ('=>'(ArgTypes, RetTypes)) -->
   ['('], pcomalis(typ, ')', ArgTypes), ['->', '('], pcomalis(typ, ')', RetTypes), !.
 
+
 % <typelist> = <type>
-tylp([Type]) --> typ(Type), !.
 % <typelist> = '(' <type> ...* ')'
+tylp([Type]) --> typ(Type), !.
 tylp(Typelist) --> ['('], pcomalis(typ, ')', Typelist).
 
+
+% <restypelist> = '->' <typelist>
+% <restypelist> = none
+rtylp(Typelist) --> ['->'], !, tylp(Typelist).
+rtylp(Typelist) --> !.
+
+
 % <parm> = <ident> <type>
-pp(Ident:Type) --> ip(Ident), typ(Type), !.
 % <parm> = <ident>
+pp(Ident:Type) --> ip(Ident), typ(Type), !.
 pp(Ident) --> ip(Ident), !.
+
 
 % <typed-parm> = <ident> <type>
 typp(Ident:Type) --> ip(Ident), typ(Type), !.
@@ -86,8 +101,8 @@ typp(Ident:Type) --> ip(Ident), typ(Type), !.
 
 % <body> = '=' <xexpr>
 % <body> = '{' <stmt> ...* '}'
-pbody([XExpr]) --> ['='], xp(XExpr), !.
-pbody(Block) --> ['{'], splis(Block, [], '}').
+bodyp([XExpr]) --> ['='], xp(XExpr), !.
+bodyp(Block) --> ['{'], splis(Block, [], '}').
 
 
 % ------------------------------------------------------------------------------
@@ -187,22 +202,46 @@ sp([[sif, Cond, Then]|Z], Z) -->
   [if], xp(Cond), [then], xp(Then), !.
 
 % - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+%                          'declare' <ident> '$' <label>
+%
+%sp([[declare, Ident, Label] |Z], Z) -->
+  %[declare], ip(Ident), ['$'], ip(LabelSufix), !,
+  %{
+    %atom_concat(Ident, '#', Tmp),
+    %atom_concat(Tmp, LabelSufix, Label)
+  %}.
+
+% - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+%                          'declare' 'template' '(' <Label> ')' <ident>
+%
+sp([[declaret, Ident, Label] |Z], Z) -->
+  [declare], [template], ['('], ip(Label), [')'], ip(Ident), !.
+
+% - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+%                          'overload' <alias-ident> 'with' <ident>
+%
+sp([[overload, Alias, [Ident]] |Z], Z) -->
+  [overload], ip(Alias), [with], ip(Ident), !.
+
+% - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 %                          <ident> '=' <xexpr>
 %
 sp([[define, Ident, XExpr]|Z], Z) -->
   ip(Ident), ['='], xp(XExpr), !.
 
 % - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-%            <ident> '(' [<parm> [ ',' <parm> ] ...*] ')' '->' <type> <body>
+%            <ident> '(' [<parm> [ ',' <parm> ] ...*] ')' <restypelist> <body>
 %
-sp([[define, [Ident:Res|Args] |Body] |Z], Z) -->
-  ip(Ident), ['('], pcomalis(typp, ')', Args), ['->'], tylp(Res), pbody(Body), !.
+sp([[overload, Ident], [define, [Ident:Res|Args] |Body] |Z], Z) -->
+  ip(Ident), ['('], pcomalis(typp, ')', Args), rtylp(Res), bodyp(Body), !.
 
 % - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-%    'template' <ident> '(' [<ident> [ ',' <ident> ] ...*] ')' <body>
+%    'template' ['(' <label> ')'] <ident>  '(' [<ident> [ ',' <ident> ] ...*] ')' <body>
 %
 sp([[template, [Ident|Args] |Body] |Z], Z) -->
-  [template], ip(Ident), ['('], pcomalis(pp, ')', Args), pbody(Body), !.
+  [template], ip(Ident), ['('], pcomalis(pp, ')', Args), bodyp(Body), !.
+sp([[template(Label), [Ident|Args] |Body] |Z], Z) -->
+  [template], ['('], ip(Label), [')'], ip(Ident), ['('], pcomalis(pp, ')', Args), bodyp(Body), !.
 
 
 % - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -

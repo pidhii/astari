@@ -5,11 +5,8 @@
 type(Args => Res) :- '$typelis'(Args), '$typelis'(Res), !.
 
 resultof(OArgs => ORes, IArgs, IRes) :- !,
-  '$decaylis'(IArgs, DArgs),
-  '$castlis'(DArgs, OArgs),
+  '$decaylis'(IArgs, OArgs),
   '$castlis'(ORes, IRes).
-
-resultof('='(Ident:Type), Args, Res) :- !, resultof(Type, Args, Res).
 
 
 '$typelis'(L, L) :- var(L), !.
@@ -53,6 +50,7 @@ memberq(X, [H|T]) :-
 %et(InputSeq, OTypes, A/_, Z/_) :- write(">>> "), write(et(InputSeq)), nl, fail.
 %st(InputSeq, OTypes, A/_, Z/_) :- write(">>> "), write(st(InputSeq)), nl, fail.
 
+
 % ------------------------------------------------------------------------------
 %                             EXPRESSIONS
 %
@@ -81,36 +79,33 @@ tinst(X, X).
 % - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 %                              <overload>
 %
-et(overload(Alias, Ident):T, [T], A/Alist, Z/Alist) :- !,
-  findall(I, overload(Alias, I), Variants),
-  %tresolvelis(Ident:T, Variants, CodeVariants, Alist),
-  %OrClause =.. [';'|CodeVariants],
-  %A = [OrClause|Z].
-  ( Variants = [Variant] ->
-    tresolve(Ident:T, Variant, Clause, Alist),
-    A = [Clause|Z]
-  ; tresolvelis(Ident:T, Variants, CodeVariants, Alist),
+et(overload(Variants, Ident):T, [T], A/Alist, Z/Alist) :- !,
+  ( Variants = [] -> throw("et(overload/empty)")
+  ; Variants = [Ident] ->
+    must(tident(Ident:T, Alist), et(overload(Variants,Ident))),
+    A = Z
+  ; tmakeresolvecaluselis(Ident:T, Variants, CodeVariants, Alist),
     OrClause =.. [';'|CodeVariants],
     A = [OrClause|Z]
   ).
 
-tresolve(Ident:Type, Variant, Clause, Alist) :-
+tmakeresolveclause(Ident:Type, Variant, Clause, Alist) :-
   tident(Variant:VariantType, Alist),
   A = [Ident = Variant, Type = VariantType],
   Clause =.. [','|A].
 
-tresolvelis(Ident:Type, [], [],  _).
-tresolvelis(Ident:Type, [H|T], [CH|CT], Alist) :-
-  tresolve(Ident:Type, H, CH, Alist),
-  tresolvelis(Ident:Type, T, CT, Alist).
+tmakeresolvecaluselis(Ident:Type, [], [],  _).
+tmakeresolvecaluselis(Ident:Type, [H|T], [CH|CT], Alist) :-
+  tmakeresolveclause(Ident:Type, H, CH, Alist),
+  tmakeresolvecaluselis(Ident:Type, T, CT, Alist).
 
 % - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-%                              <template>
+%                              <instance>
 %
-et(template(Ident, Schema):T, [T], A/Alist, Z/Alist) :- !,
-  must(tident(Ident:Temp, Alist), et('template-ident'(Ident))),
-  A = [tinst(Temp, T) |Z],
-  must(T = Ident/Schema, et('template-ident'/'schema')).
+et(instance(Ident, Schema):T, [T], A/Alist, Z/Alist) :- !,
+  %must(tident(Ident:Temp, Alist), et('instance-ident'(Ident))),
+  A = [tinst(Ident/Schema, T) |Z],
+  must(T = Ident/Schema, et('instance-ident'/'schema')).
 
 % - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 %                 (eif <cond-expr> <then-expr> <else-expr>)
@@ -137,14 +132,9 @@ et([Fn|Args]:R, R) --> !,
   must(et(Fn, [FnType|_]), "et(fncall/fn)"), % resolve function identifier
   must(etlis(Args, ArgTypelists), "et(fncall/args-1)"), % convert arguments to types
   { must(maplist(listhead, ArgTypelists, ArgTypes), "et(fncall/args-2)") }, % take only the head of each arg type
-  tmatlis([FnType|ArgTypes], [MFnType|MArgTypes]),
-  tput(tabulatex(resultof(MFnType, MArgTypes, R))). % defer function call
+  tput(tabulatex(resultof(FnType, ArgTypes, R))). % defer function call
 
 listhead([H|_], H).
-
-tmatlis([], []) --> !.
-tmatlis([H|T], [MH|MT]) --> tput(materialize(H, MH)), tmatlis(T, MT).
-
 
 % ------------------------------------------------------------------------------
 %                              STATEMENTS
@@ -180,7 +170,7 @@ ovrllis(Alias, [H|T]) -->
 % - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 %                         (define <ident> <stmt> ...+)
 %
-st([define, Ident:IdentType |Body], []) --> { atom(Ident) }, !,
+st([define(Label), Ident:IdentType |Body], []) --> { atom(Ident) }, !,
   must(stblk(Body, [BodyTypeHead|_]), "st(define-ident/body)"),
   tput(materialize(BodyTypeHead, IdentType)),
   talist_add(Ident:IdentType).
@@ -188,7 +178,7 @@ st([define, Ident:IdentType |Body], []) --> { atom(Ident) }, !,
 % - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 %                         (define <sign> <stmt> ...+)
 %
-st([define, [Ident:Res | ArgIdents] | Body], []) --> !,
+st([define(Label), [Ident:Res | ArgIdents] | Body], []) --> !,
   % populate self
   talist_add(Ident:(ArgTypes=>Res)),
   talist_get(Zlist),
@@ -202,12 +192,12 @@ st([define, [Ident:Res | ArgIdents] | Body], []) --> !,
 % - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 %                         (template <sign> <stmt> ...+)
 %
-st([template, [Ident:Res | ArgIdents]:Schema | Body], []) --> !,
+st([template(Label), [Ident:Res |ArgIdents]:Schema | Body], []) --> !,
   % Current type environment
   talist_get(Alist),
   { once(member(typeenv(E), Alist); E = []) },
   % Populate self
-  talist_add(Ident:TemplateSign),
+  %talist_add(Ident:TemplateSign),
   % Save alist state to restore it after the changes meant for body
   talist_get(Zlist),
   {
@@ -227,11 +217,10 @@ st([template, [Ident:Res | ArgIdents]:Schema | Body], []) --> !,
   % - generate typecheck for the function body
   talist_get(Flist),
   {
-    %ClauseBody0 = ['$decaylis'(IArgs, DArgs),
-                   %'$castlis'(DArgs, Args),
-                   %'$castlis'(Res, IRes)
-                   %|ClauseBody1],
-    ClauseBody0 = ClauseBody1,
+    ClauseBody0 = ['$decaylis'(IArgs, Args),
+                   '$castlis'(Res, IRes)
+                   |ClauseBody1],
+    %ClauseBody0 = ClauseBody1,
     must(stblk(Body, Res, ClauseBody1/Flist, ClauseBody2/_), "st(template-func/body)"),
     % inject automatic registration of instantiation:
     SpecialDef = [define, [Ident|ArgIdents] |Body],
@@ -279,8 +268,8 @@ etlis([], []) --> !.
 etlis([H|T], [RH|RT]) --> et(H, RH), etlis(T, RT).
 
 
-stlis([], []) --> !.
-stlis([H|T], [RH|RT]) --> st(H, RH), stlis(T, RT).
+%tscanst([template(_), [Ident:_ |_] |_], [Ident:(Ident/_Schema)]).
+%tscanblk([H|T], [RH|RT]) --> st(H, RH), stlis(T, RT).
 
 
 stblk([], []) --> !.
@@ -294,7 +283,7 @@ stblk([H|T], R) --> st(H, _), stblk(T, R).
 annotate(Input, Output) :-
   info("generating typer script                ..."),
   (
-    stlis(Input, _, TypeCheck/[], []/_) -> infonl("done");
+    stblk(Input, _, TypeCheck/[], []/_) -> infonl("done");
     infonl("failure"), throw(typecheck_error(generate_typecheck_script))
   ),
   when(veryverbose, (

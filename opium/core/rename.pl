@@ -1,4 +1,4 @@
-:- op(100, xfx, ':').
+:- op(100, xfy, ':').
 
 
 genname(Ident, RIdent) :-
@@ -9,8 +9,12 @@ genname(Ident, RIdent) :-
 % ------------------------------------------------------------------------------
 %                           TRACING (FOR DEBUG)
 %
-%er(X, A, Z) :- write(">>> "), write(er(X)), nl, fail.
-%sr(X, R, A, Z) :- write(">>> "), write(sr(X)), nl, fail.
+er(X, _/Alist, _) :-
+  write(">>> "), write(er(X)), nl,
+  write(" ai "), write(Alist), nl, fail.
+sr(X, R, _/Alist, _) :-
+  write(">>> "), write(sr(X)), nl,
+  write(" ai "), write(Alist), nl, fail.
 
 
 % ------------------------------------------------------------------------------
@@ -53,12 +57,14 @@ er(Literal:T, [Literal:T|Z]/Alist, Z/Alist) :- literal(Literal, _), !.
 %                               <ident>
 %
 er(Ident:T, A/Alist, Z/Alist) :- atom(Ident), !,
-  must(rident(Ident:RIdent, Alist), er(ident/unknown(Ident))),
-  ( overloaded(RIdent) ->
-    A = [overload(RIdent, _):T|Z]
-  ; template(RIdent) ->
-    A = [template(RIdent, _):T|Z]
-  ; A = [RIdent:T|Z]
+  must(rident(Ident:RIdent:Kind, Alist), er(ident/unknown(Ident))),
+  ( Kind == ovrl ->
+    findall(I, overload(RIdent, I), Is),
+    A = [overload(Is, _):T|Z]
+  ; Kind == temp ->
+    A = [instance(RIdent, _):T|Z]
+  ; must(Kind == def, er(ident/invalid_kind(Ident,Kind))),
+    A = [RIdent:T|Z]
   ).
 
 
@@ -104,6 +110,29 @@ rattrlis([]) --> !.
 %                              STATEMENTS
 %
 % - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+%                         (declare <ident> <label>)
+%
+sr([[declare, Ident, Label] |IZ], IZ, A/Alist, A/Zlist) :- !,
+  must(member(decl(Label, RIdent), Alist), sr('declare/no-such-label'(Label))),
+  Zlist = [Ident:RIdent:def |Alist].
+
+% - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+%                         (declaret <ident> <label>)
+%
+sr([[declaret, Ident, Label] |IZ], IZ, A/Alist, A/Zlist) :- !,
+  must(member(decl(Label, RIdent), Alist), sr('declaret/no-such-label'(Label))),
+  Zlist = [Ident:RIdent:temp |Alist].
+
+
+% - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+%                         (overload <ident> (<ident> ...*))
+%
+sr([[overload, Alias, Idents] |IZ], IZ, A/Alist, A/Zlist) :- !,
+  renamelis_noov(Idents, RIdents, Alist),
+  rensure_overloaded(Alias, RAlias, Alist, Zlist),
+  maplist(rensure_overloads(RAlias), RIdents).
+
+% - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 %                 (sif <cond-expr> <then-stmt> <else-stmt>)
 %
 sr([[sif, Cond, Then, Else]|Rem], Rem, [[sif, RCond, RThen, RElse]|Z]/Alist, Z/Alist) :- !,
@@ -118,56 +147,49 @@ sr([[sif, Cond, Then]|Rem], Rem, [[sif, RCond, RThen]|Z]/Alist, Z/Alist) :- !,
   must(er(Cond, [RCond]/Alist, []/Alist), "er(sif-then/cond)"),
   must(sr([Then], [], [RThen]/Alist, []/Alist), "er(sif-then/then)").
 
-
-% - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-%                         (overload <ident> (<ident> ...*))
-%
-sr([[overload, Alias, Idents] |IZ], IZ, A/Alist, A/Zlist) :- !,
-  renamelis_noov(Idents, RIdents, Alist),
-  rensure_overloaded(Alias, RAlias, Alist, Zlist),
-  maplist(ensure_asserted_overload(RAlias), RIdents).
-
-ensure_asserted_overload(RAlias, RIdent) :-
-  ensure_asserted(overload(RAlias, RIdent)).
-
 % - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 %                         (define <ident> <stmt> ...+)
 %
 sr(IA, IZ, A/Alist, Z/Zlist) :- 
-  rattrlis(Attrs, IA, IB), IB = [[define, Ident:T |Body] |IZ], atom(Ident),
+  rattrlis(Attrs, IA, IB), IB = [[define(Label), Ident:T |Body] |IZ], atom(Ident),
   !,
+  % Generate rename and bind with declaration
   genname(Ident, RIdent),
+  must(member(decl(Label, RIdent), Alist), "sr(define-ident/bind-decl)"),
   % Populate in alist
-  rpopulate(Attrs, Ident:RIdent, Alist, Zlist),
-  must(srlis(Body, RBody/Zlist, []/_), "sr(define-ident/body)"),
-  A = [[define, RIdent:T |RBody] | Z].
+  %rpopulate(Attrs, Ident:RIdent:def, Alist, Zlist),
+  must(srblk(Body, RBody/Zlist, []/_), "sr(define-ident/body)"),
+  A = [[define(Label), RIdent:T |RBody] | Z].
 
 % - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 %                         (define <sign> <stmt> ...+)
 %
 sr(IA, IZ, A/Alist, Z/Zlist) :-
-  rattrlis(Attrs, IA, IB), IB = [[define, [Ident:T|Parms] |Body] |IZ],
+  rattrlis(Attrs, IA, IB), IB = [[define(Label), [Ident:T|Parms] |Body] |IZ],
   !,
+  % Generate rename and bind with declaration
   genname(Ident, RIdent),
+  must(member(decl(Label, RIdent), Alist), "sr(define-func/bind-decl)"),
   % Populate in alist
-  rpopulate(Attrs, Ident:RIdent, Alist, Zlist),
+  rpopulate(Attrs, Ident:RIdent:def, Alist, Zlist),
   must(rparmlis(Parms, RParms, Zlist, Flist), "sr(define-func/parms)"),
-  must(srlis(Body, RBody/[scope|Flist], []/_), "sr(define-func/body)"),
-  A = [[define, [RIdent:T|RParms] | RBody] | Z].
+  must(srblk(Body, RBody/[scope|Flist], []/_), "sr(define-func/body)"),
+  A = [[define(Label), [RIdent:T|RParms] | RBody] | Z].
 
 % - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 %                         (template <sign> <stmt> ...+)
 %
 sr(IA, IZ, A/Alist, Z/Zlist) :-
-  rattrlis(Attrs, IA, IB), IB = [[template, [Ident:T|Parms]:_ | Body] |IZ],
+  rattrlis(Attrs, IA, IB), IB = [[template(Label), [Ident:T|Parms]:_ | Body] |IZ],
   !,
+  % Generate rename and bind with declaration
   genname(Ident, RIdent),
-  asserta(template(RIdent)),
+  must(debug(member(decl(Label, RIdent), Alist)), "sr(template-func/bind-decl)"),       
   % Populate in alist
-  rpopulate(Attrs, Ident:RIdent, Alist, Zlist),
+  rpopulate(Attrs, Ident:RIdent:temp, Alist, Zlist),
   must(rparmlis(Parms, RParms, Zlist, Flist), "sr(template-func/parms)"),
-  must(srlis(Body, RBody/[scope|Flist], []/_), "sr(template-func/body)"),
-  A = [[template, [RIdent:T|RParms]:_ | RBody] |Z].
+  must(srblk(Body, RBody/[scope|Flist], []/_), "sr(template-func/body)"),
+  A = [[template(Label), [RIdent:T|RParms]:_ | RBody] |Z].
 
 
 rparmlis([], [], Alist, Alist).
@@ -189,10 +211,33 @@ sr([E|IZ], IZ, A, Z) :-
   er(E, A, Z), !.
 
 
+srblk([], A, A).
+srblk(L, A/Alist, Z/Zlist) :-
+  rscanlabels(L, Labels),
+  rmakedecls(Labels, Decls),
+  append(Decls, Alist, Blist),
+  srlis(L, A/Blist, Z/Zlist).
+
 srlis([], A, A).
 srlis(L, A, Z) :-
   sr(L, R, A, B),
   srlis(R, B, Z).
+
+rscanlabels([], []).
+rscanlabels([H|T], Labels0) :-
+  ( H = [template(Label)|_] ->
+    Labels0 = [Label|Labels1],
+    rscanlabels(T, Labels1)
+  ; H = [define(Label)|_] ->
+    Labels0 = [Label|Labels1],
+    rscanlabels(T, Labels1)
+  ; rscanlabels(T, Labels0)
+  ).
+
+rmakedecls([], []).
+rmakedecls([H|T], [decl(H,_)|Ds]) :-
+  rmakedecls(T, Ds).
+
 
 % ------------------------------------------------------------------------------
 %                           INVALID INPUT HANDLERS
@@ -206,14 +251,24 @@ er(E, _, _) :- throw(transformation_error(er(E))).
 %
 % Create overload group in alist unles already present
 rensure_overloaded(OvIdent, ROvIdent, Alist, Zlist) :-
-  scopemember(OvIdent:ROvIdent, Alist) -> Zlist = Alist;
-  genname(OvIdent, ROvIdent), Zlist = [OvIdent:ROvIdent|Alist].
+  ( % - alias rename is already present
+    scopemember(OvIdent:ROvIdent:ovrl, Alist) ->
+    must(overloaded(ROvIdent), overloaded(OvIdent)),
+    Zlist = Alist
+  ; genname(OvIdent, ROvIdent),
+    ensure_asserted(overloaded(ROvIdent)),
+    Zlist = [OvIdent:ROvIdent:ovrl|Alist]
+  ).
 
-rpopulate(Attrs, Ident:RIdent, Alist, Zlist) :-
+rensure_overloads(RAlias, RIdent) :-
+  must(overloaded(RAlias), add_overload),
+  ensure_asserted(overload(RAlias, RIdent)).
+
+rpopulate(Attrs, Ident:RIdent:Kind, Alist, Zlist) :-
   ( member(overload(OvIdent), Attrs) ->
     rensure_overloaded(OvIdent, ROvIdent, Alist, Zlist),
-    ensure_asserted_overload(ROvIdent, RIdent)
-  ; Zlist = [Ident:RIdent|Alist]
+    rensure_overloads(ROvIdent, RIdent)
+  ; Zlist = [Ident:RIdent:Kind|Alist]
   ).
 
 
@@ -223,7 +278,7 @@ rpopulate(Attrs, Ident:RIdent, Alist, Zlist) :-
 rename(Input, Output) :-
   info("renaming identifiers                   ..."),
   (
-    srlis(Input, Output/[], []/_) -> infonl("done");
+    srblk(Input, Output/[], []/_) -> infonl("done");
     infonl("failure"), throw(transformation_error(rename('...')))
   ).
 
