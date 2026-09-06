@@ -20,8 +20,9 @@ genname(Ident, RIdent) :-
 % ------------------------------------------------------------------------------
 %                             PRIMITIVES
 %
-rident(Ident:RIdent, Alist) :-
-  once(member(Ident:RIdent, Alist); extern(Ident, RIdent, _)).
+rident(Ident:RIdent:Kind, Alist) :-
+  once(member(Ident:RIdent:Kind, Alist);
+       extern(Ident, RIdent, _), Kind = def).
 
 
 % Find rename of an identifier skipping overload groups (in case identifier

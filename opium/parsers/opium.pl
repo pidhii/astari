@@ -232,7 +232,7 @@ sp([[define, Ident, XExpr]|Z], Z) -->
 % - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 %            <ident> '(' [<parm> [ ',' <parm> ] ...*] ')' <restypelist> <body>
 %
-sp([[overload, Ident], [define, [Ident:Res|Args] |Body] |Z], Z) -->
+sp([[define, [Ident:Res|Args] |Body] |Z], Z) -->
   ip(Ident), ['('], pcomalis(typp, ')', Args), rtylp(Res), bodyp(Body), !.
 
 % - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -258,16 +258,16 @@ splis(A, Z, D) --> sp(A, B), splis(B, Z, D).
 % - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 %                  'extern' <ident> 'as' <ident> <type>
 %
-tp([[overload, Ident, [ExtIdent]] |Z], Z) -->
+tp(Z, Z) -->
   [extern], ip(ExtIdent), [as], ip(Ident), typ(Type), !,
-  { asserta(extern(ExtIdent, ExtIdent, Type)) }.
+  { asserta(extern(Ident, ExtIdent, Type)) }.
 
 % - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 %                        'extern' <ident> <type>
 %
-tp([[overload, ShrdIdent, [ShrdIdent]] |Z], Z) -->
-  [extern], ip(ShrdIdent), typ(Type), !,
-  { asserta(extern(ShrdIdent, ShrdIdent, Type)) }.
+tp(Z, Z) -->
+  [extern], ip(ExtIdent), typ(Type), !,
+  { asserta(extern(ExtIdent, ExtIdent, Type)) }.
 
 % - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 %               'infix' <ident> {left,right,nonassoc} <int>
