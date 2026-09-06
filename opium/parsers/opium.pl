@@ -212,10 +212,10 @@ sp([[sif, Cond, Then]|Z], Z) -->
   %}.
 
 % - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-%                          'declare' 'template' '(' <Label> ')' <ident>
+%                          'declare' 'template' <ident>
 %
-sp([[declaret, Ident, Label] |Z], Z) -->
-  [declare], [template], ['('], ip(Label), [')'], ip(Ident), !.
+sp([[declaret, Ident] |Z], Z) -->
+  [declare], [template], ip(Ident), !.
 
 % - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 %                          'overload' <alias-ident> 'with' <ident>
@@ -236,13 +236,10 @@ sp([[overload, Ident], [define, [Ident:Res|Args] |Body] |Z], Z) -->
   ip(Ident), ['('], pcomalis(typp, ')', Args), rtylp(Res), bodyp(Body), !.
 
 % - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-%    'template' ['(' <label> ')'] <ident>  '(' [<ident> [ ',' <ident> ] ...*] ')' <body>
+%    'template' <ident>  '(' [<ident> [ ',' <ident> ] ...*] ')' <body>
 %
 sp([[template, [Ident|Args] |Body] |Z], Z) -->
   [template], ip(Ident), ['('], pcomalis(pp, ')', Args), bodyp(Body), !.
-sp([[template(Label), [Ident|Args] |Body] |Z], Z) -->
-  [template], ['('], ip(Label), [')'], ip(Ident), ['('], pcomalis(pp, ')', Args), bodyp(Body), !.
-
 
 % - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 %                               <expr>

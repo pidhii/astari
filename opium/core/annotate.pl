@@ -170,7 +170,7 @@ ovrllis(Alias, [H|T]) -->
 % - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 %                         (define <ident> <stmt> ...+)
 %
-st([define(Label), Ident:IdentType |Body], []) --> { atom(Ident) }, !,
+st([define, Ident:IdentType |Body], []) --> { atom(Ident) }, !,
   must(stblk(Body, [BodyTypeHead|_]), "st(define-ident/body)"),
   tput(materialize(BodyTypeHead, IdentType)),
   talist_add(Ident:IdentType).
@@ -178,7 +178,7 @@ st([define(Label), Ident:IdentType |Body], []) --> { atom(Ident) }, !,
 % - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 %                         (define <sign> <stmt> ...+)
 %
-st([define(Label), [Ident:Res | ArgIdents] | Body], []) --> !,
+st([define, [Ident:Res | ArgIdents] | Body], []) --> !,
   % populate self
   talist_add(Ident:(ArgTypes=>Res)),
   talist_get(Zlist),
@@ -192,7 +192,7 @@ st([define(Label), [Ident:Res | ArgIdents] | Body], []) --> !,
 % - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 %                         (template <sign> <stmt> ...+)
 %
-st([template(Label), [Ident:Res |ArgIdents]:Schema | Body], []) --> !,
+st([template, [Ident:Res |ArgIdents]:Schema | Body], []) --> !,
   % Current type environment
   talist_get(Alist),
   { once(member(typeenv(E), Alist); E = []) },

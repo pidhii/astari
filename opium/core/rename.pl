@@ -9,12 +9,12 @@ genname(Ident, RIdent) :-
 % ------------------------------------------------------------------------------
 %                           TRACING (FOR DEBUG)
 %
-er(X, _/Alist, _) :-
-  write(">>> "), write(er(X)), nl,
-  write(" ai "), write(Alist), nl, fail.
-sr(X, R, _/Alist, _) :-
-  write(">>> "), write(sr(X)), nl,
-  write(" ai "), write(Alist), nl, fail.
+%er(X, _/Alist, _) :-
+  %write(">>> "), write(er(X)), nl,
+  %write(" ai "), write(Alist), nl, fail.
+%sr(X, R, _/Alist, _) :-
+  %write(">>> "), write(sr(X)), nl,
+  %write(" ai "), write(Alist), nl, fail.
 
 
 % ------------------------------------------------------------------------------
@@ -110,17 +110,17 @@ rattrlis([]) --> !.
 %                              STATEMENTS
 %
 % - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-%                         (declare <ident> <label>)
+%                         (declare <ident>)
 %
-sr([[declare, Ident, Label] |IZ], IZ, A/Alist, A/Zlist) :- !,
-  must(member(decl(Label, RIdent), Alist), sr('declare/no-such-label'(Label))),
+sr([[declare, Ident] |IZ], IZ, A/Alist, A/Zlist) :- !,
+  must(member(decl(Ident, RIdent), Alist), sr('declare/no-such-ident'(Ident))),
   Zlist = [Ident:RIdent:def |Alist].
 
 % - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-%                         (declaret <ident> <label>)
+%                         (declaret <ident>)
 %
-sr([[declaret, Ident, Label] |IZ], IZ, A/Alist, A/Zlist) :- !,
-  must(member(decl(Label, RIdent), Alist), sr('declaret/no-such-label'(Label))),
+sr([[declaret, Ident] |IZ], IZ, A/Alist, A/Zlist) :- !,
+  must(member(decl(Ident, RIdent), Alist), sr('declaret/no-such-ident'(Ident))),
   Zlist = [Ident:RIdent:temp |Alist].
 
 
@@ -151,45 +151,45 @@ sr([[sif, Cond, Then]|Rem], Rem, [[sif, RCond, RThen]|Z]/Alist, Z/Alist) :- !,
 %                         (define <ident> <stmt> ...+)
 %
 sr(IA, IZ, A/Alist, Z/Zlist) :- 
-  rattrlis(Attrs, IA, IB), IB = [[define(Label), Ident:T |Body] |IZ], atom(Ident),
+  rattrlis(Attrs, IA, IB), IB = [[define, Ident:T |Body] |IZ], atom(Ident),
   !,
   % Generate rename and bind with declaration
-  genname(Ident, RIdent),
-  must(member(decl(Label, RIdent), Alist), "sr(define-ident/bind-decl)"),
+  %genname(Ident, RIdent),
+  must(member(decl(Ident, RIdent), Alist), "sr(define-ident/bind-decl)"),
   % Populate in alist
   %rpopulate(Attrs, Ident:RIdent:def, Alist, Zlist),
   must(srblk(Body, RBody/Zlist, []/_), "sr(define-ident/body)"),
-  A = [[define(Label), RIdent:T |RBody] | Z].
+  A = [[define, RIdent:T |RBody] | Z].
 
 % - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 %                         (define <sign> <stmt> ...+)
 %
 sr(IA, IZ, A/Alist, Z/Zlist) :-
-  rattrlis(Attrs, IA, IB), IB = [[define(Label), [Ident:T|Parms] |Body] |IZ],
+  rattrlis(Attrs, IA, IB), IB = [[define, [Ident:T|Parms] |Body] |IZ],
   !,
   % Generate rename and bind with declaration
-  genname(Ident, RIdent),
-  must(member(decl(Label, RIdent), Alist), "sr(define-func/bind-decl)"),
+  %genname(Ident, RIdent),
+  must(member(decl(Ident, RIdent), Alist), "sr(define-func/bind-decl)"),
   % Populate in alist
   rpopulate(Attrs, Ident:RIdent:def, Alist, Zlist),
   must(rparmlis(Parms, RParms, Zlist, Flist), "sr(define-func/parms)"),
   must(srblk(Body, RBody/[scope|Flist], []/_), "sr(define-func/body)"),
-  A = [[define(Label), [RIdent:T|RParms] | RBody] | Z].
+  A = [[define, [RIdent:T|RParms] | RBody] | Z].
 
 % - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 %                         (template <sign> <stmt> ...+)
 %
 sr(IA, IZ, A/Alist, Z/Zlist) :-
-  rattrlis(Attrs, IA, IB), IB = [[template(Label), [Ident:T|Parms]:_ | Body] |IZ],
+  rattrlis(Attrs, IA, IB), IB = [[template, [Ident:T|Parms]:_ | Body] |IZ],
   !,
   % Generate rename and bind with declaration
-  genname(Ident, RIdent),
-  must(debug(member(decl(Label, RIdent), Alist)), "sr(template-func/bind-decl)"),       
+  %genname(Ident, RIdent),
+  must(member(decl(Ident, RIdent), Alist), "sr(template-func/bind-decl)"),       
   % Populate in alist
   rpopulate(Attrs, Ident:RIdent:temp, Alist, Zlist),
   must(rparmlis(Parms, RParms, Zlist, Flist), "sr(template-func/parms)"),
   must(srblk(Body, RBody/[scope|Flist], []/_), "sr(template-func/body)"),
-  A = [[template(Label), [RIdent:T|RParms]:_ | RBody] |Z].
+  A = [[template, [RIdent:T|RParms]:_ | RBody] |Z].
 
 
 rparmlis([], [], Alist, Alist).
@@ -213,8 +213,7 @@ sr([E|IZ], IZ, A, Z) :-
 
 srblk([], A, A).
 srblk(L, A/Alist, Z/Zlist) :-
-  rscanlabels(L, Labels),
-  rmakedecls(Labels, Decls),
+  rgendecls(L, Decls),
   append(Decls, Alist, Blist),
   srlis(L, A/Blist, Z/Zlist).
 
@@ -223,21 +222,24 @@ srlis(L, A, Z) :-
   sr(L, R, A, B),
   srlis(R, B, Z).
 
-rscanlabels([], []).
-rscanlabels([H|T], Labels0) :-
-  ( H = [template(Label)|_] ->
-    Labels0 = [Label|Labels1],
-    rscanlabels(T, Labels1)
-  ; H = [define(Label)|_] ->
-    Labels0 = [Label|Labels1],
-    rscanlabels(T, Labels1)
-  ; rscanlabels(T, Labels0)
+%%%
+% rscandef(+Statement, ?Ident)
+%
+% Extract identifiers used for definitions. Fails for statements that are not
+% definitions.
+%
+rscandef([template, [Ident:_ |_]:_ |_], Ident) :- !.
+rscandef([define, [Ident:_ |_] |_], Ident) :- !.
+rscandef([define, Ident:_ |_], Ident) :- !, must(atom(Ident), 'rscandef(define-ident)').
+
+rgendecls([], []).
+rgendecls([H|T], Decls0) :-
+  ( rscandef(H, Ident) ->
+    genname(Ident, RIdent),
+    Decls0 = [decl(Ident, RIdent)|Decls1],
+    rgendecls(T, Decls1)
+  ; rgendecls(T, Decls0)
   ).
-
-rmakedecls([], []).
-rmakedecls([H|T], [decl(H,_)|Ds]) :-
-  rmakedecls(T, Ds).
-
 
 % ------------------------------------------------------------------------------
 %                           INVALID INPUT HANDLERS

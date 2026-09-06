@@ -111,21 +111,21 @@ se(I, [overload | _]) :- !.
 % - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 %                  (define <ident> <stmt> ...+)
 %
-se(I, [define(_), Ident:_ | Body]) :- atom(Ident), !,
+se(I, [define, Ident:_ | Body]) :- atom(Ident), !,
   eindent(I), ewrite("(define "), ewrite(Ident), enl,
   selis(I+2, Body), ewrite(")").
 
 % - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 %                  (define (<ident> <parm> ...*) <stmt> ...+)
 %
-se(I, [define(_), [Ident|Args] | Body]) :- !,
+se(I, [define, [Ident|Args] | Body]) :- !,
   eindent(I), ewrite("(define ("), eparmlis([Ident|Args]), ewrite(")"), enl,
   selis(I+2, Body), ewrite(")").
 
 % - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 %                         (template <sign> <stmt> ...+)
 %
-se(I, [template(_), [Ident:_|_]:Schema | _]) :- !,
+se(I, [template, [Ident:_|_]:Schema | _]) :- !,
   findall((Ident/Schema):Define, specialization(Ident/Schema, Define), Specializations),
   speclis(I, Specializations).
 

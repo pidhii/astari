@@ -103,14 +103,14 @@ si([overload|Args], [overload|Args]) :- !.
 % - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 %                    (define <ident> <stmt> ...+)
 %
-si([define(Label), Ident | Body], [define(Label), IIdent | IBody]) :- atom(Ident), !,
+si([define, Ident | Body], [define, IIdent | IBody]) :- atom(Ident), !,
   must(pi(Ident, IIdent), "si(define-ident/ident)"),
   must(siblk(Body, IBody), "si(define-ident/body)").
 
 % - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 %                  (define (<ident> <parm> ...*) <stmt> ...+)
 %
-si([define(Label), [Ident|Args] | Body], [define(Label), [IIdent|IArgs] | IBody]) :- !,
+si([define, [Ident|Args] | Body], [define, [IIdent|IArgs] | IBody]) :- !,
   must(pi(Ident, IIdent), "si(define-func/ident)"),
   must(pilis(Args, IArgs), "si(define-func/parms)"),
   must(siblk(Body, IBody), "si(define-func/body)").
@@ -118,7 +118,7 @@ si([define(Label), [Ident|Args] | Body], [define(Label), [IIdent|IArgs] | IBody]
 % - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 %                         (template <sign> <stmt> ...+)
 %
-si([template(Label), Sign | Body], [template(Label), ISign:_ | IBody]) :- !,
+si([template, Sign | Body], [template, ISign:_ | IBody]) :- !,
   must(pilis(Sign, ISign), "si(template-func/sign)"),
   must(siblk(Body, IBody), "si(template-func/body)").
 
@@ -129,29 +129,12 @@ si(E, OE) :- ei(E, OE), !.
 
 
 siblk(I, O) :-
-  ilabels(I, L),
-  silis(L, O).
+  silis(I, O).
 
 silis([], []).
 silis([IH|IT], [OH|OT]) :-
   si(IH, OH),
   silis(IT, OT).
-
-ilabels([], []).
-ilabels([H|T], [OH|OT]) :-
-  ( H = [template|A] ->
-    igenlabel(Label),
-    OH = [template(Label)|A]
-  ; H = [define|A] ->
-    igenlabel(Label),
-    OH = [define(Label)|A]
-  ; OH = H
-  ),
-  ilabels(T, OT).
-
-igenlabel(Label) :-
-  gensym('$L', Label).
-
 
 
 % ------------------------------------------------------------------------------

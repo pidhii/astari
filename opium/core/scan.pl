@@ -96,19 +96,19 @@ ss([overload, Alias, Idents]) :- !.
 % - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 %                         (define <ident> <stmt> ...+)
 %
-ss([define(_), Ident:_ |Body]) :- !,
+ss([define, Ident:_ |Body]) :- !,
   must(maplist(ss, Body), "ss(define-ident/body)").
 
 % - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 %                         (define <sign> <stmt> ...+)
 %
-ss([define(_), [Ident:_|Parms] |Body]) :- !,
+ss([define, [Ident:_|Parms] |Body]) :- !,
   must(maplist(ss, Body), "ss(define-func/body)").
 
 % - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 %                         (template <sign> <stmt> ...+)
 %
-ss([template(_), [Ident:_|Parms]:_ | Body]) :- !.
+ss([template, [Ident:_|Parms]:_ | Body]) :- !.
 
 
 % - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
