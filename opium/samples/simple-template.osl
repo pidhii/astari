@@ -1,0 +1,6 @@
+
+extern print as print (_) -> ()
+
+template id(x) = x
+print(id(42))
+print(id("text"))

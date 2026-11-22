@@ -1,0 +1,5 @@
+
+extern print as print (_) -> ()
+
+print(42)
+print("text")

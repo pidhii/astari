@@ -1,0 +1,13 @@
+
+extern print as print (_) -> ()
+
+template id(x) = x
+
+template compose(f, g) {
+  template h(x) = f(g(x))
+  h
+}
+
+% Full annotation is defered until when the result of `compose` is invoked
+compose(print, id)(42)
+compose(print, id)("text")

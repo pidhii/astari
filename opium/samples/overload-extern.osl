@@ -1,0 +1,15 @@
+
+extern print as print (_) -> ()
+
+% Import two variants of addition: one for nums and one for strs:
+extern + as 'scm#+' (num, num) -> num
+extern 'string-append' as 'scm#string-append' (str, str) -> str
+
+% Overload the `+`-operator with externs from above
+infix + left 500
+overload + with 'scm#+'
+overload + with 'scm#string-append'
+
+print(40 + 2)
+print("te" + "xt")
+

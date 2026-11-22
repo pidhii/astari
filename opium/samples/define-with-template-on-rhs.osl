@@ -1,0 +1,15 @@
+
+extern print as print (_) -> ()
+
+template id(x) = x
+
+template compose(f, g) {
+  template h(x) = f(g(x))
+  h
+}
+
+c = compose(print, id)
+c(42)
+
+% Won't compile:
+%c("text")

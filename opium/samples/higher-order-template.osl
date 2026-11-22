@@ -1,0 +1,9 @@
+
+extern print as print (_) -> ()
+
+template id(x) = x
+template compose3(f, g, x) = f(g(x))
+
+% Templates as arguments to a template
+compose3(print, id, 42)
+compose3(print, id, "text")

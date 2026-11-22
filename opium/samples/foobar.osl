@@ -1,0 +1,7 @@
+
+extern print as print (_) -> ()
+
+template bar(x) = print(x)
+template foo(x) = bar(x)
+foo(42)
+foo("text")
