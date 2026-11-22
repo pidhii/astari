@@ -96,11 +96,6 @@ si([sif, Cond, Then], [sif, OCond, OThen]) :- !,
   must(si(Then, OThen), "ei(sif-then/then)").
 
 % - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-%                 (overload <ident> (<ident> ...+))
-%
-si([overload|Args], [overload|Args]) :- !.
-
-% - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 %                    (define <ident> <stmt> ...+)
 %
 si([define, Ident | Body], [define, IIdent | IBody]) :- atom(Ident), !,

@@ -74,6 +74,71 @@ number(interpreter &pl, object_iterator x, Cont &&c)
   }
 }
 
+template <typename NumT>
+NumT
+number(interpreter &pl, object_iterator x)
+{
+  basic_decoder dc;
+  if (is_nonterminal(x[0]))
+    raise(pl, term("instantiation_error"));
+
+  switch (word_type(x[0]))
+  {
+    case word_type::signed_int_number:
+    {
+      if constexpr (std::is_signed_v<NumT>)
+      {
+        int val;
+        dc.decode(x[0], val);
+        return val;
+      }
+      else
+        raise(pl, term("type_error", term("signed_number"), dc.decode_object(x)));
+    }
+
+    case word_type::unsigned_int_number:
+    {
+      if constexpr (std::is_unsigned_v<NumT>)
+      {
+        unsigned val;
+        dc.decode(x[0], val);
+        return val;
+      }
+      else
+        raise(pl, term("type_error", term("unsigned_number"), dc.decode_object(x)));
+    }
+
+    case word_type::float_number:
+    {
+      if constexpr (std::is_floating_point_v<NumT>)
+      {
+        float val;
+        dc.decode(x[0], val);
+        return val;
+      }
+      else
+        raise(pl, term("type_error", term("float_number"), dc.decode_object(x)));
+    }
+
+    default:
+      raise(pl, term("type_error", term("number"), dc.decode_object(x)));
+  }
+}
+
+
+inline std::string_view
+string(interpreter &pl, object_iterator x)
+{
+  basic_decoder dc;
+  if (is_blob(x[0]) and blob_tag(x[0]) == blob_tag::string)
+  {
+    const string_data *p = reinterpret_cast<string_data*>(x[0]);
+    return {p->data, p->size};
+  }
+  else
+    raise(pl, term("type_error", term("string"), dc.decode_object(x)));
+}
+
 
 template <typename ...Args>
 object

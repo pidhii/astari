@@ -15,7 +15,7 @@
 sinst(Ident/Schema) :- !,
   must(instance(Ident/Schema, Define), "sinst(instance)"),
   ensure_asserted(specialization(Ident/Schema, Define)),
-  Define = [_defing, _sign |Body],
+  must(Define = [define, _Sign |Body], sinst(definition)),
   maplist(ss, Body).
 sinst(_).
 
@@ -40,8 +40,8 @@ es(overload(_, _):T) :- !, sinst(T).
 % - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 %                          <template-ident>
 %
-es(instance(Ident, Schema):T) :- !,
-  must(T == Ident/Schema, "es(template-ident)"),
+es(instance(Ident):T) :- !,
+  %must(T == Ident/Schema, es('template-ident', T \= Ident/Schema)),
   sinst(T).
 
 % - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -

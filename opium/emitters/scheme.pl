@@ -53,7 +53,7 @@ ee(I, overload(_, Ident):T) :- !, ee(I, Ident:T).
 % - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 %                         <template-ident>
 %
-ee(I, instance(Ident, Schema):T) :- !, write_specname(T).
+ee(I, instance(Ident):T) :- !, write_specname(T).
 
 % - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 %                 (eif <cond-expr> <then-expr> <else-expr>)

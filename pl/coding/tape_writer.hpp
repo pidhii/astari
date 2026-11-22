@@ -74,7 +74,7 @@ class tape_writer: public basic_encoder {
   }
 
   tape_writer &
-  operator << (const object obj)
+  operator << (const object &obj)
   {
     m_oit = std::copy(obj.begin(), obj.end(), m_oit);
     return *this;

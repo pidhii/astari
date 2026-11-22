@@ -102,10 +102,10 @@ tmakeresolvecaluselis(Ident:Type, [H|T], [CH|CT], Alist) :-
 % - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 %                              <instance>
 %
-et(instance(Ident, Schema):T, [T], A/Alist, Z/Alist) :- !,
-  %must(tident(Ident:Temp, Alist), et('instance-ident'(Ident))),
-  A = [tinst(Ident/Schema, T) |Z],
-  must(T = Ident/Schema, et('instance-ident'/'schema')).
+et(instance(Ident):T, [T], A/Alist, Z/Alist) :- !,
+  must(tident(Ident:Spec, Alist), et('instance-ident'(Ident))),
+  A = [tinst(Spec, T) |Z].
+  %must(T = Ident/Schema, et('instance-ident'/'schema')).
 
 % - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 %                 (eif <cond-expr> <then-expr> <else-expr>)
@@ -197,7 +197,7 @@ st([template, [Ident:Res |ArgIdents]:Schema | Body], []) --> !,
   talist_get(Alist),
   { once(member(typeenv(E), Alist); E = []) },
   % Populate self
-  %talist_add(Ident:TemplateSign),
+  talist_add(Ident:TemplateSign),
   % Save alist state to restore it after the changes meant for body
   talist_get(Zlist),
   {
@@ -327,3 +327,4 @@ printsols(I, [(Annotated, _)|T]) :-
   printlist(2, Annotated), nl,
   II is I + 1,
   printsols(II, T).
+

@@ -12,6 +12,27 @@
 #include <getopt.h>
 
 
+static std::string
+_read_file(const std::string_view path)
+{
+  std::ifstream is;
+  is.exceptions(std::ios_base::badbit | std::ios_base::failbit);
+  try
+  {
+    is.open(path.data());
+  }
+  catch (const std::ios_base::failure &exn)
+  {
+    std::cerr << std::format("failed to open \"{}\" for reading ({})", path,
+                             exn.what())
+              << std::endl;
+    exit(EXIT_FAILURE);
+  }
+
+  return {std::istreambuf_iterator<char>(is), std::istreambuf_iterator<char>()};
+}
+
+
 int
 main(int argc, char **argv)
 {
@@ -29,16 +50,32 @@ main(int argc, char **argv)
   int verbosity = 0;
   std::string opath = "out.scm";
   int opt;
-  while ((opt = getopt_long(argc, argv, "vo:", longopts, nullptr)) >= 0)
+  while ((opt = getopt_long(argc, argv, "hvo:L:", longopts, nullptr)) >= 0)
   {
     switch (opt)
     {
+      case 'h':
+        std::cout
+          << std::format("usage: {} [OPTIONS] <script/path.osl>\n", argv[0])
+          << std::format("\n")
+          << std::format("OPTIONS:\n")
+          << std::format("  -v          x1: log-level = verbose\n")
+          << std::format("              x2: log-Level = debug\n")
+          << std::format("  -o <opath>  output path\n")
+          << std::format("  -L <dir>    library lookup path for Prolog\n")
+          << std::endl;
+        return EXIT_SUCCESS;
+
       case 'v':
         verbosity++;
         break;
 
       case 'o':
         opath = optarg;
+        break;
+
+      case 'L':
+        pl.import_directory(optarg);
         break;
 
       default:
@@ -50,10 +87,10 @@ main(int argc, char **argv)
   //
   //                        Init internals
   //
-  pl.import_directory("../pl/libs");
-  pl.load_file("./core/index.pl");
-  pl.load_file("./emitters/scheme.pl");
-  pl.load_file("./parsers/opium.pl");
+  // pl.import_directory("../pl/libs");
+  pl.ensure_loaded("core/index.pl");
+  pl.ensure_loaded("emitters/scheme.pl");
+  pl.ensure_loaded("parsers/opium.pl");
   switch (verbosity)
   {
     default: // fall through
@@ -73,30 +110,13 @@ main(int argc, char **argv)
     std::cerr << "must specify input file" << std::endl;
     exit(EXIT_FAILURE);
   }
-  std::ifstream is;
-  is.exceptions(std::ios_base::badbit | std::ios_base::failbit);
-  try { is.open(argv[optind]); }
-  catch (const std::ios_base::failure &exn)
-  {
-    std::cerr << std::format("failed to open \"{}\" for reading ({})",
-                             argv[optind], exn.what())
-              << std::endl;
-    exit(EXIT_FAILURE);
-  }
-  try {
-    const std::string text {std::istreambuf_iterator<char>(is),
-                            std::istreambuf_iterator<char>()};
-    const word_t textstr = strdup(pl.global_memory(), text);
-    pl.asserta(make_term(pl, term("input", object_view {&textstr, 1})));
-  }
-  catch (const std::ios_base::failure &exn)
-  {
-    std::cerr << std::format("failed to read from \"{}\" ({})", argv[optind],
-                             exn.what())
-              << std::endl;
-    exit(EXIT_FAILURE);
-  }
+  const std::string text = _read_file(argv[optind]);
+  const word_t textobj = strdup(pl.global_memory(), text);
+  pl.asserta(make_term(pl, term("input", object_view {&textobj, 1})));
 
+  //
+  //                          Run in
+  //
   const clock_t start = clock();
   pl.make_true("input(A), runall(A, parse, emit)");
   const clock_t end = clock();

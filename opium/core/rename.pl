@@ -1,7 +1,8 @@
 :- op(100, xfy, ':').
 
 
-genname(Ident, RIdent) :-
+rnm_genname(Ident, RIdent) :-
+  must(var(RIdent), rnm_genname('non-var')),
   atom_concat(Ident, '$', Tmp),
   gensym(Tmp, RIdent).
 
@@ -9,11 +10,11 @@ genname(Ident, RIdent) :-
 % ------------------------------------------------------------------------------
 %                           TRACING (FOR DEBUG)
 %
-%er(X, _/Alist, _) :-
-  %write(">>> "), write(er(X)), nl,
+%rnm_expr(X, _/Alist, _) :-
+  %write(">>> "), write(rnm_expr(X)), nl,
   %write(" ai "), write(Alist), nl, fail.
-%sr(X, R, _/Alist, _) :-
-  %write(">>> "), write(sr(X)), nl,
+%rnm_stmt(X, R, _/Alist, _) :-
+  %write(">>> "), write(rnm_stmt(X)), nl,
   %write(" ai "), write(Alist), nl, fail.
 
 
@@ -22,28 +23,15 @@ genname(Ident, RIdent) :-
 %
 rident(Ident:RIdent:Kind, Alist) :-
   once(member(Ident:RIdent:Kind, Alist);
-       extern(Ident, RIdent, _), Kind = def).
+       extern(Ident, RIdent, _), Kind = defn).
 
 
 % Find rename of an identifier skipping overload groups (in case identifier
 % happens to match with some overload group)
-rident_noov(Ident:RIdent, Alist) :-
+rident_noov(Alist, Ident, RIdent) :-
   (member(Ident:RIdent, Alist); extern(Ident, RIdent, _)),
   \+ overloaded(RIdent),
   !.
-
-
-renamelis([], [], _).
-renamelis([IH|IT], [RH|RT], Alist) :-
-  rident(IH:RH, Alist),
-  renamelis(IT, RT, Alist).
-
-
-% Find renames excluding overloads (see rident_noov)
-renamelis_noov([], [], _).
-renamelis_noov([IH|IT], [RH|RT], Alist) :-
-  rident_noov(IH:RH, Alist),
-  renamelis_noov(IT, RT, Alist).
 
 
 % ------------------------------------------------------------------------------
@@ -52,19 +40,19 @@ renamelis_noov([IH|IT], [RH|RT], Alist) :-
 % - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 %                              <literal>
 %
-er(Literal:T, [Literal:T|Z]/Alist, Z/Alist) :- literal(Literal, _), !.
+rnm_expr(Literal:T, [Literal:T|Z]/Alist, Z/Alist) :- literal(Literal, _), !.
 
 % - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 %                               <ident>
 %
-er(Ident:T, A/Alist, Z/Alist) :- atom(Ident), !,
-  must(rident(Ident:RIdent:Kind, Alist), er(ident/unknown(Ident))),
+rnm_expr(Ident:T, A/Alist, Z/Alist) :- atom(Ident), !,
+  must(rident(Ident:RIdent:Kind, Alist), rnm_expr(ident/unknown(Ident))),
   ( Kind == ovrl ->
     findall(I, overload(RIdent, I), Is),
     A = [overload(Is, _):T|Z]
   ; Kind == temp ->
-    A = [instance(RIdent, _):T|Z]
-  ; must(Kind == def, er(ident/invalid_kind(Ident,Kind))),
+    A = [instance(RIdent):T|Z]
+  ; must(Kind == defn, rnm_expr(ident/invalid_kind(Ident,Kind))),
     A = [RIdent:T|Z]
   ).
 
@@ -72,29 +60,29 @@ er(Ident:T, A/Alist, Z/Alist) :- atom(Ident), !,
 % - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 %                 (eif <cond-expr> <then-expr> <else-expr>)
 %
-er([eif, Cond, Then, Else]:T, [[eif, RCond, RThen, RElse]:T|Z]/Alist, Z/Alist) :- !,
-  must(er(Cond, [RCond]/Alist, []/Alist), "er(eif-then-else/cond)"),
-  must(er(Then, [RThen]/Alist, []/Alist), "er(eif-then-else/then)"),
-  must(er(Else, [RElse]/Alist, []/Alist), "er(eif-then-else/else)").
+rnm_expr([eif, Cond, Then, Else]:T, [[eif, RCond, RThen, RElse]:T|Z]/Alist, Z/Alist) :- !,
+  must(rnm_expr(Cond, [RCond]/Alist, []/Alist), "rnm_expr(eif-then-else/cond)"),
+  must(rnm_expr(Then, [RThen]/Alist, []/Alist), "rnm_expr(eif-then-else/then)"),
+  must(rnm_expr(Else, [RElse]/Alist, []/Alist), "rnm_expr(eif-then-else/else)").
 
 % - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 %                     (eif <cond-expr> <then-expr>)
 %
-er([eif, Cond, Then]:T, [[eif, RCond, RThen]:T|Z]/Alist, Z/Alist) :- !,
-  must(er(Cond, [RCond]/Alist, []/Alist), "er(eif-then-else/cond)"),
-  must(er(Then, [RThen]/Alist, []/Alist), "er(eif-then-else/then)").
+rnm_expr([eif, Cond, Then]:T, [[eif, RCond, RThen]:T|Z]/Alist, Z/Alist) :- !,
+  must(rnm_expr(Cond, [RCond]/Alist, []/Alist), "rnm_expr(eif-then-else/cond)"),
+  must(rnm_expr(Then, [RThen]/Alist, []/Alist), "rnm_expr(eif-then-else/then)").
 
 % - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 %                          (<func-expr> <arg-expr> ...*)
 %
-er([Ident|Args]:T, [List:T|Z]/Alist, Z/Zlist) :- !,
-  must(erlis([Ident|Args], List/Alist, []/Zlist), "er(fncall/?)").
+rnm_expr([Ident|Args]:T, [List:T|Z]/Alist, Z/Zlist) :- !,
+  must(rnm_exprlist([Ident|Args], List/Alist, []/Zlist), "rnm_expr(fncall/?)").
 
 
-erlis([], A, A).
-erlis([H|T], A, Z) :-
-  er(H, A, B),
-  erlis(T, B, Z).
+rnm_exprlist([], A, A).
+rnm_exprlist([H|T], A, Z) :-
+  rnm_expr(H, A, B),
+  rnm_exprlist(T, B, Z).
 
 
 % ------------------------------------------------------------------------------
@@ -113,166 +101,176 @@ rattrlis([]) --> !.
 % - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 %                         (declare <ident>)
 %
-sr([[declare, Ident] |IZ], IZ, A/Alist, A/Zlist) :- !,
-  must(member(decl(Ident, RIdent), Alist), sr('declare/no-such-ident'(Ident))),
-  Zlist = [Ident:RIdent:def |Alist].
+rnm_stmt([[declare, Ident] |IZ], IZ, A/Alist, A/Zlist) :- !,
+  must(member(decl(Ident, RIdent), Alist), rnm_stmt('declare/no-such-ident'(Ident))),
+  Zlist = [Ident:RIdent:defn |Alist].
 
 % - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 %                         (declaret <ident>)
 %
-sr([[declaret, Ident] |IZ], IZ, A/Alist, A/Zlist) :- !,
-  must(member(decl(Ident, RIdent), Alist), sr('declaret/no-such-ident'(Ident))),
+rnm_stmt([[declaret, Ident] |IZ], IZ, A/Alist, A/Zlist) :- !,
+  must(member(decl(Ident, RIdent), Alist), rnm_stmt('declaret/no-such-ident'(Ident))),
   Zlist = [Ident:RIdent:temp |Alist].
 
 
 % - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 %                         (overload <ident> (<ident> ...*))
 %
-sr([[overload, Alias, Idents] |IZ], IZ, A/Alist, A/Zlist) :- !,
-  renamelis_noov(Idents, RIdents, Alist),
-  rensure_overloaded(Alias, RAlias, Alist, Zlist),
-  maplist(rensure_overloads(RAlias), RIdents).
+rnm_stmt([[overload, Alias, Idents] |IZ], IZ, A/Alist, A/Zlist) :- !,
+  maplist(rident_noov(Alist), Idents, RIdents),
+  rnm_requireoverloadgroup(Alias, RAlias, Alist, Zlist),
+  maplist(rnm_addoverload(RAlias), RIdents).
 
 % - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 %                 (sif <cond-expr> <then-stmt> <else-stmt>)
 %
-sr([[sif, Cond, Then, Else]|Rem], Rem, [[sif, RCond, RThen, RElse]|Z]/Alist, Z/Alist) :- !,
-  must(er(Cond, [RCond]/Alist, []/Alist), "er(sif-then-else/cond)"),
-  must(sr([Then], [], [RThen]/Alist, []/Alist), "er(sif-then-else/then)"),
-  must(sr([Else], [], [RElse]/Alist, []/Alist), "er(sif-then-else/else)").
+rnm_stmt([[sif, Cond, Then, Else]|Rem], Rem, [[sif, RCond, RThen, RElse]|Z]/Alist, Z/Alist) :- !,
+  must(rnm_expr(Cond, [RCond]/Alist, []/Alist), "rnm_expr(sif-then-else/cond)"),
+  must(rnm_stmt([Then], [], [RThen]/Alist, []/Alist), "rnm_expr(sif-then-else/then)"),
+  must(rnm_stmt([Else], [], [RElse]/Alist, []/Alist), "rnm_expr(sif-then-else/else)").
 
 % - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 %                 (sif <cond-expr> <then-expr>)
 %
-sr([[sif, Cond, Then]|Rem], Rem, [[sif, RCond, RThen]|Z]/Alist, Z/Alist) :- !,
-  must(er(Cond, [RCond]/Alist, []/Alist), "er(sif-then/cond)"),
-  must(sr([Then], [], [RThen]/Alist, []/Alist), "er(sif-then/then)").
+rnm_stmt([[sif, Cond, Then]|Rem], Rem, [[sif, RCond, RThen]|Z]/Alist, Z/Alist) :- !,
+  must(rnm_expr(Cond, [RCond]/Alist, []/Alist), "rnm_expr(sif-then/cond)"),
+  must(rnm_stmt([Then], [], [RThen]/Alist, []/Alist), "rnm_expr(sif-then/then)").
 
 % - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 %                         (define <ident> <stmt> ...+)
 %
-sr(IA, IZ, A/Alist, Z/Zlist) :- 
-  rattrlis(Attrs, IA, IB), IB = [[define, Ident:T |Body] |IZ], atom(Ident),
-  !,
-  % Generate rename and bind with declaration
-  %genname(Ident, RIdent),
-  must(member(decl(Ident, RIdent), Alist), "sr(define-ident/bind-decl)"),
-  % Populate in alist
-  %rpopulate(Attrs, Ident:RIdent:def, Alist, Zlist),
-  must(srblk(Body, RBody/Zlist, []/_), "sr(define-ident/body)"),
+rnm_stmt([[define, Ident:T |Body] |IZ], IZ, A/Alist, Z/Zlist) :- atom(Ident), !,
+  must(member(decl(Ident, RIdent), Alist), "rnm_stmt(define-ident/bind-decl)"),
+  must(rnm_populate(Ident:RIdent:defn, Alist, Zlist), "rnm_stmt(define-ident/populate)"),
+  must(rnm_stmtblock(Body, RBody/Zlist, []/_), "rnm_stmt(define-ident/body)"),
   A = [[define, RIdent:T |RBody] | Z].
 
 % - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 %                         (define <sign> <stmt> ...+)
 %
-sr(IA, IZ, A/Alist, Z/Zlist) :-
-  rattrlis(Attrs, IA, IB), IB = [[define, [Ident:T|Parms] |Body] |IZ],
-  !,
+rnm_stmt([[define, [Ident:T|Parms] |Body] |IZ], IZ, A/Alist, Z/Zlist) :- !,
   % Generate rename and bind with declaration
-  %genname(Ident, RIdent),
-  must(member(decl(Ident, RIdent), Alist), "sr(define-func/bind-decl)"),
+  %rnm_genname(Ident, RIdent),
+  must(member(decl(Ident, RIdent), Alist), "rnm_stmt(define-func/bind-decl)"),
   % Populate in alist
-  rpopulate(Attrs, Ident:RIdent:def, Alist, Zlist),
-  must(rparmlis(Parms, RParms, Zlist, Flist), "sr(define-func/parms)"),
-  must(srblk(Body, RBody/[scope|Flist], []/_), "sr(define-func/body)"),
+  rnm_populate(Ident:RIdent:defn, Alist, Zlist),
+  must(rnm_parmlist(Parms, RParms, Zlist, Flist), "rnm_stmt(define-func/parms)"),
+  must(rnm_stmtblock(Body, RBody/[scope|Flist], []/_), "rnm_stmt(define-func/body)"),
   A = [[define, [RIdent:T|RParms] | RBody] | Z].
 
 % - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 %                         (template <sign> <stmt> ...+)
 %
-sr(IA, IZ, A/Alist, Z/Zlist) :-
-  rattrlis(Attrs, IA, IB), IB = [[template, [Ident:T|Parms]:_ | Body] |IZ],
-  !,
+rnm_stmt([[template, [Ident:T|Parms]:_ | Body] |IZ], IZ, A/Alist, Z/Zlist) :- !,
   % Generate rename and bind with declaration
-  %genname(Ident, RIdent),
-  must(member(decl(Ident, RIdent), Alist), "sr(template-func/bind-decl)"),       
+  %rnm_genname(Ident, RIdent),
+  must(member(decl(Ident, RIdent), Alist), "rnm_stmt(template-func/bind-decl)"),       
   % Populate in alist
-  rpopulate(Attrs, Ident:RIdent:temp, Alist, Zlist),
-  must(rparmlis(Parms, RParms, Zlist, Flist), "sr(template-func/parms)"),
-  must(srblk(Body, RBody/[scope|Flist], []/_), "sr(template-func/body)"),
+  rnm_populate(Ident:RIdent:temp, Alist, Zlist),
+  must(rnm_parmlist(Parms, RParms, Zlist, Flist), "rnm_stmt(template-func/parms)"),
+  must(rnm_stmtblock(Body, RBody/[scope|Flist], []/_), "rnm_stmt(template-func/body)"),
   A = [[template, [RIdent:T|RParms]:_ | RBody] |Z].
 
 
-rparmlis([], [], Alist, Alist).
-rparmlis([H:Ty|T], [RH:Ty|RT], Alist, Zlist) :-
-  genname(H, RH),
-  rparmlis(T, RT, [H:RH|Alist], Zlist).
+%%%
+% rnm_parmlist(InParms, OutParms, InAlist, OutAlist)
+%
+% Rename and populate a list of parameters.
+%
+rnm_parmlist([], [], Alist, Alist).
+rnm_parmlist([H:Ty|T], [RH:Ty|RT], Alist, Zlist) :-
+  rnm_genname(H, RH),
+  rnm_parmlist(T, RT, [H:RH:defn|Alist], Zlist).
 
-
-scopemember(_, [scope|_]) :- !, fail.
-scopemember(X, [H|T]) :-
-  X = H;
-  scopemember(X, T).
-  
 
 % - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 %                                <expr>
 %
-sr([E|IZ], IZ, A, Z) :-
-  er(E, A, Z), !.
+rnm_stmt([E|IZ], IZ, A, Z) :-
+  rnm_expr(E, A, Z), !.
 
-
-srblk([], A, A).
-srblk(L, A/Alist, Z/Zlist) :-
-  rgendecls(L, Decls),
-  append(Decls, Alist, Blist),
-  srlis(L, A/Blist, Z/Zlist).
-
-srlis([], A, A).
-srlis(L, A, Z) :-
-  sr(L, R, A, B),
-  srlis(R, B, Z).
 
 %%%
-% rscandef(+Statement, ?Ident)
+% rnm_stmtblock(Stmts, Tape/InAlist, TapeTail/OutAlist)
 %
-% Extract identifiers used for definitions. Fails for statements that are not
-% definitions.
+% Primary routine to process a block of statements.
 %
-rscandef([template, [Ident:_ |_]:_ |_], Ident) :- !.
-rscandef([define, [Ident:_ |_] |_], Ident) :- !.
-rscandef([define, Ident:_ |_], Ident) :- !, must(atom(Ident), 'rscandef(define-ident)').
+% Pre-inject forward-declarations for all definitions and templates before
+% proceeding with the actual transformations.
+%
+rnm_stmtblock([], A, A).
+rnm_stmtblock(Stmts, A/Alist, Z/Zlist) :-
+  rnm_blockdecls(Stmts, Decls),
+  append(Decls, Alist, Blist),
+  rnm_stmtlist(Stmts, A/Blist, Z/Zlist).
 
-rgendecls([], []).
-rgendecls([H|T], Decls0) :-
-  ( rscandef(H, Ident) ->
-    genname(Ident, RIdent),
+%%%
+% rnm_stmtlist(Stmts, Tape/InAlist, TapeTail/OutAlist)
+%
+% Transform a list of statements.
+%
+rnm_stmtlist([], A, A).
+rnm_stmtlist(Stmts, A, Z) :-
+  rnm_stmt(Stmts, R, A, B),
+  rnm_stmtlist(R, B, Z).
+
+%%%
+% rnm_defnident(+Stmt, ?Ident)
+%
+% Extract identifiers from definitions and templates. Fails for all other
+% statements.
+%
+rnm_defnident([template, [Ident:_ |_]:_ |_], Ident) :- !.
+rnm_defnident([define, [Ident:_ |_] |_], Ident) :- !.
+rnm_defnident([define, Ident:_ |_], Ident) :- !, must(atom(Ident), 'rnm_defnident(define-ident)').
+
+rnm_blockdecls([], []).
+rnm_blockdecls([H|T], Decls0) :-
+  ( rnm_defnident(H, Ident) ->
+    rnm_genname(Ident, RIdent),
     Decls0 = [decl(Ident, RIdent)|Decls1],
-    rgendecls(T, Decls1)
-  ; rgendecls(T, Decls0)
+    rnm_blockdecls(T, Decls1)
+  ; rnm_blockdecls(T, Decls0)
   ).
 
 % ------------------------------------------------------------------------------
 %                           INVALID INPUT HANDLERS
 %
-sr(E, _, _, _) :- throw(transformation_error(sr(E))).
-er(E, _, _) :- throw(transformation_error(er(E))).
+rnm_stmt(E, _, _, _) :- throw(transformation_error(rnm_stmt(E))).
+rnm_expr(E, _, _) :- throw(transformation_error(rnm_expr(E))).
 
 
 % ------------------------------------------------------------------------------
 %                                 MISC
 %
+%%%
+% rnm_scopemember(X, Alist)
+%
+% True if X is found in Alist before the first scope-cut.
+%
+rnm_scopemember(_, [scope|_]) :- !, fail.
+rnm_scopemember(X, [H|T]) :-
+  X = H;
+  rnm_scopemember(X, T).
+  
+
 % Create overload group in alist unles already present
-rensure_overloaded(OvIdent, ROvIdent, Alist, Zlist) :-
-  ( % - alias rename is already present
-    scopemember(OvIdent:ROvIdent:ovrl, Alist) ->
-    must(overloaded(ROvIdent), overloaded(OvIdent)),
+rnm_requireoverloadgroup(OvIdent, ROvIdent, Alist, Zlist) :-
+  ( % - alias rename is already registered => nop
+    rnm_scopemember(OvIdent:ROvIdent:ovrl, Alist) ->
+    must(overloaded(ROvIdent), rnm_requireoverloadgroup('integrity-error')),
     Zlist = Alist
-  ; genname(OvIdent, ROvIdent),
+  ; % - otherwise => start the overload group
+    rnm_genname(OvIdent, ROvIdent),
     ensure_asserted(overloaded(ROvIdent)),
     Zlist = [OvIdent:ROvIdent:ovrl|Alist]
   ).
 
-rensure_overloads(RAlias, RIdent) :-
+rnm_addoverload(RAlias, RIdent) :-
   must(overloaded(RAlias), add_overload),
   ensure_asserted(overload(RAlias, RIdent)).
 
-rpopulate(Attrs, Ident:RIdent:Kind, Alist, Zlist) :-
-  ( member(overload(OvIdent), Attrs) ->
-    rensure_overloaded(OvIdent, ROvIdent, Alist, Zlist),
-    rensure_overloads(ROvIdent, RIdent)
-  ; Zlist = [Ident:RIdent:Kind|Alist]
-  ).
+rnm_populate(Ident:RIdent:Kind, Alist, [Ident:RIdent:Kind|Alist]).
 
 
 %-------------------------------------------------------------------------------
@@ -281,7 +279,7 @@ rpopulate(Attrs, Ident:RIdent:Kind, Alist, Zlist) :-
 rename(Input, Output) :-
   info("renaming identifiers                   ..."),
   (
-    srblk(Input, Output/[], []/_) -> infonl("done");
+    rnm_stmtblock(Input, Output/[], []/_) -> infonl("done");
     infonl("failure"), throw(transformation_error(rename('...')))
   ).
 

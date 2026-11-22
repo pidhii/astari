@@ -168,7 +168,7 @@ interpreter::ensure_loaded(std::string_view path_)
   const fs::path path {path_};
 
   std::vector<fs::path> searchnames;
-  if (path.extension() == ".plo" or path.extension() == "pl")
+  if (path.extension() == ".plo" or path.extension() == ".pl")
     searchnames.push_back(path);
   else
   {
