@@ -125,7 +125,7 @@ se(I, [define, [Ident|Args] | Body]) :- !,
 % - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 %                         (template <sign> <stmt> ...+)
 %
-se(I, [template, [Ident:_|_]:Schema | _]) :- !,
+se(I, [template(_TypeParms), [Ident:_|_]:Schema | _]) :- !,
   findall((Ident/Schema):Define, specialization(Ident/Schema, Define), Specializations),
   speclis(I, Specializations).
 

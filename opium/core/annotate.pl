@@ -192,7 +192,7 @@ st([define, [Ident:Res | ArgIdents] | Body], []) --> !,
 % - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 %                         (template <sign> <stmt> ...+)
 %
-st([template, [Ident:Res |ArgIdents]:Schema | Body], []) --> !,
+st([template(_TypeParms), [Ident:Res |ArgIdents]:Schema | Body], []) --> !,
   % Current type environment
   talist_get(Alist),
   { once(member(typeenv(E), Alist); E = []) },

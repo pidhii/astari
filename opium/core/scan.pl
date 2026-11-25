@@ -106,9 +106,9 @@ ss([define, [Ident:_|Parms] |Body]) :- !,
   must(maplist(ss, Body), "ss(define-func/body)").
 
 % - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-%                         (template <sign> <stmt> ...+)
+%                         (template(<typarm-list>) <sign> <stmt> ...+)
 %
-ss([template, [Ident:_|Parms]:_ | Body]) :- !.
+ss([template(_), [Ident:_|Parms]:_ | Body]) :- !.
 
 
 % - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -

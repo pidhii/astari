@@ -159,9 +159,9 @@ rnm_stmt([[define, [Ident:T|Parms] |Body] |IZ], IZ, A/Alist, Z/Zlist) :- !,
   A = [[define, [RIdent:T|RParms] | RBody] | Z].
 
 % - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-%                         (template <sign> <stmt> ...+)
+%                         (template(<typarm-list>) <sign> <stmt> ...+)
 %
-rnm_stmt([[template, [Ident:T|Parms]:_ | Body] |IZ], IZ, A/Alist, Z/Zlist) :- !,
+rnm_stmt([[template(TypeParms), [Ident:T|Parms]:_ | Body] |IZ], IZ, A/Alist, Z/Zlist) :- !,
   % Generate rename and bind with declaration
   %rnm_genname(Ident, RIdent),
   must(member(decl(Ident, RIdent), Alist), "rnm_stmt(template-func/bind-decl)"),       
@@ -169,7 +169,7 @@ rnm_stmt([[template, [Ident:T|Parms]:_ | Body] |IZ], IZ, A/Alist, Z/Zlist) :- !,
   rnm_populate(Ident:RIdent:temp, Alist, Zlist),
   must(rnm_parmlist(Parms, RParms, Zlist, Flist), "rnm_stmt(template-func/parms)"),
   must(rnm_stmtblock(Body, RBody/[scope|Flist], []/_), "rnm_stmt(template-func/body)"),
-  A = [[template, [RIdent:T|RParms]:_ | RBody] |Z].
+  A = [[template(TypeParms), [RIdent:T|RParms]:_ | RBody] |Z].
 
 
 %%%
@@ -220,7 +220,7 @@ rnm_stmtlist(Stmts, A, Z) :-
 % Extract identifiers from definitions and templates. Fails for all other
 % statements.
 %
-rnm_defnident([template, [Ident:_ |_]:_ |_], Ident) :- !.
+rnm_defnident([template(_), [Ident:_ |_]:_ |_], Ident) :- !.
 rnm_defnident([define, [Ident:_ |_] |_], Ident) :- !.
 rnm_defnident([define, Ident:_ |_], Ident) :- !, must(atom(Ident), 'rnm_defnident(define-ident)').
 

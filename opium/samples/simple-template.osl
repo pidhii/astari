@@ -1,6 +1,6 @@
 
 extern print as print (_) -> ()
 
-template id(x) = x
+template(X) id(x X) = x
 print(id(42))
 print(id("text"))

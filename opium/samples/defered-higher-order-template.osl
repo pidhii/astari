@@ -1,10 +1,10 @@
 
 extern print as print (_) -> ()
 
-template id(x) = x
+template(A) id(x A) = x
 
-template compose(f, g) {
-  template h(x) = f(g(x))
+template(B, C) compose(f B, g C) {
+  template(D) h(x D) = f(g(x))
   h
 }
 

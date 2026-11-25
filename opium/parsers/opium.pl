@@ -241,6 +241,17 @@ sp([[define, [Ident:Res|Args] |Body] |Z], Z) -->
 sp([[template, [Ident|Args] |Body] |Z], Z) -->
   [template], ip(Ident), ['('], pcomalis(pp, ')', Args), bodyp(Body), !.
 
+%    'template' '(' TypeParams...+ ')'
+%    <ident> '(' [<ident> <type> [',' <ident> <type>] ...*] ')'
+%    <body>
+%
+sp([[template(TypeParms), [Ident|Args] |Body] |Z], Z) -->
+  [template], ['('], pcomalis(typarm, ')', TypeParms), !,
+  ip(Ident), ['('], pcomalis(pp, ')', Args),
+  bodyp(Body).
+
+typarm(T) --> [q(T)], { var(T) }, !.
+
 % - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 %                               <expr>
 %

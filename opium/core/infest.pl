@@ -111,9 +111,9 @@ si([define, [Ident|Args] | Body], [define, [IIdent|IArgs] | IBody]) :- !,
   must(siblk(Body, IBody), "si(define-func/body)").
 
 % - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-%                         (template <sign> <stmt> ...+)
+%                         (template(<typarm-list>) <sign> <stmt> ...+)
 %
-si([template, Sign | Body], [template, ISign:_ | IBody]) :- !,
+si([template(TypeParms), Sign | Body], [template(TypeParms), ISign:_ | IBody]) :- !,
   must(pilis(Sign, ISign), "si(template-func/sign)"),
   must(siblk(Body, IBody), "si(template-func/body)").
 

@@ -1,8 +1,8 @@
 
 extern print as print (_) -> ()
 
-template id(x) = x
-template compose3(f, g, x) = f(g(x))
+template(A) id(x A) = x
+template(B, C, D) compose3(f B, g C, x D) = f(g(x))
 
 % Templates as arguments to a template
 compose3(print, id, 42)
